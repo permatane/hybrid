@@ -1,6 +1,6 @@
 {
-  "version": "3.1.58",
+  "version": "3.1.59",
   "channel": "latest",
   "support": "hybrid/rivis.support.js",
-  "notes": "Export Reliability: in-app confirmation Canvas-safe, ZIP lokal tanpa ketergantungan CDN, format ekspor tetap"
+  "notes": "Independent Image/Meta progress: preserve active card buttons during library render, animate Re Metadata and batch Meta All"
 }
