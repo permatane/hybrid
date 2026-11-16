@@ -1,6 +1,6 @@
 {
-  "version": "3.1.53",
+  "version": "3.1.55",
   "channel": "latest",
   "support": "hybrid/rivis.support.js",
-  "notes": "GitHub Raw no-store preferred; jsDelivr fallback; AI Vector Studio + ADVANCE"
+  "notes": "Konfirmasi sebelum Download All Card / Download Result jika gambar atau metadata belum digenerate; AI/API Canvas unchanged"
 }

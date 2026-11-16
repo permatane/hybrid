@@ -587,13 +587,39 @@ async function createFourFileCardZip(idea){
 
   return zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
 }
+function confirmIncompleteLibraryExport(kind,ideas){
+  const list=Array.isArray(ideas)?ideas:[];
+  const withoutImage=list.filter(x=>!x?.generatedImageUrl);
+  const withoutMetadata=list.filter(x=>!x?.metadata);
+  if(!withoutImage.length&&!withoutMetadata.length)return true;
+  const incomplete=list.filter(x=>!x?.generatedImageUrl||!x?.metadata).length;
+  const complete=list.length-incomplete;
+  const isCards=kind==='cards';
+  const heading=isCards?'DOWNLOAD ALL CARD':'DOWNLOAD RESULT';
+  const summary=isCards
+    ?`Hanya ${complete} kartu lengkap yang akan diunduh (masing-masing ZIP berisi 4 file). ${incomplete} kartu tidak lengkap akan dilewati.`
+    :`${list.length} kartu diperiksa. ZIP hanya berisi gambar dan/atau metadata yang telah tersedia; file yang belum digenerate tidak disertakan.`;
+  const msg=[
+    `PERINGATAN — ${heading}`,
+    '',
+    `Total kartu Library: ${list.length}`,
+    `Gambar belum digenerate: ${withoutImage.length}`,
+    `Metadata belum digenerate: ${withoutMetadata.length}`,
+    `Kartu belum lengkap: ${incomplete}`,
+    '',summary,'',
+    'Tetap lanjut download?',
+    'OK = Tetap Download    |    Batal = Tidak Download'
+  ].join('\n');
+  return window.confirm(msg)===true;
+}
 async function handleDownloadAllCardsZip(btnEl){
   if(typeof JSZip==='undefined'){showToast('JSZip library failed to load.','error');return;}
   const all=state.savedIdeas;
   if(!all.length){showToast('Library is empty. Nothing to download.','error');return;}
   const complete=all.filter(i=>i.generatedImageUrl&&i.metadata);
   const skipped=all.length-complete.length;
-  if(!complete.length){showToast('Download All Card: hasilkan gambar dan metadata dahulu agar setiap ZIP memuat tepat 4 file.',
+  if(skipped&&!confirmIncompleteLibraryExport('cards',all))return;
+  if(!complete.length){showToast('Download All Card: belum ada kartu dengan gambar dan metadata lengkap. Tidak ada file yang diunduh.',
 'error');return;}
   qualityDownloadNotice(complete);
   const btn=btnEl||byId('downloadAllZipBtn'),old=btn?.innerHTML||'';
@@ -618,9 +644,12 @@ downloaded===complete.length?'success':'info');
 function getResultZipFilename(idea,count){const date=new Date().toISOString().slice(0,10);const theme=idea?.metadata?.stockTitle||idea?.conceptName||idea?.mainSubject||'rich_vector_results';
 return`${sanitizeTitleForFilename(theme)}${count>1?`_dan_${count-1}_lainnya`:''}_${date}.zip`;}
 async function handleDownloadResultsZip(btnEl){
-  const generated=state.savedIdeas.filter(i=>i.generatedImageUrl||i.metadata);
-  if(!generated.length){showToast('No generated images or metadata to download yet.','error');return;}
+  const all=state.savedIdeas;
+  if(!all.length){showToast('Library kosong. Tidak ada hasil yang dapat diunduh.','error');return;}
+  const generated=all.filter(i=>i.generatedImageUrl||i.metadata);
+  if(!generated.length){showToast('Belum ada gambar atau metadata yang digenerate. Tidak ada hasil yang dapat diunduh.','error');return;}
   if(typeof JSZip==='undefined'){showToast('JSZip library failed to load.','error');return;}
+  if(!confirmIncompleteLibraryExport('results',all))return;
   qualityDownloadNotice(generated);
   const btn=btnEl||byId('downloadResultsZipBtn'),old=btn?.innerHTML||'';
   if(btn){btn.disabled=true;btn.textContent='Packaging...';}
@@ -958,16 +987,16 @@ function create(){if(el('rivisVectorModal'))return;const div=document.createElem
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin:12px 0">
 <label style="display:grid;gap:3px">AI Provider<select id="rvProvider" style="background:#020617;color:white;padding:7px;border:1px solid #475569;border-radius:6px"><option value="gemini">Gemini Vision (Canvas)</option><option value="openrouter">OpenRouter Vision</option><option value="groq">Groq Vision</option></select></label>
 <label style="display:grid;gap:3px">Detail<select id="rvDetail" style="background:#020617;color:white;padding:7px;border:1px solid #475569;border-radius:6px"><option value="smooth">Clean / Minimal</option><option value="balanced" selected>Balanced</option><option value="detailed">Detailed</option></select></label>
-<label style="display:grid;gap:3px">Model ID<input id="rvModel" autocomplete="off" placeholder="gemini-3-flash-preview" style="background:#020617;color:white;padding:7px;border:1px solid #475569;border-radius:6px;min-width:170px"></label>
+<label style="display:grid;gap:3px">Model ID<input list="rvModelOptions" id="rvModel" autocomplete="off" placeholder="gemini-3-flash-preview" style="background:#020617;color:white;padding:7px;border:1px solid #475569;border-radius:6px;min-width:170px"><datalist id="rvModelOptions"></datalist></label>
 <label id="rvKeyBox" style="display:none;gap:3px">API Key (tidak disimpan)<input id="rvKey" type="password" autocomplete="off" style="background:#020617;color:white;padding:7px;border:1px solid #475569;border-radius:6px;min-width:140px"></label>
 <button id="rvConvert" style="background:#7c3aed;color:white;border:0;border-radius:7px;padding:9px 12px;font-weight:bold">Generate AI SVG</button>
 <button id="rvOriginal" style="background:#1e293b;color:white;border:1px solid #475569;border-radius:7px;padding:9px 12px">Unduh PNG/JPG Asli</button>
 <button id="rvDownload" disabled style="background:#047857;color:white;border:0;border-radius:7px;padding:9px 12px;font-weight:bold;opacity:.5">Unduh SVG</button></div>
 <div id="rvMessage" role="status" aria-live="polite" style="margin:8px 0;color:#a5b4fc;min-height:28px">AI melakukan rekonstruksi, bukan pixel tracing. Hasil dapat berbeda dari sumber.</div>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px"><div><b style="font-size:11px">PNG/JPG ASLI</b><div style="height:240px;background:#020617;border:1px solid #334155;border-radius:8px;display:grid;place-items:center"><img id="rvSource" alt="Original" style="max-height:100%;max-width:100%;object-fit:contain"></div></div><div><b style="font-size:11px">AI SVG EDITABLE</b><div id="rvPreview" style="height:240px;background:#020617;border:1px solid #334155;border-radius:8px;display:grid;place-items:center;overflow:hidden">Belum dibuat</div></div></div>
-<div id="rvStats" style="font-size:12px;color:#cbd5e1;margin-top:9px"></div><p style="font-size:11px;color:#94a3b8">QC memeriksa struktur SVG, tidak menjamin kesamaan visual atau penerimaan microstock. Model vision harus mendukung input gambar dan mengeluarkan kode SVG. Pemanggilan AI dilakukan di HTML Canvas, bukan modul GitHub.</p>
+<div id="rvStats" style="font-size:12px;color:#cbd5e1;margin-top:9px"></div><p style="font-size:11px;color:#94a3b8">QC memeriksa struktur SVG, tidak menjamin kesamaan visual atau penerimaan microstock. OpenRouter: model dipilih dari katalog yang mendukung input gambar; model gratis tergantung ketersediaan. Model vision harus mengeluarkan kode SVG. Pemanggilan AI dilakukan di HTML Canvas, bukan modul GitHub.</p>
 </section>`;document.body.appendChild(div);
-el('rvClose').onclick=close;div.onclick=e=>{if(e.target===div)close()};el('rvProvider').onchange=()=>{const p=el('rvProvider').value;el('rvKeyBox').style.display=p==='gemini'?'none':'grid';el('rvModel').placeholder=p==='gemini'?'gemini-3-flash-preview':p==='openrouter'?'masukkan model vision OpenRouter':'masukkan model vision Groq';el('rvModel').value='';};el('rvConvert').onclick=convert;el('rvOriginal').onclick=()=>{if(div.dataset.idea)downloadGeneratedImage(div.dataset.idea)};el('rvDownload').onclick=downloadSvg;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&div.style.display!=='none')close()});}
+el('rvClose').onclick=close;div.onclick=e=>{if(e.target===div)close()};el('rvProvider').onchange=async()=>{const p=el('rvProvider').value;el('rvKeyBox').style.display=p==='gemini'?'none':'grid';el('rvModel').placeholder=p==='gemini'?'gemini-3-flash-preview':p==='openrouter'?'Memuat daftar model Vision…':'masukkan model vision Groq';el('rvModel').value='';el('rvModelOptions').replaceChildren();if(p==='openrouter'){try{const models=await window.RIVIS_AI_VECTOR.listOpenRouterModels();if(el('rvProvider').value!=='openrouter')return;for(const m of models){const o=document.createElement('option');o.value=m.id;o.label=(m.free?'GRATIS · ':'Berbayar · ')+m.name;el('rvModelOptions').appendChild(o)}const first=models.find(m=>m.free);el('rvModel').value=first?.id||'';el('rvModel').placeholder='Pilih model Vision';report(models.length+' model vision ditemukan. '+(models.filter(m=>m.free).length)+' gratis. Model otomatis dipilih.');}catch(err){el('rvModel').placeholder='Masukkan ID model vision';report('Katalog OpenRouter gagal: '+err.message+'. Isi model Vision secara manual.',true)}}};el('rvConvert').onclick=convert;el('rvOriginal').onclick=()=>{if(div.dataset.idea)downloadGeneratedImage(div.dataset.idea)};el('rvDownload').onclick=downloadSvg;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&div.style.display!=='none')close()});}
 function report(msg,error){el('rvMessage').textContent=msg;el('rvMessage').style.color=error?'#fca5a5':'#a5b4fc'}
 function open(id){create();const idea=ideaById(id);if(!idea?.generatedImageUrl){if(typeof showToast==='function')showToast('Generate image dahulu.','error');return;}const modal=el('rivisVectorModal');modal.dataset.idea=String(id);modal.style.display='flex';el('rvSource').src=idea.generatedImageUrl;el('rvPreview').textContent='Belum dibuat';el('rvStats').textContent='';el('rvDownload').disabled=true;el('rvDownload').style.opacity='.5';report('Pilih AI Provider, lalu klik Generate AI SVG.');}
 function close(){if(el('rivisVectorModal'))el('rivisVectorModal').style.display='none';}
