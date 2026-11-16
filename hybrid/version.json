@@ -1,6 +1,6 @@
 {
-  "version": "3.1.61",
+  "version": "3.1.62",
   "channel": "latest",
   "support": "hybrid/rivis.support.js",
-  "notes": "Opportunity inline beside Hybrid Guard and AI Vector modal layout refined with larger preview area"
+  "notes": "Default Vector AI Resolution 1K (~1 MP); separate resolution preferences for vector and raster modes"
 }
