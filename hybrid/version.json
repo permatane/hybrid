@@ -1,6 +1,6 @@
 {
-  "version": "3.1.52",
+  "version": "3.1.53",
   "channel": "latest",
   "support": "hybrid/rivis.support.js",
-  "notes": "Tanpa GitHub API; auto check version.json; CDN cache-busting; AI Vector Studio + ADVANCE"
+  "notes": "GitHub Raw no-store preferred; jsDelivr fallback; AI Vector Studio + ADVANCE"
 }
