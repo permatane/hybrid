@@ -1,6 +1,6 @@
 {
-  "version": "3.1.51",
+  "version": "3.1.52",
   "channel": "latest",
   "support": "hybrid/rivis.support.js",
-  "notes": "Auto Latest GitHub, tanpa Dev/Stable; versi dari manifest GitHub; AI Vector Studio + ADVANCE accordion"
+  "notes": "Tanpa GitHub API; auto check version.json; CDN cache-busting; AI Vector Studio + ADVANCE"
 }
