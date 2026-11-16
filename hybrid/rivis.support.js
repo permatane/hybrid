@@ -1,3 +1,56 @@
+/* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
+   ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
+(function installRivisLocalZipFallback(){
+  if(typeof window.JSZip==='function')return;
+  const encoder=new TextEncoder(),table=new Uint32Array(256);
+  for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xedb88320^(c>>>1)):(c>>>1);table[n]=c>>>0;}
+  function crc32(bytes){let c=0xffffffff;for(let i=0;i<bytes.length;i++)c=table[(c^bytes[i])&255]^(c>>>8);return(c^0xffffffff)>>>0;}
+  function u16(d,o,v){d.setUint16(o,v,true);}function u32(d,o,v){d.setUint32(o,v>>>0,true);}
+  async function bytesOf(data){
+    if(typeof data==='string')return encoder.encode(data);
+    if(data instanceof Blob)return new Uint8Array(await data.arrayBuffer());
+    if(data instanceof ArrayBuffer)return new Uint8Array(data);
+    if(ArrayBuffer.isView(data))return new Uint8Array(data.buffer,data.byteOffset,data.byteLength);
+    throw new TypeError('Data ZIP harus berupa teks, Blob, atau bytes.');
+  }
+  class RivisLocalZip{
+    constructor(){this.items=[];}
+    file(name,data){const filename=String(name||'').replace(/^\/+|\\/g,'/');
+      if(!filename||filename.length>1000||filename.startsWith('/')||filename.split('/').includes('..'))throw new Error('Nama file ZIP tidak valid.');
+      this.items.push({name:filename,data});return this;
+    }
+    async generateAsync(options={}){
+      if(options.type&&options.type!=='blob')throw new Error('RIVIS ZIP mendukung output Blob.');
+      if(this.items.length>65535)throw new Error('Jumlah file ZIP melebihi batas.');
+      const local=[],central=[];let offset=0,centralLength=0;
+      const now=new Date();const year=Math.max(1980,Math.min(2107,now.getFullYear()));
+      const dosTime=(now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1);
+      const dosDate=((year-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate();
+      for(const item of this.items){
+        const name=encoder.encode(item.name),data=await bytesOf(item.data);
+        if(name.length>65535||data.length>0xffffffff||offset+30+name.length+data.length>0xffffffff)throw new Error('File ZIP terlalu besar.');
+        const crc=crc32(data),flag=0x0800,localHeader=new Uint8Array(30+name.length),lh=new DataView(localHeader.buffer);
+        u32(lh,0,0x04034b50);u16(lh,4,20);u16(lh,6,flag);u16(lh,8,0);
+        u16(lh,10,dosTime);u16(lh,12,dosDate);u32(lh,14,crc);u32(lh,18,data.length);u32(lh,22,data.length);
+        u16(lh,26,name.length);u16(lh,28,0);localHeader.set(name,30);
+        const centralHeader=new Uint8Array(46+name.length),ch=new DataView(centralHeader.buffer);
+        u32(ch,0,0x02014b50);u16(ch,4,20);u16(ch,6,20);u16(ch,8,flag);u16(ch,10,0);
+        u16(ch,12,dosTime);u16(ch,14,dosDate);u32(ch,16,crc);u32(ch,20,data.length);u32(ch,24,data.length);
+        u16(ch,28,name.length);u16(ch,30,0);u16(ch,32,0);u16(ch,34,0);u16(ch,36,0);u32(ch,38,0);
+        u32(ch,42,offset);centralHeader.set(name,46);
+        local.push(localHeader,data);central.push(centralHeader);
+        offset+=localHeader.length+data.length;centralLength+=centralHeader.length;
+      }
+      const end=new Uint8Array(22),ed=new DataView(end.buffer);
+      u32(ed,0,0x06054b50);u16(ed,4,0);u16(ed,6,0);u16(ed,8,this.items.length);u16(ed,10,this.items.length);
+      u32(ed,12,centralLength);u32(ed,16,offset);u16(ed,20,0);
+      return new Blob([...local,...central,end],{type:'application/zip'});
+    }
+  }
+  window.JSZip=RivisLocalZip;
+  window.RIVIS_ZIP_LOCAL_FALLBACK=true;
+})();
+
 /* RIVIS HYBRID V2: NON-AI support + original Stage 8 DOM/CSS */
 (function(){
  const style=document.createElement('style');style.textContent="body{font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent}\n.scrollbar-hide::-webkit-scrollbar{display:none}\n.scrollbar-hide{-ms-overflow-style:none;scrollbar-width:none}\n@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}\nto{opacity:1;transform:translateY(0)}\n}\n.animate-fadeIn{animation:fadeIn 0.25s cubic-bezier(0.16,1,0.3,1) forwards}\ninput[type=range]{height:6px;border-radius:9999px}\n#floatingSideTabs{position:fixed;z-index:999;right:0;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:.45rem;padding:.4rem;border:1px solid rgba(51,65,85,.9);border-right:0;border-radius:1rem 0 0 1rem;background:rgba(15,23,42,.94);backdrop-filter:blur(16px);box-shadow:0 12px 35px rgba(2,6,23,.5);transition:transform .24s ease,opacity .24s ease}\n#floatingSideTabs .side-tab{width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;gap:.3rem;border-radius:.75rem;padding:.4rem}\n#floatingSideTabs .side-tab .side-tab-label{display:none !important}\n#floatingSideTabs .side-count{font-size:10px;line-height:1;font-weight:900;min-width:14px;text-align:center}\n#floatingSideTabs.is-hidden{transform:translate(110%,-50%);opacity:0;pointer-events:none}\n#ideaDiscoverActionBar{position:fixed !important;z-index:998;left:50%;bottom:1rem;transform:translateX(-50%);width:min(560px,calc(100vw - 24px));max-width:calc(100vw - 24px);box-sizing:border-box;padding:.65rem;display:flex;flex-wrap:nowrap;gap:.65rem;background:rgba(15,23,42,.96);border:1px solid rgba(71,85,105,.85);border-radius:1rem;box-shadow:0 12px 36px rgba(2,6,23,.6);backdrop-filter:blur(18px);align-items:flex-end}\n#ideaDiscoverActionBar > div{flex:0 0 125px;width:125px;min-width:0}\n#ideaDiscoverActionBar select{height:48px;max-width:100%}\n#ideaDiscoverActionBar #discoverIdeasBtn{flex:1 1 0%;width:auto;min-width:0;max-width:100%;height:50px;min-height:50px;padding-left:.8rem;padding-right:.8rem;box-sizing:border-box;white-space:nowrap}\nbody{padding-bottom:110px !important}\n@media (max-width:639px){#floatingSideTabs .side-tab{width:42px;min-height:44px}\n#ideaDiscoverActionBar{width:calc(100vw - 16px);max-width:calc(100vw - 16px);left:50%;bottom:.6rem;gap:.4rem;padding:.5rem}\n#ideaDiscoverActionBar > div{flex:0 0 88px;width:88px}\n#ideaDiscoverActionBar label{font-size:9px}\n#ideaDiscoverActionBar select{padding:.5rem;font-size:11px}\n#ideaDiscoverActionBar #discoverIdeasBtn{font-size:11px;gap:.3rem;padding:0 .35rem;letter-spacing:0}\n#ideaDiscoverActionBar #discoverIdeasBtn i{width:15px;height:15px;flex-shrink:0}\n#ideaDiscoverActionBar #discoverIdeasBtnText{font-size:clamp(9px,2.8vw,11px);white-space:nowrap}\n}\n@media (max-width:340px){#ideaDiscoverActionBar > div{flex-basis:78px;width:78px}\n#ideaDiscoverActionBar #discoverIdeasBtn i{width:13px;height:13px}\n}\n#ideaDiscoverActionBar #discoverBarToggleBtn{flex:0 0 40px;height:48px;align-self:flex-end;display:flex;align-items:center;justify-content:center;border:1px solid rgba(167,139,250,.45);border-radius:.85rem;background:rgba(76,29,149,.5);color:#e9d5ff;cursor:pointer;transition:background .2s ease,transform .2s ease}\n#ideaDiscoverActionBar #discoverBarToggleBtn:hover{background:rgba(109,40,217,.8)}\n#ideaDiscoverActionBar:not(.is-ready) #discoverBarToggleBtn{display:none !important}\n#ideaDiscoverActionBar.is-compact{width:58px !important;max-width:58px !important;height:58px;padding:5px !important;gap:0 !important;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#4f46e5,#2563eb);border-color:rgba(196,181,253,.7);align-items:center;box-shadow:0 8px 26px rgba(109,40,217,.4);animation:discoverIconAppear .35s ease-out,discoverIconGlow 2.6s ease-in-out .35s infinite}\n#ideaDiscoverActionBar.is-compact #discoverBarFields,#ideaDiscoverActionBar.is-compact #discoverIdeasBtn{display:none !important}\n#ideaDiscoverActionBar.is-compact #discoverBarToggleBtn{flex:0 0 46px;width:46px;height:46px;border:0;border-radius:50%;background:transparent;color:#fff}\n#ideaDiscoverActionBar.is-compact #discoverBarToggleBtn:hover{background:rgba(255,255,255,.13)}\nbody.discover-mini-active{padding-bottom:76px !important}\n@keyframes discoverIconAppear{from{opacity:0;transform:translateY(16px) scale(.75)}\nto{opacity:1;transform:translateY(0) scale(1)}\n}\n@keyframes discoverIconGlow{0%,100%{box-shadow:0 8px 22px rgba(109,40,217,.4)}\n50%{box-shadow:0 8px 32px rgba(129,140,248,.72)}\n}\n@media (prefers-reduced-motion:reduce){#ideaDiscoverActionBar.is-compact{animation:none}\n}\n#batchQueuePanel.progress-only{padding:.7rem}\n#batchQueuePanel.progress-only >:first-child,#batchQueuePanel.progress-only >:last-child{display:none !important}\n#tabSectionSavedIdeas{min-width:0;padding:.75rem;gap:1rem}\n#tabSectionSavedIdeas > div:first-child{align-items:flex-start}\n#tabSectionSavedIdeas > div:first-child > div:first-child{min-width:0}\n#tabSectionSavedIdeas > div:first-child > div:last-child{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}\n#tabSectionSavedIdeas > div:first-child > div:last-child > *{min-width:0;width:100%;justify-content:center;white-space:normal;text-align:center;padding:.6rem .4rem}\n#tabSectionSavedIdeas #savedIdeasGridContainer{min-width:0}\n#tabSectionSavedIdeas #savedIdeasGridContainer img{max-width:100%;height:auto}\n@media (max-width:639px){header{min-width:0}\nheader > div:first-child{min-width:0}\nheader h1{font-size:clamp(11px,3.5vw,16px);line-height:1.25;flex-wrap:wrap}\nheader p{font-size:9px}\nheader > div:last-child{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:.4rem}\nheader > div:last-child > button,header > div:last-child > a{min-width:0;width:100%;padding:.6rem .25rem;font-size:10px;white-space:normal;text-align:center}\nheader > div:last-child > a{grid-column:1 / -1}\n#tabSectionSavedIdeas > div:first-child{display:flex;flex-direction:column}\n#tabSectionSavedIdeas > div:first-child > div:last-child{grid-template-columns:repeat(2,minmax(0,1fr))}\n}\n@media (min-width:768px){#tabSectionSavedIdeas{padding:1.5rem}\n#tabSectionSavedIdeas > div:first-child > div:last-child{width:auto;display:flex;flex-wrap:wrap}\n#tabSectionSavedIdeas > div:first-child > div:last-child > *{width:auto;white-space:nowrap;padding:.5rem .75rem}\n}\n.inner-progress{position:relative;isolation:isolate;overflow:hidden;--fill:0%}\n.inner-progress::before{content:\"\";position:absolute;inset:0;right:auto;width:var(--fill);z-index:-1;background:repeating-linear-gradient(115deg,rgba(255,255,255,.28) 0 12px,rgba(103,232,249,.4) 12px 24px);background-size:52px 100%;box-shadow:inset -2px 0 0 #a5f3fc,0 0 18px #22d3ee;transition:width .35s ease;animation:innerFlow 1.4s linear infinite;pointer-events:none}\n.inner-progress::after{content:attr(data-progress);font-size:10px;font-variant-numeric:tabular-nums;margin-left:4px;pointer-events:none}\n@keyframes innerFlow{to{background-position:52px 0}\n}\n@media(prefers-reduced-motion:reduce){.inner-progress::before{animation:none;transition:none}\n}\n.lightbox-shell{height:min(94dvh,1100px);min-height:0}\n.lightbox-viewport{flex:1 1 0;touch-action:none;overscroll-behavior:contain;cursor:zoom-in;user-select:none;-webkit-user-select:none}\n.lightbox-viewport.is-zoomed{cursor:grab}\n.lightbox-viewport.is-dragging{cursor:grabbing}\n.lightbox-zoom-image{position:absolute;left:50%;top:50%;width:auto;height:auto;max-width:100%;max-height:100%;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-drag:none;transform-origin:center center;transform:translate(-50%,-50%) scale(1);will-change:transform}\n.lightbox-control{min-width:34px;height:30px;padding:0 9px;border:1px solid #475569;border-radius:8px;background:#1e293b;color:#f8fafc;font-size:17px;font-weight:700;line-height:1;touch-action:manipulation}\n.lightbox-control:hover{background:#334155}\n.lightbox-control:disabled{opacity:.35;cursor:not-allowed}\n.lightbox-control:focus-visible,.lightbox-viewport:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}\n.lightbox-control-text{font-size:11px;min-width:43px}\n@media(max-width:639px){.lightbox-shell{height:96dvh}\n.lightbox-control{min-width:40px;height:35px}\n.lightbox-viewport{border-radius:10px}\n}\n#generateAllImagesBtn.inner-progress,#generateAllMetaBtn.inner-progress{position:relative;overflow:hidden}\n#generateAllImagesBtn.inner-progress::before,#generateAllMetaBtn.inner-progress::before{inset:auto auto 0 0;height:3px;z-index:1;animation:none;box-shadow:none;background:#c4b5fd;transition:width .18s ease}\n#generateAllMetaBtn.inner-progress::before{background:#67e8f9}\n#generateAllImagesBtn.inner-progress::after,#generateAllMetaBtn.inner-progress::after{display:none}\n.card-blueprint-toggle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:9999px;border:1px solid rgba(34,211,238,.45);background:rgba(8,47,73,.7);color:#67e8f9;transition:background .2s ease,transform .2s ease}\n.card-blueprint-toggle:hover{background:rgba(14,116,144,.85);transform:translateY(-1px)}\n.card-blueprint-panel.hidden{display:none}\n.card-blueprint-panel{margin-top:.5rem;border:1px solid rgba(51,65,85,.9);border-radius:.75rem;background:rgba(2,6,23,.72);padding:.65rem}\n.card-blueprint-panel pre{max-height:18rem;overflow:auto}\nbody:not(.rivis-show-extra) #rivisSeasonalPanel,body:not(.rivis-show-extra) #rivisReferencePanel{display:none!important}\n/* Plain text accordion; no button chrome or arrow. */\n#tabSectionIdeaStudio{margin-top:.5rem!important}\n#tabSectionIdeaStudio>.rivis-extra-trigger{display:block;margin:0!important;padding:0}\n#rivisExtrasBtn{display:block;width:max-content;max-width:100%;margin:0;padding:2px 0;list-style:none;color:#c084fc;font-size:12px;font-weight:700;line-height:1.5;cursor:pointer;user-select:none}\n#rivisExtrasBtn::-webkit-details-marker{display:none}\n#rivisExtrasBtn::marker{content:''}\n#rivisExtrasBtn:hover{color:#e9d5ff}\n#rivisExtrasBtn:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}\n#tabSectionIdeaStudio>#rivisSeasonalPanel,#tabSectionIdeaStudio>.grid{margin-top:.375rem!important}\n.rivis-status-bar{display:flex;align-items:stretch;gap:6px;min-width:0}\n.rivis-status-tile{flex:1 1 0;min-width:0}\n.rivis-status-summary{min-height:44px;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:5px 2px;border:1px solid #334155;border-radius:9px;background:#111c2e;color:#cbd5e1;list-style:none;user-select:none;text-align:center;touch-action:manipulation}\n.rivis-status-summary::-webkit-details-marker{display:none}\n.rivis-status-summary::marker{content:''}\n.rivis-status-summary:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}\n.rivis-status-summary:hover,.rivis-status-tile[open]>.rivis-status-summary{background:#1d2e46;border-color:#64748b}\n.rivis-status-summary .status-top{display:flex;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:800;line-height:1.1}\n.rivis-status-summary .status-label{font-size:9px;font-weight:650;line-height:1.2}\n.rivis-status-summary.status-pass .status-top{color:#34d399}\n.rivis-status-summary.status-warning .status-top{color:#fbbf24}\n.rivis-status-summary.status-brief .status-top{color:#c4b5fd}\n.rivis-status-summary.status-empty{opacity:.7}\n.rivis-status-panel{box-sizing:border-box;width:calc(300% + 12px);margin-top:6px;padding:10px;border:1px solid #475569;border-radius:9px;background:#111c2e;font-size:10px;line-height:1.5;color:#cbd5e1;overflow-wrap:anywhere;max-height:260px;overflow-y:auto}\n.rivis-status-tile:nth-child(2)>.rivis-status-panel{margin-left:calc(-100% - 6px)}\n.rivis-status-tile:nth-child(3)>.rivis-status-panel{margin-left:calc(-200% - 12px)}\n.rivis-status-panel .status-detail-row{padding:5px 0;border-bottom:1px solid #334155}\n.rivis-status-panel .status-detail-row:last-child{border-bottom:0}\n.rivis-preflight-row{position:relative;min-width:0;margin-top:.5rem}\n.rivis-preflight-row .rivis-preflight-summary,.rivis-preflight-row .rivis-preflight-empty{display:flex;align-items:center;gap:.35rem;box-sizing:border-box;min-width:0;min-height:40px;padding:7px 115px 7px 9px;white-space:nowrap}\n.rivis-preflight-row .rivis-preflight-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.rivis-preflight-row .rivis-preflight-recheck{position:absolute;top:5px;right:5px;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:4px;box-sizing:border-box;min-height:30px;max-width:108px;padding:5px 8px;white-space:nowrap;font-size:10px}\n.rivis-preflight-row .rivis-preflight-summary::-webkit-details-marker{display:none}\n.rivis-preflight-row .rivis-preflight-summary{list-style:none}\n@media(max-width:639px){.rivis-preflight-row .rivis-preflight-status{display:none}\n.rivis-preflight-row .rivis-preflight-summary,.rivis-preflight-row .rivis-preflight-empty{padding-right:113px}\n}\n.card-prompt-actions{display:flex;align-items:center;justify-content:space-between;gap:5px;min-width:0;flex-wrap:nowrap}\n.card-blueprint-pill{display:inline-flex;align-items:center;gap:5px;flex:1 1 0;min-width:0;padding:7px 8px;border-radius:8px;border:1px solid #155e75;background:#083344;color:#67e8f9;font-size:10px;font-weight:700;white-space:nowrap;cursor:pointer}\n.card-blueprint-pill .truncate{overflow:hidden;text-overflow:ellipsis}\n.card-prompt-btns{display:inline-flex;flex:0 0 auto;align-items:center;gap:5px}\n.card-prompt-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:7px 9px;border-radius:8px;font-size:10px;font-weight:700;white-space:nowrap;cursor:pointer}\n.rivis-meta-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;list-style:none;cursor:pointer;padding:10px;min-width:0}\n.rivis-meta-summary::-webkit-details-marker{display:none}\n.rivis-meta-summary::marker{content:''}\n.rivis-meta-chevron{transition:transform .2s ease}\n.rivis-meta-accordion[open] .rivis-meta-chevron{transform:rotate(180deg)}\n.rivis-meta-line{display:flex;align-items:center;gap:8px;white-space:nowrap;min-width:0}\n.rivis-meta-file{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}\n.rivis-meta-file span:last-child{overflow:hidden;text-overflow:ellipsis}\n.rivis-meta-category{flex:0 0 auto;white-space:nowrap}\n@media(max-width:375px){.card-prompt-btn{padding:7px 6px;font-size:10px}\n.card-blueprint-pill{padding:7px 5px}\n.rivis-meta-line{font-size:8px}\n}\n.rivis-icon{display:inline-block;vertical-align:middle;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}\n";document.head.appendChild(style);
@@ -587,7 +640,8 @@ async function createFourFileCardZip(idea){
 
   return zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
 }
-function confirmIncompleteLibraryExport(kind,ideas){
+/* Canvas can suppress window.confirm in sandboxed iframes. Use a self-owned dialog. */
+async function confirmIncompleteLibraryExport(kind,ideas){
   const list=Array.isArray(ideas)?ideas:[];
   const withoutImage=list.filter(x=>!x?.generatedImageUrl);
   const withoutMetadata=list.filter(x=>!x?.metadata);
@@ -597,20 +651,41 @@ function confirmIncompleteLibraryExport(kind,ideas){
   const isCards=kind==='cards';
   const heading=isCards?'DOWNLOAD ALL CARD':'DOWNLOAD RESULT';
   const summary=isCards
-    ?`Hanya ${complete} kartu lengkap yang akan diunduh (masing-masing ZIP berisi 4 file). ${incomplete} kartu tidak lengkap akan dilewati.`
-    :`${list.length} kartu diperiksa. ZIP hanya berisi gambar dan/atau metadata yang telah tersedia; file yang belum digenerate tidak disertakan.`;
-  const msg=[
-    `PERINGATAN — ${heading}`,
-    '',
-    `Total kartu Library: ${list.length}`,
-    `Gambar belum digenerate: ${withoutImage.length}`,
-    `Metadata belum digenerate: ${withoutMetadata.length}`,
-    `Kartu belum lengkap: ${incomplete}`,
-    '',summary,'',
-    'Tetap lanjut download?',
-    'OK = Tetap Download    |    Batal = Tidak Download'
-  ].join('\n');
-  return window.confirm(msg)===true;
+    ?`Hanya ${complete} kartu lengkap yang akan diunduh. ${incomplete} kartu tidak lengkap akan dilewati.`
+    :`ZIP hanya berisi gambar dan/atau metadata yang sudah tersedia; file yang belum digenerate tidak disertakan.`;
+  return new Promise(resolve=>{
+    const backdrop=document.createElement('div');
+    backdrop.id='rivisExportConfirmation';backdrop.setAttribute('role','presentation');
+    backdrop.style.cssText='position:fixed;inset:0;background:rgba(2,6,23,.84);z-index:2147483645;display:flex;align-items:center;justify-content:center;padding:16px;';
+    const dialog=document.createElement('section');
+    dialog.setAttribute('role','alertdialog');dialog.setAttribute('aria-modal','true');
+    dialog.setAttribute('aria-label','Konfirmasi '+heading);
+    dialog.style.cssText='width:min(440px,100%);max-height:90vh;overflow:auto;background:#0f172a;border:1px solid #475569;border-radius:14px;box-shadow:0 25px 60px rgba(0,0,0,.4);padding:20px;color:#e2e8f0;font:13px/1.55 system-ui,sans-serif;';
+    const title=document.createElement('h2');title.textContent='Peringatan — '+heading;
+    title.style.cssText='font-size:16px;font-weight:800;color:#fbbf24;margin:0 0 10px;';dialog.appendChild(title);
+    const desc=document.createElement('p');
+    desc.textContent=`Total kartu: ${list.length}\nGambar belum digenerate: ${withoutImage.length}\nMetadata belum digenerate: ${withoutMetadata.length}\nKartu lengkap: ${complete}\n\n${summary}\n\nTetap download?`.replace(/\\n/g,'\n');
+    desc.style.cssText='white-space:pre-line;margin:0 0 18px;color:#cbd5e1;';dialog.appendChild(desc);
+    const actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;';
+    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Batal';
+    cancel.style.cssText='padding:9px 16px;border:1px solid #475569;border-radius:8px;background:#1e293b;color:white;font-weight:700;cursor:pointer;';
+    const proceed=document.createElement('button');proceed.type='button';proceed.textContent='Tetap Download';
+    proceed.style.cssText='padding:9px 16px;border:0;border-radius:8px;background:#059669;color:white;font-weight:700;cursor:pointer;';
+    actions.append(cancel,proceed);dialog.appendChild(actions);backdrop.appendChild(dialog);document.body.appendChild(backdrop);
+    const prev=document.activeElement;
+    let settled=false;
+    const finish=ok=>{if(settled)return;settled=true;document.removeEventListener('keydown',keys,true);backdrop.remove();
+      if(prev?.isConnected)prev.focus();resolve(ok);};
+    const keys=e=>{if(e.key==='Escape'){e.preventDefault();finish(false);}else if(e.key==='Tab'){
+      const controls=[cancel,proceed],idx=controls.indexOf(document.activeElement);
+      if(e.shiftKey&&idx<=0){e.preventDefault();proceed.focus();}
+      else if(!e.shiftKey&&idx===1){e.preventDefault();cancel.focus();}
+    }};
+    document.addEventListener('keydown',keys,true);
+    cancel.addEventListener('click',()=>finish(false));proceed.addEventListener('click',()=>finish(true));
+    backdrop.addEventListener('click',e=>{if(e.target===backdrop)finish(false);});
+    cancel.focus();
+  });
 }
 async function handleDownloadAllCardsZip(btnEl){
   if(typeof JSZip==='undefined'){showToast('JSZip library failed to load.','error');return;}
@@ -618,7 +693,7 @@ async function handleDownloadAllCardsZip(btnEl){
   if(!all.length){showToast('Library is empty. Nothing to download.','error');return;}
   const complete=all.filter(i=>i.generatedImageUrl&&i.metadata);
   const skipped=all.length-complete.length;
-  if(skipped&&!confirmIncompleteLibraryExport('cards',all))return;
+  if(skipped&&!(await confirmIncompleteLibraryExport('cards',all)))return;
   if(!complete.length){showToast('Download All Card: belum ada kartu dengan gambar dan metadata lengkap. Tidak ada file yang diunduh.',
 'error');return;}
   qualityDownloadNotice(complete);
@@ -649,7 +724,7 @@ async function handleDownloadResultsZip(btnEl){
   const generated=all.filter(i=>i.generatedImageUrl||i.metadata);
   if(!generated.length){showToast('Belum ada gambar atau metadata yang digenerate. Tidak ada hasil yang dapat diunduh.','error');return;}
   if(typeof JSZip==='undefined'){showToast('JSZip library failed to load.','error');return;}
-  if(!confirmIncompleteLibraryExport('results',all))return;
+  if(!(await confirmIncompleteLibraryExport('results',all)))return;
   qualityDownloadNotice(generated);
   const btn=btnEl||byId('downloadResultsZipBtn'),old=btn?.innerHTML||'';
   if(btn){btn.disabled=true;btn.textContent='Packaging...';}
@@ -756,7 +831,7 @@ return`<div data-rivis-card-id="${escapeHtml(String(idea.ideaId))}" class="p-4 r
         ${idea.imageGeneratedOn?`<p class="mt-0.5 text-[10px] text-slate-500">Generated: ${escapeHtml(idea.imageGeneratedOn)}</p>`:''}`:''}
         ${idea.generatedImageUrl?(idea.visualPreflight?`<div class="rivis-preflight-row"> <details class="rounded-lg bg-slate-900/80 border border-slate-800 text-[10px]"> <summary class="rivis-preflight-summary cursor-pointer font-bold ${idea.visualPreflight.status==='PASS'?'text-emerald-400':idea.visualPreflight.status==='REVIEW'?'text-amber-400':'text-rose-400'}"> <span class="rivis-preflight-title">Visual Preflight: ${idea.visualPreflight.score}/100</span> <span class="rivis-preflight-status shrink-0">(${idea.visualPreflight.status})</span> </summary> <div class="space-y-1.5 px-2.5 pb-2.5 pt-2 border-t border-slate-800/80">
               ${idea.visualPreflight.technical?`<p class="text-[10px] text-cyan-300">Teknis: ${idea.visualPreflight.technical.width}×${idea.visualPreflight.technical.height} px (${idea.visualPreflight.technical.mp} MP) · Kontras ${idea.visualPreflight.technical.lumaStd}</p>`:''}
-              ${idea.qualityRepairMessage?`<p class="text-[10px] text-amber-300">${escapeHtml(idea.qualityRepairMessage)}</p>`:''}
+              ${idea.promptQualityOptimization?.ruleCount?`<p class="text-[10px] text-violet-300">Smart Prompt Guard: ${idea.promptQualityOptimization.ruleCount} koreksi preventif tanpa request AI tambahan.</p>`:''}${idea.qualityRepairMessage?`<p class="text-[10px] text-amber-300">${escapeHtml(idea.qualityRepairMessage)}</p>`:''}
               ${idea.visualPreflight.components?Object.values(idea.visualPreflight.components).map(c=>`<p class="text-slate-300"><strong class="text-slate-200">${escapeHtml(c.label)} (${c.weight}%): ${c.score}/100</strong> — ${escapeHtml(c.reason)}</p>`).join(''):''}
               ${(idea.visualPreflight.issues||[]).map(issue=>`<p class="text-amber-300">! ${escapeHtml(visualPreflightIssueText(issue))}</p>`).join('')}
               ${(idea.visualPreflight.manualChecks||[]).map(check=>`<p class="text-slate-400">• ${escapeHtml(check)}</p>`).join('')}
