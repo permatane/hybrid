@@ -1,6 +1,6 @@
 {
-  "version": "3.1.59",
+  "version": "3.1.61",
   "channel": "latest",
   "support": "hybrid/rivis.support.js",
-  "notes": "Independent Image/Meta progress: preserve active card buttons during library render, animate Re Metadata and batch Meta All"
+  "notes": "Opportunity inline beside Hybrid Guard and AI Vector modal layout refined with larger preview area"
 }
