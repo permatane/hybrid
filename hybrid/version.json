@@ -1,6 +1,6 @@
 {
-  "version": "3.1.62",
+  "version": "3.1.63",
   "channel": "latest",
   "support": "hybrid/rivis.support.js",
-  "notes": "Default Vector AI Resolution 1K (~1 MP); separate resolution preferences for vector and raster modes"
+  "notes": "Collection Item Manifest & AI count audit, Library accordion, date overlay, MP red/green; retains independent Canvas loading and Vector 1K default."
 }
