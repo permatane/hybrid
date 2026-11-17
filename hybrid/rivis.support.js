@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — App v3.4.68 (Canvas 3.4 / GitHub 68). Version placeholder cleanup, metadata filename consistency and Library card order. */
+/* RIVIS GitHub Support — App v3.4.69 (Canvas 3.4 / GitHub 69). Memory-safe Library previews, persistence and exports. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -149,7 +149,7 @@ tx.oncomplete=()=>resolve(true);tx.onerror=tx.onabort=()=>reject(tx.error||new E
 function readStoredIdeas(){try{const v=JSON.parse(safeStorageGet(STORAGE_KEYS.SAVED_IDEAS,
 '[]'));return Array.isArray(v)?v:[];}catch(e){console.warn('Saved ideas storage was invalid',e);return[];}}
 function compactLibraryBackup(ideas){return ideas.map(idea=>{const slim={...idea};
-delete slim.generatedImageUrl;delete slim.refImageUrl;delete slim.referenceImage;delete slim.imageBase64;delete slim.visualPreflightPending;
+delete slim.generatedImageUrl;delete slim.generatedImagePreviewUrl;delete slim.refImageUrl;delete slim.referenceImage;delete slim.imageBase64;delete slim.visualPreflightPending;
 return slim;});}
 async function initializePersistentLibrary(){try{const stored=await idbGet(IDB_LIBRARY_KEY);if(Array.isArray(stored)){state.savedIdeas=stored;
 }else{const legacy=readStoredIdeas();await idbSet(IDB_LIBRARY_KEY,legacy);state.savedIdeas=legacy;}state.savedIdeas.forEach(ensureConceptBlueprint);
@@ -157,10 +157,20 @@ safeStorageSet(STORAGE_KEYS.SAVED_IDEAS,JSON.stringify(compactLibraryBackup(stat
 }catch(err){idbAvailable=false;console.warn('IndexedDB initialization failed:',err);state.savedIdeas=readStoredIdeas();state.savedIdeas.forEach(ensureConceptBlueprint);
 renderSavedIdeasGrid();updateBadges();}refreshStorageStatus();}
 let sizeFrame=0,sizeDirty=false;
+function estimateSavedLibraryBytes(ideas){
+ let bytes=0;
+ for(const idea of ideas||[]){
+  try{const meta={...idea};delete meta.generatedImageUrl;delete meta.generatedImagePreviewUrl;bytes+=new Blob([JSON.stringify(meta)]).size;}catch(_){}
+  for(const value of [idea?.generatedImageUrl,idea?.generatedImagePreviewUrl]){
+   if(typeof value==='string'&&value.startsWith('data:')){const comma=value.indexOf(',');if(comma>=0)bytes+=Math.floor((value.length-comma-1)*.75);}
+  }
+ }
+ return bytes;
+}
 function refreshStorageStatus(){sizeDirty=true;
 if(state.activeTab!=='saved_ideas'||byId('tabSectionSavedIdeas')?.classList.contains('hidden'))return;if(sizeFrame)return;sizeFrame=requestAnimationFrame(()=>{sizeFrame=0;
-if(!sizeDirty)return;sizeDirty=false;const status=byId('storageStatusText');if(!status)return;let bytes=0;try{bytes=new Blob([JSON.stringify(state.savedIdeas)]).size;
-}catch(e){console.warn('Library size calculation failed:',e);}status.textContent=`${idbAvailable?'IndexedDB lokal':'Penyimpanan browser'} • ${state.savedIdeas.length} ide • ${(bytes/1048576).toFixed(2)} MB`;
+if(!sizeDirty)return;sizeDirty=false;const status=byId('storageStatusText');if(!status)return;const bytes=estimateSavedLibraryBytes(state.savedIdeas);
+status.textContent=`${idbAvailable?'IndexedDB lokal':'Penyimpanan browser'} • ${state.savedIdeas.length} ide • ${(bytes/1048576).toFixed(2)} MB`;
 });}
 const state={activeTab:'idea_studio',apiKey:safeStorageGet(STORAGE_KEYS.API_KEY,''),refImageUrl:null,refImageFile:null,refMode:REFERENCE_MODES[0].id,
 refModInstruction:'',refSuggestions:null,productionType:'single',collectionItemCount:'',noTextChecked:true,svgFriendly:true,gradientEnabled:safeStorageGet(STORAGE_KEYS.GRADIENT_ENABLED,
@@ -472,13 +482,13 @@ async function getExportedAsset(idea){if(!idea?.generatedImageUrl)throw new Erro
 p=rasterSnapshot(idea);const format=mode==='vector'?'png':(p.format==='png'?'png':'jpg');const mime=format==='jpg'?'image/jpeg':'image/png';
 const filename=`${getCardBaseFilename(idea)}.${format}`;const original=await imageDataUrlToVerifiedBlob(idea.generatedImageUrl);
 if(original.mimeType===mime)return{filename,mimeType:mime,data:original.blob};const source=URL.createObjectURL(original.blob);
-let canvas;try{const img=new Image();img.src=source;await img.decode();if(!img.naturalWidth||!img.naturalHeight)throw new Error('Resolusi gambar tidak terbaca.');
+let canvas=null,img=null;try{img=new Image();img.src=source;await img.decode();if(!img.naturalWidth||!img.naturalHeight)throw new Error('Resolusi gambar tidak terbaca.');
 canvas=document.createElement('canvas');canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;const ctx=canvas.getContext('2d',
 {alpha:format!=='jpg'});if(!ctx)throw new Error('Browser tidak dapat menyiapkan canvas ekspor.');if(format==='jpg'){ctx.fillStyle='#fff';
 ctx.fillRect(0,0,canvas.width,canvas.height);}ctx.drawImage(img,0,0);const quality=Number.isFinite(p.jpegQuality)?Math.max(0.7,
 Math.min(1,p.jpegQuality)):0.95;const converted=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('Gagal konversi gambar.')),
 mime,quality));const checked=await verifiedImageBlob(converted);if(checked.mimeType!==mime)throw new Error('Browser menghasilkan tipe gambar yang salah.');
-return{filename,mimeType:mime,data:checked.blob};}finally{if(canvas){canvas.width=0;canvas.height=0;}URL.revokeObjectURL(source);
+return{filename,mimeType:mime,data:checked.blob};}finally{if(canvas){canvas.width=0;canvas.height=0;}if(img){img.src='';img.removeAttribute('src');}URL.revokeObjectURL(source);
 }}
 function toggleAutoSelectBest(val){state.autoSelectBest=val;const ctrls=byId('creativeDirectionControls');if(ctrls){if(val)ctrls.classList.add('hidden');
 else ctrls.classList.remove('hidden');}}
@@ -568,8 +578,8 @@ h=1]=String(value).split(':').map(Number);return w/h;}const target=fraction(requ
 return ratios.reduce((best,r)=>Math.abs(Math.log(fraction(r)/target))<Math.abs(Math.log(fraction(best)/target))?r:best);}
 function rivisDisplayDate(value){const text=String(value||'').trim();const m=text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(!m)return text;
 let a=Number(m[1]),b=Number(m[2]);if(a>12)return String(a).padStart(2,'0')+'/'+String(b).padStart(2,'0')+'/'+m[3];if(b>12)return String(b).padStart(2,'0')+'/'+String(a).padStart(2,'0')+'/'+m[3];return text;}
-function showNativeSize(img){const w=img.naturalWidth,h=img.naturalHeight;
-const label=img.parentElement?.nextElementSibling;if(!label)return;const mp=w*h/1e6;
+function showNativeSize(img){const w=Number(img?.dataset?.nativeWidth)||img.naturalWidth,h=Number(img?.dataset?.nativeHeight)||img.naturalHeight;
+const label=img.parentElement?.nextElementSibling;if(!label||!w||!h)return;const mp=w*h/1e6;
 const badge=document.createElement('span');badge.className='font-bold '+(mp>=4?'text-emerald-400':'text-rose-400');
 badge.textContent=mp.toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2})+' MP';
 label.replaceChildren(document.createTextNode('Hasil asli: '+w+' × '+h+' px · '),badge);}
@@ -636,11 +646,11 @@ AI Disclosure: ${meta.aiDisclosure!==false?'Yes (Generative AI)':'No'}
 Keywords (${meta.keywords.length} tags ordered by relevance):
 ${meta.keywords.join(', ')}
 `;zip.file(`${prefix}${baseName}_metadata.txt`,metaText);zip.file(`${prefix}${baseName}_metadata.csv`,buildAdobeStockCsv([idea]));
-}const jsonClean={...idea,cardCode:getCardUniqueCode(idea).toUpperCase(),exportedFilename:metadataFilename};delete jsonClean.generatedImageUrl;
+}const jsonClean={...idea,cardCode:getCardUniqueCode(idea).toUpperCase(),exportedFilename:metadataFilename};delete jsonClean.generatedImageUrl;delete jsonClean.generatedImagePreviewUrl;
 delete jsonClean.visualPreflightPending;if(jsonClean.metadata)jsonClean.metadata=normalizeAdobeStockMetadata(idea,jsonClean.metadata);
 zip.file(`${prefix}${baseName}_data.json`,JSON.stringify(jsonClean,null,2));if(includeBlueprint)zip.file(`${prefix}${baseName}_blueprint.json`,
 readonlyBlueprintText(idea));if(idea.generatedImageUrl){const exported=await getExportedAsset(idea);zip.file(`${prefix}${exported.filename}`,
-exported.data);}}
+exported.data,{compression:'STORE'});}}
 function qualityDownloadNotice(ideas){const flagged=(Array.isArray(ideas)?ideas:[ideas]).filter(x=>x?.visualPreflight&&x.visualPreflight.status!=='PASS');
 if(flagged.length){showToast(`${flagged.length} aset memiliki catatan Visual Preflight (${flagged.map(x=>x.visualPreflight.status).join(', ')}). Periksa 100% sebelum submit.`,
 'info');}}
@@ -654,7 +664,7 @@ async function createFourFileCardZip(idea){
   const base=getCardBaseFilename(idea);
   const exported=await getExportedAsset(idea);
   const zip=new JSZip();
-  zip.file(exported.filename,exported.data);
+  zip.file(exported.filename,exported.data,{compression:'STORE'});
   zip.file(base+'_prompt.txt',String(idea.finalGenerationPrompt||''));
   zip.file(base+'_blueprint.json',readonlyBlueprintText(idea));
   zip.file(base+'_metadata.csv','Filename,Title,Keywords,Category,Releases\r\n'+buildAdobeStockCsvRow(idea,idea.metadata,exported.filename));
@@ -755,7 +765,7 @@ async function handleDownloadResultsZip(btnEl){
       let exported=null;
       if(idea.generatedImageUrl){
         exported=await getExportedAsset(idea);
-        zip.file(exported.filename,exported.data);
+        zip.file(exported.filename,exported.data,{compression:'STORE'});
       }
       if(idea.metadata){
         // CSV references the later Vectorich QC image (with -edt), while the ZIP image retains its original name.
@@ -803,7 +813,8 @@ if(ok)showToast(`Copied color ${hex}`,"success");}
 function persistSavedIdeas(){try{libraryPaintDirty=true;state.savedIdeas.forEach(ensureConceptBlueprint);
 const backupOk=safeStorageSet(STORAGE_KEYS.SAVED_IDEAS,JSON.stringify(compactLibraryBackup(state.savedIdeas)));refreshStorageStatus();
 if(idbAvailable){const generation=++writeRev;libraryPersistQueue=libraryPersistQueue.catch(()=>{}).then(async()=>{if(generation!==writeRev)return;
-const latest=state.savedIdeas.map(i=>structuredClone(i));await idbSet(IDB_LIBRARY_KEY,latest);}).catch(err=>{console.warn('IndexedDB save issue:',
+// Shallow snapshot avoids an extra deep copy of every 4K Base64 image string.
+const latest=state.savedIdeas.map(i=>({...i}));await idbSet(IDB_LIBRARY_KEY,latest);}).catch(err=>{console.warn('IndexedDB save issue:',
 err?.message||err);showToast('Gagal menyimpan Library ke IndexedDB; cadangan ringkas tersedia.','error');});}else if(!backupOk){showToast('Penyimpanan penuh. Unduh ZIP Library sebagai cadangan.',
 'error');return false;}return true;}catch(err){console.warn('Library save failed',err?.message||err);return false;}}
 function removeSavedIdea(ideaId){state.savedIdeas=state.savedIdeas.filter(i=>i.ideaId!==ideaId);
@@ -842,7 +853,12 @@ function libraryDuplicateIds(ideas){const firstSeen=new Map(),duplicates=new Set
 for(const [prefix,value] of [['title',idea.conceptName],['prompt',idea.finalGenerationPrompt]]){const normalized=String(value||'').toLowerCase().trim();
 if(!normalized)continue;const key=prefix+':'+normalized;if(!firstSeen.has(key))firstSeen.set(key,id);else if(firstSeen.get(key)!==id){duplicates.add(firstSeen.get(key));
 duplicates.add(id);}}}return duplicates;}
+const RIVIS_THUMB_PLACEHOLDER='data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 function renderSavedCardHtml(idea,libraryDuplicates){const code=getCardUniqueCode(idea);
+const previewSrc=idea.generatedImagePreviewUrl||RIVIS_THUMB_PLACEHOLDER;
+const nativeWidth=Number(idea.generatedImageWidth||idea.visualPreflight?.technical?.width)||0;
+const nativeHeight=Number(idea.generatedImageHeight||idea.visualPreflight?.technical?.height)||0;
+const thumbReady=Boolean(idea.generatedImagePreviewUrl);
 const baseName=getCardBaseFilename(idea);const metadataFilename=getMetadataAssetFilename(idea);const audit=auditIdeaQuality(idea);const isDuplicate=libraryDuplicates.has(idea.ideaId);
 const meta=idea.metadata?normalizeAdobeStockMetadata(idea,idea.metadata):null;const titleLength=meta?.stockTitle.length||0;const keywordCount=meta?.keywords.length||0;
 const titleValid=titleLength>0&&titleLength<=70;const keywordsValid=keywordCount>=30&&keywordCount<=40;const csvReady=Boolean(meta&&titleValid&&keywordsValid&&meta.adobeCategoryCode>=1&&meta.adobeCategoryCode<=21);
@@ -850,7 +866,7 @@ return`<div data-rivis-card-id="${escapeHtml(String(idea.ideaId))}" class="p-4 r
       ${isDuplicate?`<div class="${uiClasses[1]}"><span class="flex items-center gap-1.5"> Duplicate Warning</span><span class="${uiClasses[2]}">Duplicate in Library</span></div>`:''}
       <div class="space-y-3"> <div class="flex justify-between items-start gap-2"> <div> <div class="flex items-center gap-1.5 mb-0.5"> <span class="text-[9px] font-mono text-purple-400 font-bold tracking-wider">${code.toUpperCase()}</span> <span class="text-[9px] font-bold uppercase bg-slate-900 px-1.5 py-0.2 rounded border border-slate-700 text-slate-300">${idea.productionType==='collection'?'Collection Set'+(Number(idea.collectionItemCount)>0?' · '+Number(idea.collectionItemCount)+' items':''):'Single Asset'}</span> </div> <h4 class="text-sm font-bold text-white leading-snug">${escapeHtml(idea.conceptName)}</h4> <div class="text-[10px] text-cyan-300 font-semibold">${isRasterIdea(idea)?'RASTER · '+escapeHtml(RASTER_MODES[ideaOutputMode(idea)])+' · '+rasterSnapshot(idea).format.toUpperCase():'VECTOR · SVG-Friendly'}</div> </div> <div class="flex items-center gap-1 shrink-0"> <button type="button" onclick="removeSavedIdea('${escapeHtml(idea.ideaId)}')" class="p-1 text-slate-500 hover:text-red-400 transition-colors" title="Remove" aria-label="Hapus kartu">×</button> </div> </div>
         ${libraryStatusToolbar(idea,audit,'library')}
-        ${idea.generatedImageUrl?`<div class="flex gap-1.5 flex-wrap"><button type="button" onclick="downloadGeneratedImage('${escapeHtml(idea.ideaId)}')" class="flex-1 px-2 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-cyan-200 font-bold text-[10px]">Unduh PNG/JPG Asli</button><button type="button" onclick="RIVIS_VECTOR.open('${escapeHtml(idea.ideaId)}')" class="flex-1 px-2 py-1.5 rounded-lg bg-violet-700 hover:bg-violet-600 text-white font-bold text-[10px]">AI Vector SVG</button></div><div class="relative rounded-xl overflow-hidden border border-slate-700 bg-slate-900 group shadow-inner"> <img loading="lazy" decoding="async" src="${idea.generatedImageUrl}" onload="showNativeSize(this)" data-lightbox-id="${escapeHtml(idea.ideaId)}" class="w-full h-48 object-contain bg-slate-950 cursor-zoom-in transition-transform duration-300 group-hover:scale-105" alt="Generated stock preview" /> <div class="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none"> <span class="px-3 py-1.5 bg-purple-600/90 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-lg"> Zoom Preview</span> </div> ${idea.imageGeneratedOn?`<span class="absolute left-2 bottom-2 z-20 pointer-events-none bg-slate-950/80 border border-slate-600/50 text-slate-100 text-[9px] font-semibold px-2 py-1 rounded-md shadow" aria-label="Tanggal generate">Generated: ${escapeHtml(rivisDisplayDate(idea.imageGeneratedOn))}</span>`:''} </div> <p class="mt-1 text-xs text-slate-400">Memeriksa dimensi gambar…</p>`:''}
+        ${idea.generatedImageUrl?`<div class="flex gap-1.5 flex-wrap"><button type="button" onclick="downloadGeneratedImage('${escapeHtml(idea.ideaId)}')" class="flex-1 px-2 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-cyan-200 font-bold text-[10px]">Unduh PNG/JPG Asli</button><button type="button" onclick="RIVIS_VECTOR.open('${escapeHtml(idea.ideaId)}')" class="flex-1 px-2 py-1.5 rounded-lg bg-violet-700 hover:bg-violet-600 text-white font-bold text-[10px]">AI Vector SVG</button></div><div class="relative rounded-xl overflow-hidden border border-slate-700 bg-slate-900 group shadow-inner"> <img loading="lazy" decoding="async" src="${previewSrc}" onload="if(this.dataset.thumbReady==='1')showNativeSize(this)" data-thumb-ready="${thumbReady?'1':'0'}" data-native-width="${nativeWidth}" data-native-height="${nativeHeight}" data-rivis-thumb-id="${escapeHtml(idea.ideaId)}" data-lightbox-id="${escapeHtml(idea.ideaId)}" class="w-full h-48 object-contain bg-slate-950 cursor-zoom-in transition-transform duration-300 group-hover:scale-105" alt="Generated stock preview" /> <div class="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none"> <span class="px-3 py-1.5 bg-purple-600/90 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-lg"> Zoom Preview</span> </div> ${idea.imageGeneratedOn?`<span class="absolute left-2 bottom-2 z-20 pointer-events-none bg-slate-950/80 border border-slate-600/50 text-slate-100 text-[9px] font-semibold px-2 py-1 rounded-md shadow" aria-label="Tanggal generate">Generated: ${escapeHtml(rivisDisplayDate(idea.imageGeneratedOn))}</span>`:''} </div> <p class="mt-1 text-xs text-slate-400">Memeriksa dimensi gambar…</p>`:''}
         ${idea.generatedImageUrl?(idea.visualPreflight?`<div class="rivis-preflight-row"> <details class="rounded-lg bg-slate-900/80 border border-slate-800 text-[10px]"> <summary class="rivis-preflight-summary cursor-pointer font-bold ${idea.visualPreflight.status==='PASS'?'text-emerald-400':idea.visualPreflight.status==='REVIEW'?'text-amber-400':'text-rose-400'}"> <span class="rivis-preflight-title">Visual Preflight: ${idea.visualPreflight.score}/100</span> <span class="rivis-preflight-status shrink-0">(${idea.visualPreflight.status})</span> </summary> <div class="space-y-1.5 px-2.5 pb-2.5 pt-2 border-t border-slate-800/80">
               ${idea.visualPreflight.technical?`<p class="text-[10px] text-cyan-300">Teknis: ${idea.visualPreflight.technical.width}×${idea.visualPreflight.technical.height} px (<span class="font-bold ${Number(idea.visualPreflight.technical.mp)>=4?'text-emerald-400':'text-rose-400'}">${idea.visualPreflight.technical.mp} MP</span>) · Kontras ${idea.visualPreflight.technical.lumaStd}</p>`:''}
               ${idea.promptQualityOptimization?.ruleCount?`<p class="text-[10px] text-violet-300">Smart Prompt Guard: ${idea.promptQualityOptimization.ruleCount} koreksi preventif tanpa request AI tambahan.</p>`:''}${idea.qualityRepairMessage?`<p class="text-[10px] text-amber-300">${escapeHtml(idea.qualityRepairMessage)}</p>`:''}
@@ -905,7 +921,45 @@ existing.replaceWith(replacement);}}else{
     const target=card?.querySelector('['+(kind==='image'?'data-card-image-btn':'data-card-meta-btn')+']');
     if(target)target.replaceWith(live);
   }
-}libraryPaintDirty=false;libraryRenderedDuplicateIds=duplicates;}
+}libraryPaintDirty=false;libraryRenderedDuplicateIds=duplicates;observeMissingLibraryThumbnails();}
+let libraryThumbObserver=null,libraryThumbQueue=[],libraryThumbQueued=new Set(),libraryThumbWorker=false;
+function observeMissingLibraryThumbnails(){
+ const root=byId('savedIdeasGridContainer');if(!root)return;
+ const imgs=root.querySelectorAll('img[data-rivis-thumb-id][data-thumb-ready="0"]');
+ if(!imgs.length)return;
+ if(typeof IntersectionObserver==='undefined'){
+  for(const img of imgs){const id=img.dataset.rivisThumbId;if(id&&!libraryThumbQueued.has(id)){libraryThumbQueued.add(id);libraryThumbQueue.push(id);}}
+  processLibraryThumbnailQueue();return;
+ }
+ if(!libraryThumbObserver)libraryThumbObserver=new IntersectionObserver(entries=>{
+  for(const entry of entries){if(!entry.isIntersecting)continue;const img=entry.target;libraryThumbObserver.unobserve(img);
+   const id=img.dataset.rivisThumbId;if(id&&!libraryThumbQueued.has(id)){libraryThumbQueued.add(id);libraryThumbQueue.push(id);}
+  }processLibraryThumbnailQueue();
+ },{rootMargin:'240px 0px'});
+ imgs.forEach(img=>libraryThumbObserver.observe(img));
+}
+async function processLibraryThumbnailQueue(){
+ if(libraryThumbWorker)return;libraryThumbWorker=true;let changed=false;
+ try{
+  while(libraryThumbQueue.length){
+   const id=libraryThumbQueue.shift();libraryThumbQueued.delete(id);
+   const idea=state.savedIdeas.find(item=>String(item.ideaId)===String(id));
+   const img=document.querySelector(`img[data-rivis-thumb-id="${CSS.escape(String(id))}"]`);
+   if(!idea?.generatedImageUrl||idea.generatedImagePreviewUrl||!img)continue;
+   const source=idea.generatedImageUrl;
+   try{
+    const thumb=await rivisCreateLibraryThumbnail(source);
+    const current=state.savedIdeas.find(item=>String(item.ideaId)===String(id));
+    if(!current||current.generatedImageUrl!==source)continue;
+    current.generatedImagePreviewUrl=thumb.url;current.generatedImageWidth=thumb.width;current.generatedImageHeight=thumb.height;
+    img.dataset.thumbReady='1';img.dataset.nativeWidth=String(thumb.width);img.dataset.nativeHeight=String(thumb.height);img.src=thumb.url;
+    if(img.complete)showNativeSize(img);changed=true;
+   }catch(error){console.warn('Library thumbnail skipped:',id,error?.message||error);}
+   await new Promise(resolve=>requestAnimationFrame(resolve));
+  }
+  if(changed)persistSavedIdeas();
+ }finally{libraryThumbWorker=false;if(libraryThumbQueue.length)processLibraryThumbnailQueue();}
+}
 let lightboxState={scale:1,x:0,y:0,min:1,
 max:8,dragging:false,startX:0,startY:0,originX:0,originY:0,pointers:new Map(),pinchDistance:0,pinchScale:1,pinchCenterX:0,pinchCenterY:0,
 lastTap:0};

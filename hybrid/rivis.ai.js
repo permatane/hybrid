@@ -1,4 +1,4 @@
-/* RIVIS AI Runtime — carried forward unchanged for app v3.4.68. */
+/* RIVIS AI Runtime — v3.4.69 performance and memory optimization. */
 function scanIpRisk(value){const text=String(value||'');const issues=[];for(const match of text.matchAll(IP_RISK_PATTERN)){const before=text.slice(Math.max(0,
 match.index-35),match.index);if(/(?:\b(?:no|without|avoid|exclude|never|not|prohibit|remove|jangan|tanpa|hindari)\b|bukan)[^.!?\n]{0,22}$/i.test(before))continue;
 issues.push(match[0]);}if(/\b(?:in the style of|exact (?:replica|copy)|copy (?:the )?(?:character|logo|brand|product|design)|replicate (?:the )?(?:character|logo|brand)|identical to|looks? exactly like|fan art of)\b/i.test(text)){issues.push('instruksi peniruan');
@@ -102,14 +102,29 @@ const RIVIS_BATCH_PROGRESS=(()=>{
 })();
 window.RIVIS_BATCH_PROGRESS=RIVIS_BATCH_PROGRESS;
 
-function extractImagePalette(imgElementUrl,count=5){return new Promise((resolve)=>{if(!imgElementUrl){resolve(null);
-return;}const img=new Image();img.crossOrigin="Anonymous";img.onload=()=>{try{const canvas=document.createElement('canvas');const ctx=canvas.getContext('2d');
-canvas.width=64;canvas.height=64;ctx.drawImage(img,0,0,64,64);const imgData=ctx.getImageData(0,0,64,64).data;const colorMap={};
-for(let i=0;i<imgData.length;i+=16){const r=imgData[i],g=imgData[i+1],b=imgData[i+2],a=imgData[i+3];if(a<128)continue;const qr=Math.round(r/32)*32;
-const qg=Math.round(g/32)*32;const qb=Math.round(b/32)*32;const hex="#"+((1<<24)+(qr<<16)+(qg<<8)+qb).toString(16).slice(1).toUpperCase();
-colorMap[hex]=(colorMap[hex]||0)+1;}const sorted=Object.keys(colorMap).sort((a,b)=>colorMap[b]-colorMap[a]);const palette=sorted.slice(0,
-count);resolve(palette.length>0?palette:null);}catch(e){console.warn('Palette extraction failed',e);resolve(null);}};img.onerror=()=>resolve(null);
-img.src=imgElementUrl;});}
+function extractImagePalette(imgElementUrl,count=5){return new Promise(resolve=>{
+ if(!imgElementUrl){resolve(null);return;}
+ const img=new Image();img.crossOrigin='Anonymous';
+ img.onload=()=>{
+  let canvas=null;
+  try{
+   canvas=document.createElement('canvas');canvas.width=64;canvas.height=64;
+   const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw new Error('Canvas palette tidak tersedia.');
+   ctx.drawImage(img,0,0,64,64);const imgData=ctx.getImageData(0,0,64,64).data,colorMap={};
+   for(let i=0;i<imgData.length;i+=16){
+    const r=imgData[i],g=imgData[i+1],b=imgData[i+2],a=imgData[i+3];if(a<128)continue;
+    const qr=Math.round(r/32)*32,qg=Math.round(g/32)*32,qb=Math.round(b/32)*32;
+    const hex='#'+((1<<24)+(qr<<16)+(qg<<8)+qb).toString(16).slice(1).toUpperCase();
+    colorMap[hex]=(colorMap[hex]||0)+1;
+   }
+   const palette=Object.keys(colorMap).sort((a,b)=>colorMap[b]-colorMap[a]).slice(0,count);
+   resolve(palette.length?palette:null);
+  }catch(error){console.warn('Palette extraction failed',error);resolve(null);}
+  finally{if(canvas){canvas.width=0;canvas.height=0;}img.onload=null;img.onerror=null;img.src='';img.removeAttribute('src');}
+ };
+ img.onerror=()=>{img.onload=null;img.onerror=null;img.src='';resolve(null);};
+ img.src=imgElementUrl;
+});}
 function toggleApiKeyModal(){const modal=byId('apiKeyModal');
 if(modal)modal.classList.toggle('hidden');}
 function saveApiKey(val){state.apiKey=val;safeStorageSet(STORAGE_KEYS.API_KEY,val);
@@ -548,10 +563,24 @@ if(discoverSucceeded&&!controller.signal.aborted){setInnerProgress(btn,100);awai
 }clearInnerProgress(btn);btn.removeAttribute('title');discoverIdeasController=null;btn.removeAttribute('aria-busy');btn.setAttribute('aria-label',
 'Discover ideas');btn.disabled=false;btn.classList.remove('opacity-80','cursor-not-allowed');btn.innerHTML=` <span id="discoverIdeasBtnText">DISCOVER IDEAS</span>`;
 if(!controller.signal.aborted&&state.discoveredIdeas.length>0)setDiscoverBarCollapsed(true);else {}}}
-async function selectGeneratedImagePart(result){const images=(result?.candidates?.[0]?.content?.parts||[]).filter(p=>p?.inlineData?.data&&String(p.inlineData.mimeType||'image/png').startsWith('image/'));
-if(images.length<2)return images[0]||null;const sizes=await Promise.all(images.map(async part=>{try{const img=new Image();img.src='data:'+(part.inlineData.mimeType||'image/png')+';base64,'+part.inlineData.data;
-await img.decode();return{part,area:img.naturalWidth*img.naturalHeight};}catch{return{part,area:0};}}));return sizes.reduce((best,
-x)=>x.area>=best.area?x:best).part;}
+async function selectGeneratedImagePart(result){
+ const images=(result?.candidates?.[0]?.content?.parts||[]).filter(p=>p?.inlineData?.data&&String(p.inlineData.mimeType||'image/png').startsWith('image/'));
+ if(images.length<2)return images[0]||null;
+ let best=images[0],bestArea=-1;
+ // Decode sequentially: never hold multiple full-resolution 4K bitmaps at once.
+ for(const part of images){
+  let img=null,area=0;
+  try{
+   img=new Image();
+   img.src='data:'+(part.inlineData.mimeType||'image/png')+';base64,'+part.inlineData.data;
+   await img.decode();
+   area=img.naturalWidth*img.naturalHeight;
+  }catch(_){}
+  finally{if(img){img.src='';img.removeAttribute('src');}}
+  if(area>bestArea){bestArea=area;best=part;}
+ }
+ return best;
+}
 function imageGenerationConfig(ratio,imageResolution=state.imageResolution){const valid=['1K',
 '2K','4K'];return{responseModalities:['TEXT','IMAGE'],imageConfig:{aspectRatio:generationRatio(ratio||'1:1'),imageSize:valid.includes(imageResolution)?imageResolution:'4K'}};
 }
@@ -600,12 +629,23 @@ function rivisCollectionPrompt(idea){const n=rivisCollectionCount(idea);if(!n)re
  const rows=Math.floor(Math.sqrt(n));const cols=Math.ceil(n/Math.max(1,rows));
  return `CRITICAL COLLECTION SHEET REQUIREMENT: Produce ONE IMAGE containing EXACTLY ${n} visually distinct, SEPARATE, complete individual assets. Not a single large object, not a narrative scene, not one icon, not a repeated pattern. Use a clean spacious ${rows}-row by ${cols}-column grid or similarly balanced orderly contact sheet. ALL ${n} assets must be visible in full, evenly spaced and not touching, individually recognizable, with equal visual prominence. Do not repeat or duplicate any object, purpose or visual silhouette. Do not omit items. No bonus decoration, no border, no labels, no numbers, no lettering or typography. STRICT DISTINCT ITEM INVENTORY (${n} separate assets, each one MUST appear once):\n${items.map((x,i)=>`Asset ${i+1}: ${x}`).join('\n')}\nThe numbers above are instructions only; DO NOT render numbers in the image. Use one coordinated palette and one consistent style across all separate items. Count and compare every asset before returning the image.`;
 }
+async function rivisBuildCompactImagePart(url,maxSide=1800,quality=.84){
+ const img=await decodedPicture(url);let canvas=null;
+ try{
+  const scale=Math.min(1,maxSide/Math.max(img.naturalWidth,img.naturalHeight));
+  const width=Math.max(1,Math.round(img.naturalWidth*scale)),height=Math.max(1,Math.round(img.naturalHeight*scale));
+  canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+  const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw new Error('Canvas kompresi inspeksi tidak tersedia.');
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);ctx.drawImage(img,0,0,width,height);
+  const dataUrl=canvas.toDataURL('image/jpeg',quality),comma=dataUrl.indexOf(',');
+  return{inlineData:{mimeType:'image/jpeg',data:dataUrl.slice(comma+1)}};
+ }finally{if(canvas){canvas.width=0;canvas.height=0;}img.src='';img.removeAttribute('src');}
+}
 async function rivisAuditCollectionImage(idea,url,signal=null){const n=rivisCollectionCount(idea);if(!n)return null;
  if(offlineTestMode)return{pass:false,detectedCount:0,summary:'Mode uji offline: jumlah dan keunikan objek tidak diverifikasi.',missingItems:[],duplicateItems:[]};
- const dataUrl=String(url||'');const match=dataUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,([\s\S]+)$/i);
- if(!match)throw new Error('Format gambar untuk audit Collection tidak valid.');
+ const imagePart=await rivisBuildCompactImagePart(url,2048,.86);
  const prompt=`You are a strict visual collection-sheet inspector. Count visually SEPARATE foreground assets in this image, not the component details inside an object. Expected EXACTLY ${n} assets and NO repetitions, with the following inventories each represented once: ${JSON.stringify(idea.collectionItems||[])}. Compare identities, silhouettes, practical functions and activities, not just color. If uncertain, mark as fail. No imagined or invisible assets. Return strict JSON ONLY: {"detectedCount":0,"missingItems":["..."],"duplicateItems":["..."],"pass":false,"summary":"brief Indonesian explanation"}. Set pass=true ONLY if the actual visual count equals ${n}, the item identities are clearly distinguishable and none are duplicates; otherwise false.`;
- const r=await callGeminiApi('gemini-3-flash-preview',{contents:[{parts:[{text:prompt},{inlineData:{mimeType:match[1],data:match[2]}}]}],generationConfig:{responseMimeType:'application/json'}},signal);
+ const r=await callGeminiApi('gemini-3-flash-preview',{contents:[{parts:[{text:prompt},imagePart]}],generationConfig:{responseMimeType:'application/json'}},signal);
  const raw=(r.candidates?.[0]?.content?.parts||[]).filter(p=>typeof p.text==='string'&&!p.thought).map(p=>p.text).join('');
  const x=JSON.parse(raw.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,''));
  const detected=Number(x.detectedCount);const missing=Array.isArray(x.missingItems)?x.missingItems.map(String).slice(0,n):[];
@@ -659,7 +699,7 @@ function rivisSmartPromptOptimize(idea, prompt){
   if(idea?.productionType==='collection')add(/(?:each item|every item|distinct items|no duplicates|non.repeating)/i,'Every collection item must be visually distinct, individually readable and non-repeating while sharing one coherent art direction.');
   const additions=rules.slice(0,5);
   return{prompt:additions.length?original+'\nSMART QUALITY GUARD: '+additions.join(' '):original,
-    added:additions,mode:manual?'manual-preserved':'automatic',originalLength:original.length,version:'3.3.66'};
+    added:additions,mode:manual?'manual-preserved':'automatic',originalLength:original.length,version:'3.4.69'};
 }
 function rivisPreGenerationGuard(idea,prompt){
   const original=String(prompt||'').trim(),issues=[],additions=[];
@@ -686,17 +726,18 @@ function rivisPreGenerationGuard(idea,prompt){
   if(!has(/(?:no text|without text|no typography|no lettering)/i))additions.push('No unintended text, pseudo-letters, logos or watermarks.');
   const guarded=additions.length?original+'\nPRE-GENERATION GUARD: '+additions.slice(0,4).join(' '):original;
   const blocked=issues.some(x=>x.severity==='critical');
-  return{ok:!blocked,blocked,prompt:guarded,issues,added:additions.slice(0,4),version:'3.3.66'};
+  return{ok:!blocked,blocked,prompt:guarded,issues,added:additions.slice(0,4),version:'3.4.69'};
 }
 /** Build a compact reference image for Gemini image-to-image repair; not SVG tracing. */
 async function rivisBuildRepairReference(url){
-  const img=await decodedPicture(url), maxSide=768;
-  const scale=Math.min(1,maxSide/Math.max(img.naturalWidth,img.naturalHeight));
-  const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
+ const img=await decodedPicture(url);let canvas=null;
+ try{
+  const maxSide=768,scale=Math.min(1,maxSide/Math.max(img.naturalWidth,img.naturalHeight));
+  canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
   const ctx=canvas.getContext('2d');if(!ctx)throw new Error('Canvas referensi tidak tersedia.');
   ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
-  const data=canvas.toDataURL('image/jpeg',0.84).split(',')[1];canvas.width=1;canvas.height=1;
-  return {inlineData:{mimeType:'image/jpeg',data}};
+  return{inlineData:{mimeType:'image/jpeg',data:canvas.toDataURL('image/jpeg',0.84).split(',')[1]}};
+ }finally{if(canvas){canvas.width=0;canvas.height=0;}img.src='';img.removeAttribute('src');}
 }
 function rivisStockReadinessGate(idea,preflight){
   const raster=isRasterIdea(idea),tech=preflight?.technical||{},issues=preflight?.issues||[],checks=[];
@@ -740,67 +781,85 @@ function rivisRepairRank(a){
   const penalty=list.reduce((n,x)=>n+(x.severity==='critical'?1000:x.severity==='major'?100:x.severity==='minor'?10:0),0);
   return Number(a?.score||0)*100-penalty;
 }
-async function technicalImageScan(url,idea){
+async function technicalImageScan(url,idea,{includeAiParts=true}={}){
  const img=await decodedPicture(url),width=img.naturalWidth,height=img.naturalHeight;
  const mp=Number((width*height/1e6).toFixed(2)),raster=isRasterIdea(idea),source=String(url||''),requestedResolution=idea?.imageResolution||state?.imageResolution||'4K';
  const mimeMatch=/^data:([^;,]+)/i.exec(source),mimeType=mimeMatch?mimeMatch[1].toLowerCase():'unknown';
  let fileBytes=0;const comma=source.indexOf(',');
  if(comma>=0&&/^data:[^,]*;base64/i.test(source.slice(0,comma))){
-  const payload=source.slice(comma+1).replace(/\s/g,'');
-  const padding=payload.endsWith('==')?2:payload.endsWith('=')?1:0;
-  fileBytes=Math.max(0,Math.floor(payload.length*3/4)-padding);
+  const payloadLength=source.length-comma-1,padding=source.endsWith('==')?2:source.endsWith('=')?1:0;
+  fileBytes=Math.max(0,Math.floor(payloadLength*3/4)-padding);
  }
- const c=document.createElement('canvas'),scale=Math.min(1,512/Math.max(width,height));
- c.width=Math.max(1,Math.round(width*scale));c.height=Math.max(1,Math.round(height*scale));
- const ctx=c.getContext('2d',{willReadFrequently:true});if(!ctx)throw new Error('Canvas belum tersedia.');
- if(!raster){ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);}ctx.drawImage(img,0,0,c.width,c.height);
- const pixels=ctx.getImageData(0,0,c.width,c.height).data;let sum=0,sumSq=0,dark=0,bright=0;
- const total=pixels.length/4;
- for(let i=0;i<pixels.length;i+=4){
-  const y=pixels[i]*0.2126+pixels[i+1]*0.7152+pixels[i+2]*0.0722;
-  sum+=y;sumSq+=y*y;if(y<5)dark++;if(y>250)bright++;
- }
- const mean=sum/total,std=Math.sqrt(Math.max(0,sumSq/total-mean*mean));
- const darkPct=dark/total*100,brightPct=bright/total*100,issues=[];
- let eligibility='PASS';
- if(raster&&mp<4){eligibility='REVIEW';issues.push({severity:'major',area:'Resolusi raster',text:`${mp} MP belum mencapai minimum 4 MP. Ini tidak mengurangi Visual Quality Score, tetapi file belum siap diunggah sebagai JPEG/PNG raster.`});}
- if(raster&&mp>100){eligibility='FAIL';issues.push({severity:'critical',area:'Resolusi raster',text:`${mp} MP melebihi batas maksimum 100 MP untuk raster.`});}
- if(raster&&fileBytes>45*1024*1024){eligibility='FAIL';issues.push({severity:'critical',area:'Ukuran file',text:`Ukuran ${(fileBytes/1048576).toFixed(2)} MB melebihi batas 45 MB.`});}
- if(raster&&mimeType!=='unknown'&&!['image/jpeg','image/png'].includes(mimeType)){
-  eligibility='FAIL';issues.push({severity:'critical',area:'Format raster',text:`Format ${mimeType} bukan JPEG atau PNG.`});
- }
- return{width,height,mp,mimeType,fileBytes,fileMB:fileBytes?Number((fileBytes/1048576).toFixed(2)):null,requestedResolution,nativePixelsVerified:true,
-  lumaMean:Math.round(mean),lumaStd:Math.round(std),darkClipPct:Number(darkPct.toFixed(1)),
-  brightClipPct:Number(brightPct.toFixed(1)),eligibility,score:100,issues};
-}
-async function buildInspectionStrip(url){
- const img=await decodedPicture(url),w=img.naturalWidth,h=img.naturalHeight,tile=384;
- const cropW=Math.min(tile,w),cropH=Math.min(tile,h),sx=Math.max(0,Math.floor((w-cropW)/2)),sy=Math.max(0,Math.floor((h-cropH)/2));
- const c=document.createElement('canvas');c.width=tile*3;c.height=tile*2;
- const ctx=c.getContext('2d');if(!ctx)throw new Error('Canvas tidak tersedia.');
- ctx.fillStyle='#020617';ctx.fillRect(0,0,c.width,c.height);
- const spots=[
-  {dx:0,dy:0,x:0,y:0,label:'TOP LEFT'},
-  {dx:tile,dy:0,x:Math.max(0,w-cropW),y:0,label:'TOP RIGHT'},
-  {dx:tile*2,dy:0,x:sx,y:sy,label:'CENTER'},
-  {dx:0,dy:tile,x:0,y:Math.max(0,h-cropH),label:'BOTTOM LEFT'},
-  {dx:tile,dy:tile,x:Math.max(0,w-cropW),y:Math.max(0,h-cropH),label:'BOTTOM RIGHT'}
- ];
- spots.forEach(({dx,dy,x,y,label})=>{
-  const ox=dx+Math.floor((tile-cropW)/2),oy=dy+Math.floor((tile-cropH)/2);
-  ctx.drawImage(img,x,y,cropW,cropH,ox,oy,cropW,cropH);
-  ctx.strokeStyle='#334155';ctx.strokeRect(dx+0.5,dy+0.5,tile-1,tile-1);
-  ctx.fillStyle='rgba(2,6,23,.82)';ctx.fillRect(dx+6,dy+6,112,20);
-  ctx.fillStyle='#e2e8f0';ctx.font='700 11px sans-serif';ctx.fillText('100% '+label,dx+12,dy+20);
- });
- return c.toDataURL('image/png');
+ let canvas=null,previewUrl='',fullPart=null,cropPart=null;
+ try{
+  canvas=document.createElement('canvas');
+  const sampleScale=Math.min(1,512/Math.max(width,height));
+  canvas.width=Math.max(1,Math.round(width*sampleScale));canvas.height=Math.max(1,Math.round(height*sampleScale));
+  let ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw new Error('Canvas belum tersedia.');
+  if(!raster){ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);}
+  ctx.drawImage(img,0,0,canvas.width,canvas.height);
+  const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;let sum=0,sumSq=0,dark=0,bright=0;
+  const total=pixels.length/4;
+  for(let i=0;i<pixels.length;i+=4){const y=pixels[i]*0.2126+pixels[i+1]*0.7152+pixels[i+2]*0.0722;
+   sum+=y;sumSq+=y*y;if(y<5)dark++;if(y>250)bright++;}
+  const mean=sum/total,std=Math.sqrt(Math.max(0,sumSq/total-mean*mean));
+  const darkPct=dark/total*100,brightPct=bright/total*100,issues=[];
+  let eligibility='PASS';
+  if(raster&&mp<4){eligibility='REVIEW';issues.push({severity:'major',area:'Resolusi raster',text:`${mp} MP belum mencapai minimum 4 MP. Ini tidak mengurangi Visual Quality Score, tetapi file belum siap diunggah sebagai JPEG/PNG raster.`});}
+  if(raster&&mp>100){eligibility='FAIL';issues.push({severity:'critical',area:'Resolusi raster',text:`${mp} MP melebihi batas maksimum 100 MP untuk raster.`});}
+  if(raster&&fileBytes>45*1024*1024){eligibility='FAIL';issues.push({severity:'critical',area:'Ukuran file',text:`Ukuran ${(fileBytes/1048576).toFixed(2)} MB melebihi batas 45 MB.`});}
+  if(raster&&mimeType!=='unknown'&&!['image/jpeg','image/png'].includes(mimeType)){
+   eligibility='FAIL';issues.push({severity:'critical',area:'Format raster',text:`Format ${mimeType} bukan JPEG atau PNG.`});}
+
+  // Small PNG preview: Library cards no longer decode every full-size 4K image.
+  const previewScale=Math.min(1,640/Math.max(width,height));
+  canvas.width=Math.max(1,Math.round(width*previewScale));canvas.height=Math.max(1,Math.round(height*previewScale));
+  ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
+  previewUrl=canvas.toDataURL('image/png');
+
+  if(includeAiParts){
+   // AI receives a compressed 1600px overview plus five native 384px crops,
+   // not the full 4K Base64 payload. Original file is kept untouched.
+   const overviewScale=Math.min(1,1600/Math.max(width,height));
+   canvas.width=Math.max(1,Math.round(width*overviewScale));canvas.height=Math.max(1,Math.round(height*overviewScale));
+   ctx=canvas.getContext('2d',{alpha:false});ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+   ctx.drawImage(img,0,0,canvas.width,canvas.height);
+   const overviewUrl=canvas.toDataURL('image/jpeg',.84),overviewComma=overviewUrl.indexOf(',');
+   fullPart={inlineData:{mimeType:'image/jpeg',data:overviewUrl.slice(overviewComma+1)}};
+
+   const tile=384,w=width,h=height,cropW=Math.min(tile,w),cropH=Math.min(tile,h);
+   const sx=Math.max(0,Math.floor((w-cropW)/2)),sy=Math.max(0,Math.floor((h-cropH)/2));
+   canvas.width=tile*3;canvas.height=tile*2;ctx=canvas.getContext('2d');
+   ctx.fillStyle='#020617';ctx.fillRect(0,0,canvas.width,canvas.height);
+   const spots=[
+    {dx:0,dy:0,x:0,y:0,label:'TOP LEFT'},
+    {dx:tile,dy:0,x:Math.max(0,w-cropW),y:0,label:'TOP RIGHT'},
+    {dx:tile*2,dy:0,x:sx,y:sy,label:'CENTER'},
+    {dx:0,dy:tile,x:0,y:Math.max(0,h-cropH),label:'BOTTOM LEFT'},
+    {dx:tile,dy:tile,x:Math.max(0,w-cropW),y:Math.max(0,h-cropH),label:'BOTTOM RIGHT'}
+   ];
+   for(const spot of spots){
+    const ox=spot.dx+Math.floor((tile-cropW)/2),oy=spot.dy+Math.floor((tile-cropH)/2);
+    ctx.drawImage(img,spot.x,spot.y,cropW,cropH,ox,oy,cropW,cropH);
+    ctx.strokeStyle='#334155';ctx.strokeRect(spot.dx+.5,spot.dy+.5,tile-1,tile-1);
+    ctx.fillStyle='rgba(2,6,23,.82)';ctx.fillRect(spot.dx+6,spot.dy+6,112,20);
+    ctx.fillStyle='#e2e8f0';ctx.font='700 11px sans-serif';ctx.fillText('100% '+spot.label,spot.dx+12,spot.dy+20);
+   }
+   const cropUrl=canvas.toDataURL('image/png'),cropComma=cropUrl.indexOf(',');
+   cropPart={inlineData:{mimeType:'image/png',data:cropUrl.slice(cropComma+1)}};
+  }
+  return{width,height,mp,mimeType,fileBytes,fileMB:fileBytes?Number((fileBytes/1048576).toFixed(2)):null,requestedResolution,nativePixelsVerified:true,
+   lumaMean:Math.round(mean),lumaStd:Math.round(std),darkClipPct:Number(darkPct.toFixed(1)),
+   brightClipPct:Number(brightPct.toFixed(1)),eligibility,score:100,issues,previewUrl,fullPart,cropPart};
+ }finally{if(canvas){canvas.width=0;canvas.height=0;}img.src='';img.removeAttribute('src');}
 }
 async function inspectGeneratedImageQuality(idea,url,signal=null){
- const tech=await technicalImageScan(url,idea);
+ let {previewUrl,fullPart,cropPart,...tech}=await technicalImageScan(url,idea,{includeAiParts:!offlineTestMode});
  if(offlineTestMode){
   const simulated=offlinePreflightResult(idea,tech);
   simulated.status='REVIEW';
   simulated.technical=tech;
+  simulated.previewUrl=previewUrl;
   simulated.issues=[...(simulated.issues||[]),{severity:'minor',area:'Mode Offline',text:'Skor ini hanya simulasi untuk menguji alur aplikasi; bukan hasil inspeksi AI dan tidak boleh dipakai sebagai dasar upload.'}];
   simulated.manualChecks=[...(simulated.manualChecks||[]),'Mode Offline tidak menganalisis cacat visual dengan model AI.'];
   simulated.visualRepairNeeded=false;
@@ -808,9 +867,6 @@ async function inspectGeneratedImageQuality(idea,url,signal=null){
   simulated.manualChecks.push('Stock Readiness: '+simulated.stockReadiness.label+'. Mode Offline tidak dapat memberikan status siap submit.');
   return simulated;
  }
- const strip=await buildInspectionStrip(url);
- const fullPart={inlineData:{mimeType:url.slice(5,url.indexOf(';'))||'image/png',data:url.slice(url.indexOf(',')+1)}};
- const cropPart={inlineData:{mimeType:'image/png',data:strip.slice(strip.indexOf(',')+1)}};
  const isRaster=isRasterIdea(idea);
  const definitions=isRaster?[
   {key:'c1',label:'Anatomy & Object Integrity',weight:30,rule:'Nilai anatomi manusia/hewan bila ada, tangan dan jari bila terlihat, wajah, proporsi, sambungan, perspektif, serta bentuk dan interaksi objek. Jangan menghukum gambar yang tidak menampilkan manusia atau tangan.'},
@@ -838,6 +894,7 @@ Separately note obvious visible brand/logo/character concerns as an issue for ma
 Return strict JSON only, using exactly these five component keys and numeric scores:
 {"components":{"c1":{"score":0,"reason":"..."},"c2":{"score":0,"reason":"..."},"c3":{"score":0,"reason":"..."},"c4":{"score":0,"reason":"..."},"c5":{"score":0,"reason":"..."}},"issues":[{"severity":"critical|major|minor","area":"...","text":"..."}],"repairFocus":"...","manualChecks":["..."]}`;
  const res=await callGeminiApi('gemini-3-flash-preview',{contents:[{parts:[{text:rubric},fullPart,cropPart]}],generationConfig:{responseMimeType:'application/json'}},signal);
+ fullPart=null;cropPart=null;
  const rawText=res?.candidates?.[0]?.content?.parts?.filter(p=>typeof p.text==='string'&&!p.thought).map(p=>p.text).join('')||'';
  const cleaned=rawText.replace(/^\s*`{3}(?:json)?\s*/i,'').replace(/\s*`{3}\s*$/,'');
  const first=cleaned.indexOf('{'),last=cleaned.lastIndexOf('}');
@@ -865,18 +922,34 @@ Return strict JSON only, using exactly these five component keys and numeric sco
  const manualChecks=Array.isArray(ai?.manualChecks)?ai.manualChecks.map(String):['Periksa zoom 100% sebelum submission.'];
  manualChecks.push('Pemeriksaan legal IP/hak cipta tidak dapat dipastikan hanya dari inspeksi visual; verifikasi prompt dan hak penggunaan aset.');
  manualChecks.push(isRaster?'Pastikan file ekspor final memenuhi 4–100 MP dan ukuran maksimum 45 MB.':'Mode Vector: batas minimum 4 MP tidak diterapkan pada skor gambar sumber; periksa kualitas SVG final setelah vectorization.');
- const result={score,status,technical:tech,components,issues,repairFocus,manualChecks,visualRepairNeeded,
+ const result={score,status,technical:tech,components,issues,repairFocus,manualChecks,visualRepairNeeded,previewUrl,
   inspectedAt:new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})};
  result.stockReadiness=rivisStockReadinessGate(idea,result);
  manualChecks.push('Stock Readiness: '+result.stockReadiness.label+'. '+result.stockReadiness.summary);
  return result;
 }
-async function handleAuditGeneratedImage(ideaId,
-btnEl){const idea=state.savedIdeas.find(i=>i.ideaId===ideaId);if(!idea?.generatedImageUrl){showToast('Gambar belum tersedia untuk diperiksa.',
-'error');return;}if(btnEl){btnEl.disabled=true;btnEl.textContent='Memeriksa…';}try{idea.visualPreflight=await inspectGeneratedImageQuality(idea,
-idea.generatedImageUrl);persistSavedIdeas();renderSavedIdeasGrid(ideaId);showToast(`Visual Preflight: ${idea.visualPreflight.score}/100 (${idea.visualPreflight.status})`,
-idea.visualPreflight.status==='PASS'?'success':'info');}catch(err){showToast('Gagal memeriksa gambar: '+err.message,'error');
-}finally{if(btnEl&&btnEl.isConnected){btnEl.disabled=false;btnEl.textContent='Periksa Ulang';}}}
+async function handleAuditGeneratedImage(ideaId,btnEl){
+ const idea=state.savedIdeas.find(i=>i.ideaId===ideaId);if(!idea?.generatedImageUrl){showToast('Gambar belum tersedia untuk diperiksa.','error');return;}
+ if(btnEl){btnEl.disabled=true;btnEl.textContent='Memeriksa…';}
+ try{
+  const report=await inspectGeneratedImageQuality(idea,idea.generatedImageUrl);
+  if(report.previewUrl){idea.generatedImagePreviewUrl=report.previewUrl;delete report.previewUrl;}
+  if(report.technical){idea.generatedImageWidth=report.technical.width;idea.generatedImageHeight=report.technical.height;}
+  idea.visualPreflight=report;persistSavedIdeas();renderSavedIdeasGrid(ideaId);
+  showToast(`Visual Preflight: ${report.score}/100 (${report.status})`,report.status==='PASS'?'success':'info');
+ }catch(err){showToast('Gagal memeriksa gambar: '+err.message,'error');}
+ finally{if(btnEl&&btnEl.isConnected){btnEl.disabled=false;btnEl.textContent='Periksa Ulang';}}
+}
+async function rivisCreateLibraryThumbnail(url){
+ const img=await decodedPicture(url);let canvas=null;
+ try{
+  const width=img.naturalWidth,height=img.naturalHeight,scale=Math.min(1,640/Math.max(width,height));
+  canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(width*scale));canvas.height=Math.max(1,Math.round(height*scale));
+  const ctx=canvas.getContext('2d');if(!ctx)throw new Error('Canvas thumbnail tidak tersedia.');
+  ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
+  return{url:canvas.toDataURL('image/png'),width,height};
+ }finally{if(canvas){canvas.width=0;canvas.height=0;}img.src='';img.removeAttribute('src');}
+}
 async function handleGenerateStockImageForIdea(ideaId,
 btnEl,options={}){const{signal=null,silent=false,ideaSnapshot=null,expectedRevision=null,jobOwner=null}=options;const liveIdea=state.savedIdeas.find(i=>i.ideaId===ideaId);
 if(!liveIdea)return null;const owner=jobOwner||Symbol('image');if(!claimCardJob(ideaId,'image',owner)){if(!silent)showToast('Gambar kartu ini sedang diproses.',
@@ -890,15 +963,17 @@ true);},800);try{const negPrompt=idea.negativePrompt??byId('negativePromptInput'
 }await rivisEnsureCollectionManifest(idea,signal);const basePrompt=buildStockImagePrompt(idea,negPrompt);const collectionDirective=rivisCollectionPrompt(idea);
 const effectivePrompt=collectionDirective?basePrompt+'\n'+collectionDirective:basePrompt;const qualityDirective=qualityFirstPrompt(idea);const qualityBase=qualityDirective?`${effectivePrompt}\n${qualityDirective}`:effectivePrompt;const promptOptimization=rivisSmartPromptOptimize(idea,qualityBase);const preGenerationGuard=rivisPreGenerationGuard(idea,promptOptimization.prompt);if(!preGenerationGuard.ok)throw new Error('Pre-Generation Guard: '+preGenerationGuard.issues.filter(x=>x.severity==='critical').map(x=>x.text).join(' '));const fullPrompt=preGenerationGuard.prompt;
 const requestImage=async(prompt,referencePart=null)=>{if(offlineTestMode)return offlineImageResponse(idea,ratio,signal);const parts=[{text:prompt}];if(referencePart)parts.push(referencePart);return callGeminiApi('gemini-3.1-flash-image',
-{contents:[{parts}],generationConfig:imageGenerationConfig(ratio,idea.imageResolution||state.imageResolution||'4K')},signal);};const res=await requestImage(fullPrompt);if(signal?.aborted)return null;const imgPart=await selectGeneratedImagePart(res);
-const imgBase64=imgPart?.inlineData?.data?String(imgPart.inlineData.data).replace(/\s+/g,''):'';const imgMime=imgPart?.inlineData?.mimeType||'image/png';
+{contents:[{parts}],generationConfig:imageGenerationConfig(ratio,idea.imageResolution||state.imageResolution||'4K')},signal);};let res=await requestImage(fullPrompt);if(signal?.aborted)return null;let imgPart=await selectGeneratedImagePart(res);
+let imgBase64=imgPart?.inlineData?.data?String(imgPart.inlineData.data).replace(/\s+/g,''):'';const imgMime=imgPart?.inlineData?.mimeType||'image/png';
 if(!imgBase64){const candidate=res?.candidates?.[0];const detail=candidate?.content?.parts?.map(p=>p.text||'').filter(Boolean).join(' ')||candidate?.finishMessage||candidate?.finishReason||res?.promptFeedback?.blockReason||'Gemini API tidak mengembalikan gambar.';
-throw new Error(String(detail).slice(0,300));}let candidateUrl=`data:${imgMime};base64,${imgBase64}`;let preflight=null;let repairAttempts=0;
+throw new Error(String(detail).slice(0,300));}let candidateUrl=`data:${imgMime};base64,${imgBase64}`;
+res=null;imgPart=null;imgBase64='';
+let preflight=null;let repairAttempts=0;
 let repairMessage='';if(qualityFirstEnabled()){
  try{
   preflight=await inspectGeneratedImageQuality(idea,candidateUrl,signal);if(signal?.aborted)return null;
   if(qualityFirstPrefs.repair&&preflight.visualRepairNeeded){
-   const maxRepairCycles=2;
+   const maxRepairCycles=1;
    for(let cycle=1;cycle<=maxRepairCycles;cycle++){
     if(signal?.aborted)return null;
     const repairableIssues=(preflight.issues||[]).filter(x=>!['Resolusi raster','Ukuran file','Format raster'].includes(String(x.area||'')));
@@ -906,10 +981,11 @@ let repairMessage='';if(qualityFirstEnabled()){
     if(!fixNotes.trim())break;
     const repairPrompt=`${fullPrompt}\nTARGETED IMAGE-TO-IMAGE REPAIR · CYCLE ${cycle}/${maxRepairCycles}: Treat the ATTACHED image as the exact source to preserve, not inspiration for a new design. Keep the same subject count, object identities, poses, object placements, view direction, crop, layout, silhouette, palette and overall art direction. Correct ONLY these observed defects: ${fixNotes}. Prioritize anatomically correct forms and physically plausible contacts when relevant; clean edges and intersections; natural material detail; coherent lighting. Do not redesign, add, delete, duplicate or relocate objects. Do not add decorative details, text or watermarks. If a listed defect is not visible, preserve the original area.`;
     const repairReference=offlineTestMode?null:await rivisBuildRepairReference(candidateUrl);
-    const repairedRes=await requestImage(repairPrompt,repairReference);if(signal?.aborted)return null;
-    const repairedPart=await selectGeneratedImagePart(repairedRes),repairedBase64=repairedPart?.inlineData?.data;
-    if(!repairedBase64)break;
+    let repairedRes=await requestImage(repairPrompt,repairReference);if(signal?.aborted)return null;
+    let repairedPart=await selectGeneratedImagePart(repairedRes),repairedBase64=repairedPart?.inlineData?.data;
+    if(!repairedBase64){repairedRes=null;repairedPart=null;break;}
     const repairedUrl=`data:${repairedPart.inlineData.mimeType||'image/png'};base64,${repairedBase64}`;
+    repairedRes=null;repairedPart=null;repairedBase64=null;
     const repairedAudit=await inspectGeneratedImageQuality(idea,repairedUrl,signal);if(signal?.aborted)return null;
     if(rivisRepairRank(repairedAudit)>rivisRepairRank(preflight)){
      candidateUrl=repairedUrl;preflight=repairedAudit;repairAttempts=cycle;
@@ -931,9 +1007,10 @@ if(rivisCollectionCount(idea)){
     collectionCheck.missingItems.length?'MISSING: '+collectionCheck.missingItems.join('; '):'',
     collectionCheck.duplicateItems.length?'DUPLICATES: '+collectionCheck.duplicateItems.join('; '):''].filter(Boolean).join(' ');
    const retryPrompt=fullPrompt+'\nMANDATORY COUNT/UNIQUENESS CORRECTION: '+problems+' Regenerate a NEW complete set sheet with exactly '+idea.collectionItemCount+' DIFFERENT isolated subjects as enumerated. Not a single composite object, no repeats, no partial items. Re-check all items before output.';
-   const retryRes=await requestImage(retryPrompt);if(signal?.aborted)return null;
-   const retryPart=await selectGeneratedImagePart(retryRes);
+   let retryRes=await requestImage(retryPrompt);if(signal?.aborted)return null;
+   let retryPart=await selectGeneratedImagePart(retryRes);
    if(retryPart?.inlineData?.data){const retryUrl=`data:${retryPart.inlineData.mimeType||'image/png'};base64,${retryPart.inlineData.data}`;
+    retryRes=null;retryPart=null;
     const recheck=await rivisAuditCollectionImage(idea,retryUrl,signal);
     if(recheck.pass||(!collectionCheck.pass&&Math.abs(idea.collectionItemCount-recheck.detectedCount)<Math.abs(idea.collectionItemCount-collectionCheck.detectedCount))){
      candidateUrl=retryUrl;collectionCheck=recheck;
@@ -941,7 +1018,7 @@ if(rivisCollectionCount(idea)){
       try{preflight=await inspectGeneratedImageQuality(idea,candidateUrl,signal);}catch(e){preflight=null;}
      }
     }
-   }
+   }else{retryRes=null;retryPart=null;}
   }
  }catch(checkError){if(signal?.aborted||checkError?.name==='AbortError')return null;
   collectionCheck={pass:false,detectedCount:0,missingItems:[],duplicateItems:[],summary:'Audit otomatis belum dapat diselesaikan; cek jumlah dan keunikan secara manual.'};
@@ -949,9 +1026,19 @@ if(rivisCollectionCount(idea)){
  }
 }
 if(signal?.aborted||getCardRevision(ideaId)!==revAtStart)return null;
-const current=state.savedIdeas.find(i=>i.ideaId===ideaId);if(!current)return null;current.generatedImageUrl=candidateUrl;current.imageGeneratedOn=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'});
+const current=state.savedIdeas.find(i=>i.ideaId===ideaId);if(!current)return null;
+let previewInfo=null;
+if(preflight?.previewUrl){
+ previewInfo={url:preflight.previewUrl,width:preflight.technical?.width||0,height:preflight.technical?.height||0};
+ delete preflight.previewUrl;
+}else{previewInfo=await rivisCreateLibraryThumbnail(candidateUrl);}
+current.generatedImageUrl=candidateUrl;
+current.generatedImagePreviewUrl=previewInfo.url;
+current.generatedImageWidth=previewInfo.width;
+current.generatedImageHeight=previewInfo.height;
+current.imageGeneratedOn=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'});
  current.collectionItemCount=idea.collectionItemCount||null;current.collectionItems=Array.isArray(idea.collectionItems)?[...idea.collectionItems]:undefined;current.collectionCheck=collectionCheck;
- current.imagePromptOutdated=false;current.visualPreflight=preflight;current.qualityRepairAttempts=repairAttempts;current.qualityRepairMessage=repairMessage;current.promptQualityOptimization={ruleCount:promptOptimization.added.length,mode:promptOptimization.mode,version:'3.3.66',guardCount:preGenerationGuard.added.length,guardIssues:preGenerationGuard.issues};current.stockReadiness=preflight?refreshRivisStockReadiness(current):null;
+ current.imagePromptOutdated=false;current.visualPreflight=preflight;current.qualityRepairAttempts=repairAttempts;current.qualityRepairMessage=repairMessage;current.promptQualityOptimization={ruleCount:promptOptimization.added.length,mode:promptOptimization.mode,version:'3.4.69',guardCount:preGenerationGuard.added.length,guardIssues:preGenerationGuard.issues};current.stockReadiness=preflight?refreshRivisStockReadiness(current):null;
 const extractedColors=await extractImagePalette(current.generatedImageUrl,5);if(extractedColors&&getCardRevision(ideaId)===revAtStart)current.colorPaletteHex=extractedColors;
 await persistSavedIdeas();imageSucceeded=true;if(typeof collapseLibraryPromptAfterImage==='function')collapseLibraryPromptAfterImage(ideaId);renderSavedIdeasGrid(ideaId);if(!silent){const note=preflight?` · Preflight ${preflight.score}/100 (${preflight.status})`:'';
 showToast("High-Res Image Generated!"+note,preflight&&preflight.status==='FAIL'?'info':'success');}return current;}catch(err){if(signal?.aborted||err?.name==='AbortError')return null;
@@ -1063,7 +1150,7 @@ Return STRICT JSON array of 4 objects:
   }
 ]`;const payload={contents:[{parts:[{text:promptText}]}],generationConfig:{responseMimeType:"application/json"}};const res=await callGeminiApi('gemini-3-flash-preview',
 payload);const jsonText=res?.candidates?.[0]?.content?.parts?.[0]?.text;parsed=JSON.parse(jsonText);}if(Array.isArray(parsed)&&parsed.length>0){const base=JSON.parse(JSON.stringify(idea));
-delete base.generatedImageUrl;delete base.imageGeneratedOn;delete base.visualPreflight;delete base.visualPreflightPending;delete base.qualityRepairAttempts;
+delete base.generatedImageUrl;delete base.generatedImagePreviewUrl;delete base.generatedImageWidth;delete base.generatedImageHeight;delete base.imageGeneratedOn;delete base.visualPreflight;delete base.visualPreflightPending;delete base.qualityRepairAttempts;
 delete base.qualityRepairMessage;delete base.metadata;delete base.colorPaletteHex;delete base.imagePromptOutdated;delete base.metadataOutdated;
 delete base.promptBlueprint;delete base.hybridInitialized;const created=parsed.slice(0,4).map((item,idx)=>{const shortCode=Math.random().toString(36).substring(2,
 6).toLowerCase();const remixed={...base,ideaId:`IDEA-RMX-${Date.now().toString(36)}-${idx+1}`,shortCode,conceptName:item.conceptName||`${idea.conceptName} — Style ${idx+1}`,
