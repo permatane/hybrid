@@ -1,6 +1,6 @@
 {
-  "version": "3.1.63",
+  "version": "3.1.65",
   "channel": "latest",
   "support": "hybrid/rivis.support.js",
-  "notes": "Collection Item Manifest & AI count audit, Library accordion, date overlay, MP red/green; retains independent Canvas loading and Vector 1K default."
+  "notes": "Library Visual Prompt is automatically expanded on cards before the first image is generated, then collapses after a successful image generation. Users can still reopen or manually collapse the prompt. Existing Re Metadata per-card progress, Meta All, Collection, Library, date overlay, MP indicator, independent Canvas loading and Vector 1K default retained."
 }
