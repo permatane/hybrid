@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#110d1e">
-<title>RIVIS META GEN · Vectorich Metadata v1.4.8</title>
+<title>METADATA Generator</title>
 <style>
 :root{color-scheme:dark;--bg:#100d1b;--surface:#1b162b;--surface2:#241c39;--stroke:#3c3154;--text:#f5f1ff;--muted:#b5a9cd;--purple:#a78bfa;--purple2:#8b5cf6;--pink:#e879f9;--green:#5ee2bb;--red:#f9a2b0;--yellow:#f6d48c;--radius:18px}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;min-height:100vh;font:14px/1.55 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:radial-gradient(ellipse 700px 380px at 4% -6%,#3a235877,transparent 75%),radial-gradient(ellipse 600px 480px at 100% 75%,#32215855,transparent 80%),var(--bg);color:var(--text)}
@@ -284,18 +284,8 @@ main{padding-top:28px;padding-bottom:65px}.intro{display:flex;align-items:end;ju
 </style>
 </head>
 <body>
-<header>
-  <div class="container header-inner">
-    <div class="brand">
-      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l5-5 4 4 3-3 4 4M4 5h16v14H4z"/><circle cx="16.5" cy="8.5" r="1.5"/></svg></div>
-      <div><div class="brand-name">Vectorich <span>Metadata</span></div><div class="brand-sub">Microstock Metadata Studio · v1.4.8</div></div>
-    </div>
-    <div class="header-side"><span class="hide-medium hide-mobile">AI-powered metadata for stock assets</span><span class="pill">English Output</span></div>
-  </div>
-</header>
 <main class="container">
-  <div class="intro"><div><h2>Generate metadata yang lebih relevan</h2><p>Title, description, dan keywords dalam bahasa Inggris untuk kebutuhan microstock.</p></div><span class="small-note">Batch processing · Auto categories · Ready-to-package ZIP</span></div>
-  <div class="input-row" aria-label="Platform microstock dan upload file">
+    <div class="input-row" aria-label="Platform microstock dan upload file">
   <section class="platform-panel" aria-label="Microstock platform options"><div><label for="platformSelect">Target microstock</label><select id="platformSelect"><option value="adobe">Adobe Stock · official CSV</option><option value="shutterstock">Shutterstock · official CSV</option><option value="vecteezy">Vecteezy · official CSV</option><option value="freepik">Freepik · CSV preview (verify template)</option><option value="generic">Generic / other microstock</option></select></div><p id="platformInfo">Choose your target platform to switch its CSV headers, metadata limits and required fields. Metadata already generated stays editable.</p></section>
   <div class="upload-column">
   <section class="upload" id="uploadSection" role="button" tabindex="0" aria-label="Pilih atau tarik gambar untuk dianalisis">
@@ -329,7 +319,7 @@ main{padding-top:28px;padding-bottom:65px}.intro{display:flex;align-items:end;ju
 <div id="imageHoverPopup" class="image-hover-popup" aria-hidden="true"><img id="imageHoverPopupImg" alt=""><div class="hover-popup-foot"><span id="imageHoverPopupName" class="hover-popup-name"></span><span class="hover-popup-tip">Klik untuk zoom</span></div></div>
 <div id="globalDropOverlay" class="global-drop-overlay hidden" aria-hidden="true"><div class="global-drop-message"><strong>Lepaskan gambar untuk upload</strong><span>PNG · JPG · WebP · SVG · Bisa beberapa gambar sekaligus</span></div></div>
 <div id="toastContainer" class="toast-box" aria-live="polite"></div>
-<footer>Vectorich Metadata v1.4.8 · Quality scores are heuristic checks, not sales or marketplace approval predictions.</footer>
+
 <script>
 'use strict';
 // Preserve the original Gemini Canvas API route and intentionally empty API key.

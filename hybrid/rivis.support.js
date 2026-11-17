@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — App v3.4.70 (Canvas 3.4 / GitHub 70). META GEN integration + memory-safe Library. */
+/* RIVIS GitHub Support — App v3.4.71 (Canvas 3.4 / GitHub 71). META GEN presentation update + memory-safe Library. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1209,7 +1209,7 @@ async function downloadSvg(){const id=el('rivisVectorModal').dataset.idea,result
 window.RIVIS_VECTOR=Object.freeze({open,close,convert,downloadSVG:downloadSvg});
 })();
 
-/* RIVIS v3.4.70 — META GEN tab. Vectorich Metadata is isolated in a lazy-loaded iframe,
+/* RIVIS v3.4.71 — META GEN tab. Metadata Generator is isolated in a lazy-loaded iframe,
    while all Gemini requests reuse the authenticated RIVIS AI request manager. */
 (function installRivisMetaGen(){
  'use strict';
@@ -1235,7 +1235,7 @@ window.RIVIS_VECTOR=Object.freeze({open,close,convert,downloadSVG:downloadSvg});
  if(saved&&!byId('tabSectionMetaGen')){
   const section=document.createElement('section');
   section.id='tabSectionMetaGen';section.className='tab-section hidden space-y-3';
-  section.innerHTML=`<div class="flex items-center justify-between gap-3 flex-wrap px-1 py-1"><div><h2 class="text-sm md:text-base font-black tracking-wide text-white">META GEN</h2><p class="text-[10px] md:text-xs text-slate-400">Generate metadata microstock · Shared RIVIS Gemini Runtime</p></div><span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-700/60 bg-emerald-950/50 px-2.5 py-1 text-[10px] font-bold text-emerald-300"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> RIVIS CONNECTED</span></div><div id="metaGenHost"><div id="metaGenLoading" role="status" aria-live="polite"><div class="meta-gen-load-inner"><div style="font-size:28px">✦</div><strong>Memuat META GEN</strong><span style="font-size:12px;color:#a89abf">Modul Vectorich Metadata akan dimuat saat tab pertama kali dibuka.</span></div></div><iframe id="metaGenFrame" title="META GEN · Vectorich Metadata" loading="lazy" sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox" allow="clipboard-read; clipboard-write" hidden></iframe></div>`;
+  section.innerHTML=`<div class="flex items-center justify-between gap-3 flex-wrap px-1 py-1"><div><h2 class="text-sm md:text-base font-black tracking-wide text-white">METADATA Generator</h2></div><span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-700/60 bg-emerald-950/50 px-2.5 py-1 text-[10px] font-bold text-emerald-300"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> RIVIS CONNECTED</span></div><div id="metaGenHost"><div id="metaGenLoading" role="status" aria-live="polite"><div class="meta-gen-load-inner"><div style="font-size:28px">✦</div><strong>Memuat METADATA Generator</strong><span style="font-size:12px;color:#a89abf">Modul metadata akan dimuat saat tab pertama kali dibuka.</span></div></div><iframe id="metaGenFrame" title="METADATA Generator" loading="lazy" sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox" allow="clipboard-read; clipboard-write" hidden></iframe></div>`;
   saved.insertAdjacentElement('afterend',section);
  }
  window.RIVIS_META_GEN_API=async function(payload){
@@ -1259,10 +1259,10 @@ window.RIVIS_VECTOR=Object.freeze({open,close,convert,downloadSVG:downloadSvg});
   for(const base of urls){
    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
    try{
-    const response=await fetch(base+'?rv=3.4.70',{cache:'no-store',signal:controller.signal,headers:{Accept:'text/html, text/plain, */*'}});
+    const response=await fetch(base+'?rv=3.4.71',{cache:'no-store',signal:controller.signal,headers:{Accept:'text/html, text/plain, */*'}});
     if(!response.ok)throw new Error('HTTP '+response.status);
     const html=await response.text();
-    if(html.length<50000||!html.includes('RIVIS_META_GEN_API')||!html.includes('Vectorich Metadata'))throw new Error('File META GEN tidak lengkap atau belum diperbarui.');
+    if(html.length<50000||!html.includes('RIVIS_META_GEN_API')||!html.includes('<title>METADATA Generator</title>'))throw new Error('File META GEN tidak lengkap atau belum diperbarui.');
     return html;
    }catch(error){errors.push(String(error?.message||error));}
    finally{clearTimeout(timer);}
