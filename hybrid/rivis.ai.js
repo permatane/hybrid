@@ -1,4 +1,4 @@
-/* RIVIS AI Runtime — v3.4.69 performance and memory optimization. */
+/* RIVIS AI Runtime — v3.4.72 collection validation and error handling. */
 function scanIpRisk(value){const text=String(value||'');const issues=[];for(const match of text.matchAll(IP_RISK_PATTERN)){const before=text.slice(Math.max(0,
 match.index-35),match.index);if(/(?:\b(?:no|without|avoid|exclude|never|not|prohibit|remove|jangan|tanpa|hindari)\b|bukan)[^.!?\n]{0,22}$/i.test(before))continue;
 issues.push(match[0]);}if(/\b(?:in the style of|exact (?:replica|copy)|copy (?:the )?(?:character|logo|brand|product|design)|replicate (?:the )?(?:character|logo|brand)|identical to|looks? exactly like|fan art of)\b/i.test(text)){issues.push('instruksi peniruan');
@@ -441,7 +441,18 @@ li.className='cursor-pointer hover:text-purple-300';li.addEventListener('click',
 "info");}finally{btn.disabled=false;btn.classList.remove('opacity-80','cursor-not-allowed');btn.innerHTML=` <span id="analyzeRefAiText">AI Analyze</span>`;
 }}
 async function handleDiscoverIdeas(){if(discoverIdeasController){discoverIdeasController.abort();
-return;}const providedPrompt=byId('simplePromptInput').value.trim();const chosenOutputMode=getOutputMode();const rasterSettings=readRasterSettings();
+return;}
+// Validate BEFORE starting progress or calling Gemini. Empty Collection / Set is not an offline-mode request.
+if(state.productionType==='collection'){
+ const field=byId('collectionItemCountInput'),raw=String(field?.value??'').trim();
+ const count=/^\d+$/.test(raw)?Number(raw):NaN;
+ if(!Number.isInteger(count)||count<1||count>50){
+  if(field){field.setAttribute('aria-invalid','true');field.focus();}
+  showToast('Isi jumlah item Collection / Set (1–50) sebelum Discover Ideas. Tidak memuat template offline.','error');return;
+ }
+ field?.removeAttribute('aria-invalid');
+}
+const providedPrompt=byId('simplePromptInput').value.trim();const chosenOutputMode=getOutputMode();const rasterSettings=readRasterSettings();
 const simplePrompt=providedPrompt||(chosenOutputMode!=='vector'?'Develop an original commercially useful real-world scene with clear human activity, practical purpose and credible setting':'');
 if(!simplePrompt){showToast("Please enter a Simple Prompt first.","error");return;}const risk=scanIpRisk([simplePrompt,byId('targetBuyerInput')?.value,
 byId('designNeedInput')?.value,byId('refModInstructionInput')?.value].join(' '));if(risk.length){showToast('IP Risk Guard: '+risk.join(', ')+'. Ganti istilah berisiko sebelum membuat konsep.',
@@ -525,12 +536,12 @@ Evaluate each concept individually. Score buyer specificity, actionable use and 
 const payload={contents:[{parts:[{text:promptText}]}],generationConfig:{responseMimeType:"application/json"}};if(state.refImageUrl&&state.refImageUrl.startsWith('data:')){payload.contents[0].parts.push({inlineData:{mimeType:"image/png",
 data:state.refImageUrl.split(',')[1]}});}const result=await callGeminiApi('gemini-3-flash-preview',payload,controller.signal);
 if(controller.signal.aborted)return;const jsonText=result?.candidates?.[0]?.content?.parts?.[0]?.text;let rawIdeas=JSON.parse(jsonText);
-if(!Array.isArray(rawIdeas))throw new Error('AI tidak mengembalikan daftar konsep.');const checkIdeas=ideas=>ideas.some((idea,
+if(!Array.isArray(rawIdeas)||rawIdeas.length===0)throw new Error('Gemini mengembalikan Collection / Set kosong. Coba ulang Discover Ideas; tidak ada template offline yang dimuat.');const checkIdeas=ideas=>ideas.some((idea,
 i)=>scanIpRisk([idea.finalGenerationPrompt,idea.mainSubject,idea.conceptName].join(' ')).length||originalityIssues(idea,ideas.slice(0,
 i)).length);if(checkIdeas(rawIdeas)){payload.contents[0].parts[0].text+='\nRETRY QUALITY GUARDS: Replace any brand/franchise references, vague cosmetic-only differentiators, or repeated subject-use ideas. Keep all user options and return JSON only.';
 const retry=await callGeminiApi('gemini-3-flash-preview',payload,controller.signal);if(controller.signal.aborted)return;try{const revised=JSON.parse(retry?.candidates?.[0]?.content?.parts?.[0]?.text||'');
 if(Array.isArray(revised)&&!revised.some(idea=>scanIpRisk([idea.finalGenerationPrompt,idea.mainSubject,idea.conceptName].join(' ')).length))rawIdeas=revised;
-}catch(_){}}state.discoveredIdeas=rawIdeas.filter(item=>!scanIpRisk([item.finalGenerationPrompt,item.mainSubject,item.conceptName].join(' ')).length).map((item,
+}catch(_){}}const validatedIdeas=rawIdeas.filter(item=>!scanIpRisk([item.finalGenerationPrompt,item.mainSubject,item.conceptName].join(' ')).length).map((item,
 idx)=>{const scoreData=calculateOpportunityScore(item);const shortCode=Math.random().toString(36).substring(2,6).toLowerCase();
 return{...item,creativeDirection:item.creativeDirection||(state.autoSelectBest?'asset-appropriate commercial style':state.selectedStyle),
 suggestedColorPalette:state.paletteMode==='manual'?state.selectedPalette:(item.suggestedColorPalette||'AI-selected harmonious limited palette'),
@@ -542,27 +553,20 @@ requestedDesignNeed:commercialBrief.designNeed,suggestedComposition:item.suggest
 suggestedAssetType:selectedAssetTypeSnapshot,commercialUseCase:item.commercialUseCase||commercialBrief.designNeed||state.selectedPurpose,
 ideaId:`IDEA-${Date.now().toString(36)}-${idx+1}`,shortCode,productionType:state.productionType,collectionItemCount:state.productionType==='collection'?Number(state.collectionItemCount):null,categoryId:catVal,
 categoryName:effectiveCatName,subcategory:effectiveSubcat,aspectRatio:state.ideaStudioSizeId==='custom'?state.ideaCustomWidth+':'+state.ideaCustomHeight:state.ideaStudioSizeId,
-opportunityScore:scoreData.totalScore,scoreBreakdown:scoreData.breakdown,scoreReasoning:scoreData.reasoning};});state.discoveredIdeas.forEach(activateHybridForIdea);
-if(!state.discoveredIdeas.length)throw new Error('IP Risk Guard: semua konsep AI perlu direvisi.');discoverSucceeded=true;renderDiscoveredIdeas();
+opportunityScore:scoreData.totalScore,scoreBreakdown:scoreData.breakdown,scoreReasoning:scoreData.reasoning};});
+if(!validatedIdeas.length)throw new Error('IP Risk Guard: semua konsep AI perlu direvisi. Hasil sebelumnya dipertahankan.');
+state.discoveredIdeas=validatedIdeas;state.discoveredIdeas.forEach(activateHybridForIdea);
+discoverSucceeded=true;renderDiscoveredIdeas();
 showToast(`Discovered ${state.discoveredIdeas.length} commercial stock concepts!`,"success");}catch(err){if(controller.signal.aborted||err?.name==='AbortError'){showToast('Generating ide dihentikan.',
-'info');return;}console.error("Discover Ideas Error:",err);showToast("AI response failed; showing local fallback concepts.","error");
-const fallbackLenses=['a step-by-step practical workflow with distinct tools and a clear result','a cause-and-effect or functional cross-section revealing how something works',
-'an everyday buyer problem solved through a different subject interaction'];state.discoveredIdeas=Array.from({length:3}).map((_,
-i)=>{const shortCode=Math.random().toString(36).substring(2,6).toLowerCase();const item={aspectRatio:state.ideaStudioSizeId==='custom'?state.ideaCustomWidth+':'+state.ideaCustomHeight:state.ideaStudioSizeId,
-ideaId:`IDEA-0${i+1}`,shortCode,conceptName:`${simplePrompt} - Concept ${i+1}`,productionType:state.productionType,collectionItemCount:state.productionType==='collection'?Number(state.collectionItemCount):null,categoryId:catVal,
-categoryName:effectiveCatName,subcategory:effectiveSubcat,mainSubject:simplePrompt+' — '+fallbackLenses[i],creativeDirection:state.selectedStyle,
-commercialUseCase:commercialBrief.designNeed||state.selectedPurpose,targetBuyer:commercialBrief.targetBuyer||'Designers',requestedTargetBuyer:commercialBrief.targetBuyer,
-requestedDesignNeed:commercialBrief.designNeed,visualDifferentiation:fallbackLenses[i],suggestedAssetType:selectedAssetTypeSnapshot,
-suggestedComposition:state.selectedComposition,suggestedColorPalette:state.paletteMode==='manual'?state.selectedPalette:'AI-selected harmonious limited palette',
-requestedPaletteHex:state.paletteMode==='manual'&&state.manualPaletteHex?[...state.manualPaletteHex]:[],outputMode:chosenOutputMode,
-rasterSettings:{...rasterSettings},gradientEnabled:state.gradientEnabled,svgFriendly:state.svgFriendly,noTextChecked,requestedNegative:negativePromptVal,
-finalGenerationPrompt:cleanImagePrompt(applyCommercialBrief(`${state.selectedAssetType} of ${simplePrompt}; emphasize ${fallbackLenses[i]}, ${state.selectedStyle} style, ${state.paletteMode==='manual'?state.selectedPalette:'harmonious limited'} color palette, ${isRasterMedium(selectedAssetTypeSnapshot)?'natural tonal transitions':state.gradientEnabled?'smooth controlled color gradients with clean transitions':'clean solid-color treatment'}, ${state.selectedComposition} composition. ${assetGuidance(selectedAssetTypeSnapshot)} ${noTextChecked?'No text.':''}`,
-commercialBrief))};const scoreData=calculateOpportunityScore(item);return{...item,opportunityScore:scoreData.totalScore,scoreBreakdown:scoreData.breakdown,
-scoreReasoning:scoreData.reasoning};});state.discoveredIdeas.forEach(activateHybridForIdea);renderDiscoveredIdeas();}finally{clearInterval(discoverTimer);
+ 'info');return;}
+ console.error('Discover Ideas Error:',err);
+ const detail=String(err?.message||'Permintaan AI gagal').slice(0,220);
+ showToast('Discover Ideas gagal: '+detail+' Hasil sebelumnya tetap tersimpan; tidak memuat template offline.','error');
+ }finally{clearInterval(discoverTimer);
 if(discoverSucceeded&&!controller.signal.aborted){setInnerProgress(btn,100);await new Promise(resolve=>setTimeout(resolve,350));
 }clearInnerProgress(btn);btn.removeAttribute('title');discoverIdeasController=null;btn.removeAttribute('aria-busy');btn.setAttribute('aria-label',
 'Discover ideas');btn.disabled=false;btn.classList.remove('opacity-80','cursor-not-allowed');btn.innerHTML=` <span id="discoverIdeasBtnText">DISCOVER IDEAS</span>`;
-if(!controller.signal.aborted&&state.discoveredIdeas.length>0)setDiscoverBarCollapsed(true);else {}}}
+if(discoverSucceeded&&!controller.signal.aborted&&state.discoveredIdeas.length>0)setDiscoverBarCollapsed(true);}}
 async function selectGeneratedImagePart(result){
  const images=(result?.candidates?.[0]?.content?.parts||[]).filter(p=>p?.inlineData?.data&&String(p.inlineData.mimeType||'image/png').startsWith('image/'));
  if(images.length<2)return images[0]||null;
@@ -591,7 +595,7 @@ function rivisCollectionCount(idea){if(idea?.productionType!=='collection')retur
  const text=String(idea.finalGenerationPrompt||'');const m=text.match(/(?:exactly|berisi|consisting of|collection of)\s*(\d{1,2})\s*(?:distinct|different|unique|items?|objects?|elements?)/i);
  if(m&&Number(m[1])>=1&&Number(m[1])<=50)return Number(m[1]);
  const selected=Number(state.collectionItemCount||byId('collectionItemCountInput')?.value);
- return Number.isInteger(selected)&&selected>0&&selected<=50?selected:10;
+ return Number.isInteger(selected)&&selected>0&&selected<=50?selected:0;
 }
 function rivisCollectionWords(text){return new Set(String(text||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>2&&!['with','and','for','the','item','vector','illustration','design','object','of','using','distinct','different','original','used','dedicated','brewing','function','commercial','stock','asset','pack','set'].includes(w)));}
 function rivisManifestDistinct(items,count){if(!Array.isArray(items)||items.length!==count)return false;
@@ -604,7 +608,7 @@ function rivisManifestDistinct(items,count){if(!Array.isArray(items)||items.leng
   if(names[i].toLowerCase()===names[j].toLowerCase()||(ha.length>=2&&hb.length>=2&&ha[0]===hb[0]&&ha[1]===hb[1])||(intersection/Math.min(a.size,b.size)>.78&&headRatio>.55))return false;
  }return true;
 }
-async function rivisEnsureCollectionManifest(idea,signal=null){const count=rivisCollectionCount(idea);if(!count)return [];
+async function rivisEnsureCollectionManifest(idea,signal=null){const count=rivisCollectionCount(idea);if(!count){if(idea?.productionType==='collection')throw new Error('Collection / Set belum memiliki jumlah item valid (1–50). Atur jumlah item pada Idea Studio lalu buat ulang konsep.');return []; }
  idea.collectionItemCount=count;
  if(rivisManifestDistinct(idea.collectionItems,count))return idea.collectionItems;
  if(offlineTestMode){const aspects=['showing a real tool','demonstrating a step','with a different natural motif','depicting a unique interaction','focused on a different daily task','containing a functional accessory','revealing a distinct working mechanism','with unique material geometry','depicting a separate buyer use','showing an alternative process','with a different finished result'];
