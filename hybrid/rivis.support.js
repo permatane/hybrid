@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — App v3.4.69 (Canvas 3.4 / GitHub 69). Memory-safe Library previews, persistence and exports. */
+/* RIVIS GitHub Support — App v3.4.70 (Canvas 3.4 / GitHub 70). META GEN integration + memory-safe Library. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -309,12 +309,23 @@ btn.title=targetLibrary?'Buka Library':'Kembali ke Idea Studio';btn.setAttribute
 let ticking=false;window.addEventListener('scroll',()=>{if(ticking)return;ticking=true;window.requestAnimationFrame(()=>{const currentY=window.scrollY||0;
 const rail=byId('floatingSideTabs');if(rail){if(currentY<previousY-2&&currentY>12)rail.classList.add('is-hidden');else if(currentY>previousY+2||currentY<=12)rail.classList.remove('is-hidden');
 }previousY=currentY;ticking=false;});},{passive:true});})();
-function switchTab(tabId){state.activeTab=tabId;document.querySelectorAll('.tab-section').forEach(el=>el.classList.add('hidden'));
-const activeGradient=tabId==='idea_studio'?'from-purple-600 to-blue-600 shadow-purple-600/30':'from-emerald-600 to-teal-600 shadow-emerald-600/30';
-['IdeaStudio','SavedIdeas'].forEach(tabKey=>{const isCurrent=(tabId==='idea_studio'&&tabKey==='IdeaStudio')||(tabId==='saved_ideas'&&tabKey==='SavedIdeas');
-const btn=byId(`navTab${tabKey}Top`);if(!btn)return;btn.className=isCurrent?`nav-tab active-tab flex-1 sm:flex-none px-3 py-2 md:px-4 md:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 md:gap-2 bg-gradient-to-r ${activeGradient} text-white shadow-lg`:'nav-tab flex-1 sm:flex-none px-3 py-2 md:px-4 md:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 md:gap-2 text-slate-400 hover:text-white bg-slate-900/60 border border-slate-800/60';
-});updateFloatingShortcut();if(tabId==='idea_studio'){byId('tabSectionIdeaStudio').classList.remove('hidden');}else if(tabId==='saved_ideas'){byId('tabSectionSavedIdeas').classList.remove('hidden');
-refreshStorageStatus();renderSavedIdeasGrid(null,true);}window.scrollTo({top:0,behavior:'smooth'});}
+function switchTab(tabId){
+if(!['idea_studio','saved_ideas','meta_gen'].includes(tabId))return;
+state.activeTab=tabId;document.querySelectorAll('.tab-section').forEach(el=>el.classList.add('hidden'));
+const tabs=[
+ {id:'idea_studio',button:'navTabIdeaStudioTop',gradient:'from-purple-600 to-blue-600 shadow-purple-600/30'},
+ {id:'saved_ideas',button:'navTabSavedIdeasTop',gradient:'from-emerald-600 to-teal-600 shadow-emerald-600/30'},
+ {id:'meta_gen',button:'navTabMetaGenTop',gradient:'from-fuchsia-600 to-violet-600 shadow-fuchsia-600/30'}
+];
+for(const tab of tabs){const btn=byId(tab.button);if(!btn)continue;const active=tab.id===tabId;
+btn.className=active?`nav-tab active-tab flex-1 sm:flex-none px-3 py-2 md:px-4 md:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 md:gap-2 bg-gradient-to-r ${tab.gradient} text-white shadow-lg`:'nav-tab flex-1 sm:flex-none px-3 py-2 md:px-4 md:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 md:gap-2 text-slate-400 hover:text-white bg-slate-900/60 border border-slate-800/60';
+}
+updateFloatingShortcut();
+if(tabId==='idea_studio'){byId('tabSectionIdeaStudio')?.classList.remove('hidden');}
+else if(tabId==='saved_ideas'){byId('tabSectionSavedIdeas')?.classList.remove('hidden');refreshStorageStatus();renderSavedIdeasGrid(null,true);}
+else if(tabId==='meta_gen'){byId('tabSectionMetaGen')?.classList.remove('hidden');window.RIVIS_INIT_META_GEN?.();}
+window.scrollTo({top:0,behavior:'smooth'});
+}
 function updateBadges(){const count=state.savedIdeas.length;document.querySelectorAll('.savedIdeasCountBadge').forEach(el=>{if(el.textContent!==String(count))el.textContent=count;
 });const countEl=byId('savedIdeasCountBadge');if(countEl&&countEl.textContent!==String(count))countEl.textContent=count;}
 function populateDropdowns(){renderSeasonalCalendarWidget();
@@ -1197,3 +1208,84 @@ catch(e){console.error('RIVIS AI SVG',e);report('AI SVG gagal: '+String(e.messag
 async function downloadSvg(){const id=el('rivisVectorModal').dataset.idea,result=cache.get(id),idea=ideaById(id);if(!result||result.source!==idea?.generatedImageUrl){report('SVG belum tersedia atau gambar sudah berubah.',true);return;}const blob=new Blob([result.svg],{type:'image/svg+xml;charset=utf-8'});if(typeof executeDownloadManager==='function')await executeDownloadManager({data:blob,filename:result.filename,mimeType:'image/svg+xml'});else{const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=result.filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);}}
 window.RIVIS_VECTOR=Object.freeze({open,close,convert,downloadSVG:downloadSvg});
 })();
+
+/* RIVIS v3.4.70 — META GEN tab. Vectorich Metadata is isolated in a lazy-loaded iframe,
+   while all Gemini requests reuse the authenticated RIVIS AI request manager. */
+(function installRivisMetaGen(){
+ 'use strict';
+ if(window.RIVIS_META_GEN_INSTALLED)return;
+ window.RIVIS_META_GEN_INSTALLED=true;
+ const byId=id=>document.getElementById(id);
+ const css=document.createElement('style');
+ css.textContent=`
+ #tabSectionMetaGen{min-width:0;padding:.5rem!important;background:rgba(15,23,42,.72);border:1px solid rgba(51,65,85,.85);border-radius:1rem;box-shadow:0 18px 45px rgba(2,6,23,.28)}
+ #metaGenFrame{display:block;width:100%;height:calc(100dvh - 190px);min-height:760px;border:1px solid #3c3154;border-radius:14px;background:#100d1b}
+ #metaGenFrame[hidden],#metaGenLoading[hidden]{display:none!important}
+ #metaGenLoading{min-height:420px;display:grid;place-items:center;text-align:center;padding:28px;color:#c4b5fd;background:#100d1b;border:1px dashed #57416f;border-radius:14px}
+ #metaGenLoading .meta-gen-load-inner{max-width:420px;display:grid;gap:10px;justify-items:center}
+ #metaGenLoading button{padding:8px 14px;border:1px solid #8b5cf6;border-radius:9px;background:#5b21b6;color:white;font-weight:700;font-size:12px}
+ @media(max-width:639px){#tabSectionMetaGen{padding:.35rem!important}#metaGenFrame{height:calc(100dvh - 155px);min-height:690px}}
+ `;
+ document.head.appendChild(css);
+ const nav=byId('navTabSavedIdeasTop');
+ if(nav&&!byId('navTabMetaGenTop')){
+  nav.insertAdjacentHTML('afterend',`<button id="navTabMetaGenTop" type="button" onclick="switchTab('meta_gen')" class="nav-tab flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-slate-400 hover:text-white bg-slate-900/60 border border-slate-800/60" aria-label="Open META GEN"><span aria-hidden="true">✦</span> META GEN</button>`);
+ }
+ const saved=byId('tabSectionSavedIdeas');
+ if(saved&&!byId('tabSectionMetaGen')){
+  const section=document.createElement('section');
+  section.id='tabSectionMetaGen';section.className='tab-section hidden space-y-3';
+  section.innerHTML=`<div class="flex items-center justify-between gap-3 flex-wrap px-1 py-1"><div><h2 class="text-sm md:text-base font-black tracking-wide text-white">META GEN</h2><p class="text-[10px] md:text-xs text-slate-400">Generate metadata microstock · Shared RIVIS Gemini Runtime</p></div><span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-700/60 bg-emerald-950/50 px-2.5 py-1 text-[10px] font-bold text-emerald-300"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> RIVIS CONNECTED</span></div><div id="metaGenHost"><div id="metaGenLoading" role="status" aria-live="polite"><div class="meta-gen-load-inner"><div style="font-size:28px">✦</div><strong>Memuat META GEN</strong><span style="font-size:12px;color:#a89abf">Modul Vectorich Metadata akan dimuat saat tab pertama kali dibuka.</span></div></div><iframe id="metaGenFrame" title="META GEN · Vectorich Metadata" loading="lazy" sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox" allow="clipboard-read; clipboard-write" hidden></iframe></div>`;
+  saved.insertAdjacentElement('afterend',section);
+ }
+ window.RIVIS_META_GEN_API=async function(payload){
+  try{
+   if(typeof callGeminiApi!=='function')throw new Error('RIVIS Gemini API manager is not loaded.');
+   const result=await callGeminiApi('gemini-3-flash-preview',payload);
+   return new Response(JSON.stringify(result),{status:200,headers:{'Content-Type':'application/json'}});
+  }catch(error){
+   const rawStatus=Number(error?.httpStatus)||500;
+   const status=[400,401,403,404,408,413,429,500,502,503,504].includes(rawStatus)?rawStatus:500;
+   return new Response(JSON.stringify({error:{message:String(error?.message||error||'Gemini request failed.')}}),{status,headers:{'Content-Type':'application/json'}});
+  }
+ };
+ let loadingPromise=null;
+ async function getMetaGenHtml(){
+  const urls=[
+   'https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.meta-gen.html',
+   'https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.meta-gen.html'
+  ];
+  const errors=[];
+  for(const base of urls){
+   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+   try{
+    const response=await fetch(base+'?rv=3.4.70',{cache:'no-store',signal:controller.signal,headers:{Accept:'text/html, text/plain, */*'}});
+    if(!response.ok)throw new Error('HTTP '+response.status);
+    const html=await response.text();
+    if(html.length<50000||!html.includes('RIVIS_META_GEN_API')||!html.includes('Vectorich Metadata'))throw new Error('File META GEN tidak lengkap atau belum diperbarui.');
+    return html;
+   }catch(error){errors.push(String(error?.message||error));}
+   finally{clearTimeout(timer);}
+  }
+  throw new Error('Modul META GEN tidak dapat dimuat: '+errors.join(' · '));
+ }
+ window.RIVIS_INIT_META_GEN=async function(){
+  const frame=byId('metaGenFrame'),loading=byId('metaGenLoading');
+  if(!frame||frame.dataset.loaded==='true'||frame.dataset.loading==='true')return loadingPromise;
+  frame.dataset.loading='true';
+  if(loading)loading.innerHTML=`<div class="meta-gen-load-inner"><div style="font-size:28px">✦</div><strong>Menyiapkan META GEN…</strong><span style="font-size:12px;color:#a89abf">Mengambil modul metadata dari GitHub.</span></div>`;
+  loadingPromise=(async()=>{
+   try{
+    const html=await getMetaGenHtml();
+    frame.srcdoc=html;frame.hidden=false;frame.dataset.loaded='true';
+    if(loading)loading.hidden=true;
+   }catch(error){
+    frame.dataset.loading='false';
+    if(loading)loading.innerHTML=`<div class="meta-gen-load-inner"><div style="font-size:28px">⚠</div><strong>Gagal memuat META GEN</strong><span style="font-size:12px;color:#fca5a5">${String(error?.message||error).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</span><button type="button" id="metaGenRetryBtn">Coba Muat Ulang</button></div>`;
+    byId('metaGenRetryBtn')?.addEventListener('click',()=>{frame.dataset.loading='false';loadingPromise=null;window.RIVIS_INIT_META_GEN();});
+   }finally{if(frame.dataset.loaded==='true')frame.dataset.loading='false';}
+  })();
+  return loadingPromise;
+ };
+})();
+

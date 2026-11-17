@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#110d1e">
+<title>RIVIS META GEN · Vectorich Metadata v1.4.8</title>
+<style>
+:root{color-scheme:dark;--bg:#100d1b;--surface:#1b162b;--surface2:#241c39;--stroke:#3c3154;--text:#f5f1ff;--muted:#b5a9cd;--purple:#a78bfa;--purple2:#8b5cf6;--pink:#e879f9;--green:#5ee2bb;--red:#f9a2b0;--yellow:#f6d48c;--radius:18px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;min-height:100vh;font:14px/1.55 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:radial-gradient(ellipse 700px 380px at 4% -6%,#3a235877,transparent 75%),radial-gradient(ellipse 600px 480px at 100% 75%,#32215855,transparent 80%),var(--bg);color:var(--text)}
+button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity:.52;cursor:not-allowed}button:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--pink);outline-offset:3px}a{color:var(--purple)}.hidden{display:none!important}.container{width:min(100% - 40px,1240px);margin:0 auto}
+header{position:sticky;top:0;z-index:10;background:#151024f2;backdrop-filter:blur(15px);border-bottom:1px solid #48365d77}.header-inner{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:15px 0}.brand{display:flex;align-items:center;gap:13px;min-width:0}.logo{display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;border-radius:14px;background:linear-gradient(140deg,#b26cf4,#6d36d9 68%,#982bba);box-shadow:0 10px 30px #7d36df44}.logo svg{width:26px}.brand-name{font-size:20px;line-height:1.15;letter-spacing:-.65px;font-weight:800;white-space:nowrap}.brand-name span{color:#c4b5fd}.brand-sub{margin-top:3px;font-size:10px;letter-spacing:1.3px;font-weight:700;color:#b99bd7;text-transform:uppercase}.header-side{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:12px;text-align:right}.pill{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;padding:5px 10px;font-size:11px;font-weight:750;border-radius:999px;border:1px solid #6d569b;color:#ddd1fb;background:#4e367344}
+main{padding-top:28px;padding-bottom:65px}.intro{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:18px}.intro h2{font-size:24px;line-height:1.2;letter-spacing:-.7px;margin:0 0 5px}.intro p{margin:0;color:var(--muted);font-size:13px}.small-note{color:#ad98cf;font-size:12px}
+.upload{background:linear-gradient(115deg,#241832,#201632 55%,#251837);border:1.5px dashed #7955af;border-radius:var(--radius);padding:34px 24px;text-align:center;transition:background .2s,border-color .2s,box-shadow .2s;cursor:pointer}.upload:hover,.upload.dragover{background:linear-gradient(115deg,#2f1d46,#281a44 55%,#32204b);border-color:#d0abfa;box-shadow:0 0 0 4px #ad74ec15}.upload:focus-visible{outline:2px solid var(--pink)}.upload-icon{width:56px;height:56px;display:grid;place-items:center;margin:0 auto 14px;border-radius:16px;background:#8546dc33;border:1px solid #a672f155;color:#d5b6ff}.upload-icon svg{width:29px}.upload-title{font-weight:760;font-size:17px;margin:0 0 5px}.upload-desc{max-width:590px;font-size:12.5px;margin:0 auto;color:var(--muted)}.upload-cap{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:15px}.cap{border:1px solid #57436d;border-radius:7px;padding:3px 9px;font-size:10px;color:#cbbcdf}
+.status{background:#241c39;border:1px solid #594778;border-radius:13px;padding:14px 16px;margin-top:18px}.status-row{display:flex;justify-content:space-between;align-items:center;gap:14px}.status-label{display:flex;align-items:center;gap:9px;min-width:0}.spin{display:inline-block;flex:none;border:2.5px solid #5a427c;border-top-color:#dfa2ff;border-radius:50%;width:18px;height:18px;animation:spin .75s linear infinite}.status-text{word-break:break-word;font-size:12.5px;color:#ddd0f5}.status-percent{flex:none;color:#c9a7ff;font-size:12px;font-weight:750}.progress{height:6px;border-radius:10px;background:#100b1c;overflow:hidden;margin-top:12px}.progress-bar{height:100%;width:0;background:linear-gradient(90deg,#845bf3,#dc8af6);transition:width .25s}
+.summary{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:25px 0 15px}.summary h3{font-size:18px;letter-spacing:-.25px;margin:0}.summary-sub{font-size:12px;color:var(--muted);margin-top:3px}.summary-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.btn{border-radius:10px;border:1px solid #675184;padding:10px 14px;font-weight:700;font-size:12px;background:#38284f;color:#ede2ff;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:filter .2s,background .2s;min-height:40px}.btn:hover:not(:disabled){filter:brightness(1.17)}.btn.primary{background:linear-gradient(115deg,#8356ee,#ba65ed);border-color:#af78e2;color:#fff}.btn.green{background:linear-gradient(115deg,#168267,#17a27a);border-color:#3abd99;color:#fff}.btn.secondary{background:#2d2241}.btn.all-metadata{background:linear-gradient(115deg,#2563eb,#4387ee);border-color:#78aaff;color:#fff}.btn svg{width:16px;height:16px;flex:none}
+.cards{display:flex;flex-direction:column;gap:16px}.card{background:linear-gradient(110deg,#1e182f,#1b172b);border:1px solid #433458;border-radius:18px;overflow:hidden;display:grid;grid-template-columns:260px minmax(0,1fr);box-shadow:0 14px 40px #05040a33}.card-media{background:#120e1f;position:relative;min-height:280px;border-right:1px solid #3d3152;display:flex;align-items:center;justify-content:center;overflow:hidden}.card-media img{width:100%;height:100%;max-height:520px;object-fit:contain;position:absolute;inset:0}.file-name{position:absolute;bottom:12px;left:12px;right:12px;background:#120e20dc;border:1px solid #7e5ba350;border-radius:8px;color:#eee6fc;padding:6px 9px;font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;backdrop-filter:blur(8px)}.card-content{min-width:0;padding:21px 23px}.card-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.status-chip{font-size:11px;padding:4px 9px;border-radius:99px;background:#5a347d55;border:1px solid #8d62c055;color:#dfb9f8}.status-chip.error{background:#873b4a33;border-color:#c5688177;color:#ffb5c4}.status-chip.success{background:#20745635;border-color:#34a38066;color:#76f1c3}.qc{display:flex;align-items:center;gap:10px}.score-value{font-size:24px;letter-spacing:-1px;font-weight:850;color:#c8a1ff;line-height:1}.score-value.good{color:#70e3ba}.score-value.mid{color:#f2d28a}.score-value.low{color:#f3a3b2}.score-value small{font-size:13px;color:#9e91b5;font-weight:500;letter-spacing:0}.score-label{color:var(--muted);font-size:10px;line-height:1.2;margin-top:3px}.field{margin-bottom:13px}.field-head{display:flex;justify-content:space-between;align-items:center;gap:9px;margin-bottom:6px}.field label{font-size:10.5px;color:#c7b6e0;font-weight:750;letter-spacing:.6px;text-transform:uppercase}.count{font-size:11px;color:#9c8db4}.input,.textarea{display:block;width:100%;padding:10px 11px;border:1px solid #4b3a64;border-radius:9px;background:#181224;color:#f5edff;outline:none;min-width:0}.input:focus,.textarea:focus{border-color:#ac7bef;background:#211732}.input{font-weight:650;font-size:13px}.textarea{resize:vertical;line-height:1.55;font-size:12.5px;min-height:67px}.textarea.keywords{min-height:77px;color:#d6bdfb}.hint{font-size:10px;color:#9484ac;margin-top:5px}.card-actions{margin-top:16px;border-top:1px solid #463858;padding-top:14px;display:flex;gap:8px;flex-wrap:wrap}.card-actions .btn{min-height:36px;padding:8px 11px}.qc-details{margin-top:10px;border:1px solid #49365e;border-radius:10px;background:#21182e}.qc-details summary{list-style:none;cursor:pointer;color:#cbb1f5;font-size:11px;font-weight:700;padding:9px 12px;display:flex;justify-content:space-between}.qc-details summary::-webkit-details-marker{display:none}.qc-details summary::after{content:'⌄';color:#ad85e9;font-size:16px;line-height:1}.qc-details[open] summary::after{content:'⌃'}.audit-inner{padding:0 12px 11px}.audit-line{display:flex;justify-content:space-between;gap:10px;color:#b9a8d0;font-size:11px;padding-top:5px}.audit-line strong{color:#ebd5ff}.audit-tips{color:#d1c3e3;font-size:11px;margin:8px 0 0;padding-left:18px}.audit-tips li+li{margin-top:3px}.fail-message{color:#f4aabd;font-size:12px;line-height:1.5;padding:13px;background:#5c253b55;border:1px solid #a55d73;border-radius:10px;margin-bottom:12px;white-space:pre-wrap;word-break:break-word}.loading{display:flex;align-items:center;gap:12px;font-size:13px;color:#c8b4e9;min-height:155px}.loading .spin{width:22px;height:22px}
+.empty{padding:28px;text-align:center;border:1px solid #3d3154;border-radius:14px;color:var(--muted);background:#1a1429;font-size:12px}.toast-box{position:fixed;right:18px;bottom:18px;z-index:30;display:flex;flex-direction:column;gap:7px;align-items:flex-end;pointer-events:none;max-width:calc(100vw - 36px)}.toast{background:#332446;border:1px solid #8763b4;color:#fff;padding:11px 14px;border-radius:10px;font-size:12px;box-shadow:0 12px 25px #0009;animation:appear .18s ease}.toast.error{background:#552538;border-color:#b46478}footer{padding:15px;color:#847797;text-align:center;font-size:10.5px;border-top:1px solid #312741}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes appear{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:850px){.header-side .hide-medium{display:none}.card{grid-template-columns:200px minmax(0,1fr)}.card-content{padding:16px}.intro h2{font-size:22px}}@media(max-width:650px){.container{width:min(100% - 24px,1240px)}.header-inner{padding:12px 0}.brand{gap:9px}.logo{flex-basis:40px;width:40px;height:40px}.brand-name{font-size:17px}.brand-sub{font-size:9px;letter-spacing:.75px}.header-side .hide-mobile{display:none}main{padding-top:20px}.intro{align-items:start}.intro h2{font-size:20px}.small-note{display:none}.upload{padding:25px 16px}.upload-title{font-size:15px}.upload-desc{font-size:12px}.card{grid-template-columns:1fr}.card-media{height:210px;min-height:0;border-right:0;border-bottom:1px solid #433458}.card-media img{max-height:none}.card-content{padding:15px}.summary{align-items:stretch}.summary-actions,.summary-actions .btn{flex:1}.status-row{align-items:start}.card-top{margin-bottom:14px}.btn{font-size:11px}.card-actions .btn{flex:1}.status-text{font-size:11.5px}}@media(max-width:370px){.summary-actions{flex-direction:column}.card-actions{flex-direction:column}.card-actions .btn{width:100%}.pill{font-size:10px;padding:4px 7px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}}
+
+/* CSV metadata settings and visual validation */
+.csv-info{color:#c2b4dc;font-size:11.5px;border:1px solid #4c395e;background:#20172f;border-radius:11px;padding:10px 13px;margin:0 0 15px}.csv-info strong{color:#eee1ff}
+.csv-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:5px 0 9px}.csv-fields .field{margin-bottom:0}.csv-settings{padding:12px 12px 3px;border:1px solid #48375f;border-radius:11px;background:#231a34;margin:8px 0}.csv-settings summary{color:#d7baf7;cursor:pointer;font-size:11px;font-weight:750;padding-bottom:9px}.csv-settings[open] summary{margin-bottom:8px}.csv-settings .input,.csv-settings select{font-size:12px}.csv-settings select{background:#181224;color:#f5edff;width:100%;border:1px solid #4b3a64;border-radius:9px;padding:10px 8px;min-width:0}.csv-validation{font-size:11px;line-height:1.55;color:#f6d48c;margin:6px 0 9px;white-space:pre-line}.csv-validation.good{color:#68e4b9}.csv-validation.error{color:#ffafc1}.csv-validation:empty{display:none}
+@media(max-width:450px){.csv-fields{grid-template-columns:1fr}.csv-settings{padding:10px}.csv-info{font-size:10.5px}.summary-actions{width:100%}}
+
+/* Platform selector, asset provenance and responsive form controls */
+.platform-panel{display:grid;grid-template-columns:minmax(200px,285px) minmax(0,1fr);gap:15px;align-items:center;background:linear-gradient(110deg,#211831,#25183c);border:1px solid #5e4485;border-radius:15px;padding:16px 18px;margin:0 0 18px}
+.platform-panel label{display:block;color:#e2d5f4;font-weight:800;font-size:11px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.platform-panel select{width:100%;padding:11px 13px;border-radius:10px;border:1px solid #865cb8;color:#f4edff;background:#160f28;font:inherit;font-weight:700;cursor:pointer}
+.platform-panel p{font-size:12px;color:#c8b8df;margin:0;line-height:1.6}
+.platform-panel a{color:#d9b6ff;text-decoration:underline}
+.platform-settings{padding:12px 12px 3px;border:1px solid #48375f;border-radius:11px;background:#231a34;margin:8px 0}
+.platform-settings summary{color:#d7baf7;cursor:pointer;font-size:11px;font-weight:750;padding-bottom:9px}
+.platform-settings[open] summary{margin-bottom:8px}
+.platform-settings select{background:#181224;color:#f5edff;width:100%;border:1px solid #4b3a64;border-radius:9px;padding:10px 8px;min-width:0;font:inherit;font-size:12px}
+.platform-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.platform-fields .field{margin:0}
+.platform-fields .field.wide{grid-column:1/-1}
+.platform-options-note{font-size:10.5px;line-height:1.5;color:#b9a5d4;margin:10px 0}
+.toggle-line{display:flex;align-items:center;gap:10px;color:#e4d4fc;font-size:12px}
+.toggle-line input{width:17px;height:17px;accent-color:#ad70f8}
+@media(max-width:650px){.platform-panel{grid-template-columns:1fr;gap:9px;padding:13px}.platform-fields{grid-template-columns:1fr}.platform-fields .field.wide{grid-column:1}.platform-panel p{font-size:11px}}
+
+/* Compact multi-column results with progressive details */
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:start;gap:14px}
+.card{display:flex;flex-direction:column;min-width:0;box-shadow:0 7px 25px #05040a30;transition:border-color .2s,transform .2s}
+.card:hover{border-color:#76559d}
+.card-media{height:178px;min-height:178px;border:0;border-bottom:1px solid #403254;background:#130e22;flex:none}
+.card-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;max-height:none;padding:10px 10px 25px}
+.file-name{left:8px;right:8px;bottom:7px;padding:4px 7px;font-size:10px;background:#130e20e6}
+.card-content{display:flex;flex-direction:column;gap:0;min-width:0;padding:14px 15px 15px}
+.card-top{margin-bottom:11px;gap:7px}
+.status-chip{font-size:10px;padding:3px 8px;white-space:nowrap}
+.qc{margin-left:auto}
+.score-value{font-size:23px}.score-value small{font-size:11px}
+.score-label{font-size:9px;text-align:right}
+.card-overview{min-width:0;display:flex;flex-direction:column;gap:4px}
+.card-actions{margin-top:11px;padding-top:11px;border-top:1px solid #433451;display:grid;grid-template-columns:1.1fr 1fr;gap:7px}
+.card-actions .btn{min-width:0;min-height:35px;padding:7px 9px;font-size:11px}
+.editor-details{margin-top:10px;border:1px solid #49385f;border-radius:11px;background:#231a34;overflow:hidden}
+.editor-details>summary{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;list-style:none;padding:10px 11px;font-size:11px;color:#dfc2ff;font-weight:750;user-select:none}
+.editor-details>summary::-webkit-details-marker{display:none}
+.editor-details>summary::after{content:'⌄';font-size:15px;color:#b990ff}
+.editor-details[open]>summary::after{content:'⌃'}
+.editor-details[open]>summary{border-bottom:1px solid #49385f}
+.editor-details-body{padding:12px 11px 11px}
+.editor-details-body .input,.editor-details-body .textarea{font-size:12px}
+.editor-details-body .field label{font-size:10px}
+.editor-details-body .platform-fields{grid-template-columns:1fr}
+.editor-details-body .platform-fields .field.wide{grid-column:auto}
+.card-secondary-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}
+.card-secondary-actions .btn{font-size:11px;flex:1;min-width:115px;padding:8px 10px}
+.card .csv-validation{font-size:10px;line-height:1.45;margin:9px 0 0;display:flex;align-items:center;gap:6px;padding:6px 8px;background:#3a302c;border:1px solid #705b38;border-radius:7px;white-space:normal;overflow-wrap:anywhere}
+.card .csv-validation.good{background:#143b32;border-color:#2f765f}
+.card .csv-validation.error{background:#4b2535;border-color:#a35371}
+.card .csv-validation-full{margin:11px 0 2px;padding:9px 10px;white-space:pre-wrap;font-size:11px;line-height:1.5;color:#e5d5fd;border:1px solid #4c3d64;border-radius:8px;background:#1a1327;overflow-wrap:anywhere}
+.card .csv-validation-full:empty{display:none}
+.card .loading{font-size:11.5px;min-height:120px}
+.card .failure{min-height:80px}
+.card .fail-message{font-size:11px}
+.card .platform-settings{padding:10px 9px 2px}
+.card .platform-settings summary{font-size:10.5px}
+@media (max-width:1080px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:680px){.cards{grid-template-columns:1fr}.card-media{height:190px;min-height:190px}.card-content{padding:15px}.card .loading{min-height:90px}}
+@media (min-width:490px) and (max-width:680px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.card-media{height:145px;min-height:145px}.card-content{padding:11px}.card-actions{grid-template-columns:1fr}.card-actions .btn{width:100%}}
+@media (max-width:370px){.card-actions{grid-template-columns:1fr}.card-actions .btn{width:100%}.card-content{padding:12px}}
+
+
+.csv-filename[readonly]{cursor:default;opacity:.85}
+/* Selectable clipboard fallback for sandboxed Gemini Canvas and mobile browsers. */
+.copy-overlay{position:fixed;inset:0;z-index:200;background:#080611dc;backdrop-filter:blur(7px);padding:20px;display:flex;align-items:center;justify-content:center}
+.copy-dialog{width:min(100%,690px);max-height:min(88vh,800px);display:flex;flex-direction:column;gap:11px;background:#221832;border:1px solid #815cae;border-radius:17px;padding:20px;box-shadow:0 20px 70px #000b}
+.copy-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:10px}.copy-dialog-header h3{font-size:17px;line-height:1.3;margin:0}.copy-help{font-size:12px;line-height:1.6;color:#e3cffa;margin:0}.copy-area{display:block;width:100%;min-height:175px;max-height:49vh;flex:1;resize:vertical;border:1px solid #8b69b3;border-radius:11px;padding:12px;background:#110d1c;color:#f1e9ff;font-size:12.5px;line-height:1.6;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;user-select:text;-webkit-user-select:text}.copy-area::selection{background:#9254e4;color:#fff}
+.copy-dialog-actions{display:flex;flex-wrap:wrap;gap:8px}.copy-dialog-actions .btn{flex:1;min-width:116px}.copy-close{border:1px solid #70588d;background:#3a294f;color:#eee1ff;width:34px;height:34px;border-radius:9px;font-size:20px;line-height:1}
+@media(max-width:650px){.copy-overlay{padding:10px;align-items:center}.copy-dialog{padding:14px;max-height:94dvh;border-radius:13px}.copy-area{min-height:180px;max-height:47dvh;font-size:12px}.copy-dialog-actions .btn{min-width:calc(50% - 8px)}}
+
+
+/* v1.3.6: editable Title and Description in the card itself. */
+.card-overview{display:flex;flex-direction:column;gap:9px;min-width:0}
+.overview-field{margin:0}
+.overview-field .field-head{margin-bottom:4px}
+.overview-field .field-head label{font-size:10px;letter-spacing:.6px;color:#d5b9f2}
+.overview-field .count{font-size:10px;white-space:nowrap}
+.card-overview .textarea{font-size:12px;line-height:1.45;padding:9px 10px;background:#151022;border-color:#4e3b69;color:#f5ecff;resize:vertical;overflow-y:auto}
+.card-overview .textarea:focus{background:#21172f;border-color:#b17bf4;box-shadow:0 0 0 2px #a466ed20}
+.card-overview .editable-title{min-height:57px;font-weight:690}
+.card-overview .editable-description{min-height:79px;font-weight:400;color:#ddd0ed}
+.card .csv-validation.hidden{display:none}
+@media(max-width:680px){.card-overview .textarea{font-size:12px}.card-overview .editable-title{min-height:55px}.card-overview .editable-description{min-height:74px}}
+/* v1.3.6 · compact controls for persistent cards */
+.card-top-tools{display:flex;align-items:center;gap:9px;min-width:0}
+.card-remove{width:28px;height:28px;flex:none;display:grid;place-items:center;line-height:1;border:1px solid #614568;border-radius:8px;background:#3d2539;color:#eabaca;font-weight:750;font-size:19px;transition:background .2s,border-color .2s}
+.card-remove:hover:not(:disabled){background:#7a304b;border-color:#d5768f;color:#fff}
+.card-remove:disabled{opacity:.4;cursor:not-allowed}
+.btn.clear-all{background:#35232e;border-color:#755064;color:#f0c6d4}
+.btn.clear-all:hover:not(:disabled),.btn.clear-all.confirm-clear{background:#9e365b;color:#fff;border-color:#da718c}
+.summary-actions .btn.clear-all{min-width:96px}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.card-actions .regenerate{border-color:#6a4c9f;background:#33244c;color:#e5d3ff}
+@media(max-width:680px){.card-top-tools{gap:6px}.card-remove{width:26px;height:26px}.summary-actions .btn{flex:1 1 auto}}
+
+/* v1.3.8 — Horizontal, one-asset-per-row list cards.
+   Left: score analysis above image preview with overlay badge.
+   Right: inline editable title/description, actions and optional metadata. */
+.cards{display:flex;flex-direction:column;gap:14px;align-items:stretch}
+.card{display:grid;grid-template-columns:minmax(225px,265px) minmax(0,1fr);align-items:stretch;min-width:0;box-shadow:0 8px 30px #05040a36;transition:border-color .2s}
+.card-aside{min-width:0;display:flex;flex-direction:column;align-items:stretch;background:#161123;border-right:1px solid #413354}
+.card-aside .qc-details{flex:none;margin:0;border:none;border-bottom:1px solid #49365e;border-radius:0;background:#261a37}
+.card-aside .qc-details>summary{padding:12px 13px;min-height:45px;align-items:center;font-size:11px;line-height:1.4}
+.card-aside .qc-details .audit-inner{max-height:340px;overflow-y:auto;padding:0 13px 13px}
+.card-aside .qc-details .audit-tips{overflow-wrap:anywhere}
+.card-media{position:relative;flex:none;width:100%;height:229px;min-height:229px;border:0;background:#100c1e;overflow:hidden}
+.card-media img{position:absolute;inset:0;display:block;width:100%;height:100%;max-height:none;object-fit:contain;padding:12px 10px 30px}
+.card-media .qc{position:absolute;top:10px;right:10px;left:auto;bottom:auto;margin:0;padding:8px 10px 7px;background:#110b1deb;border:1px solid #705496b0;border-radius:10px;backdrop-filter:blur(9px);box-shadow:0 4px 15px #0006;text-align:center;z-index:1}
+.card-media .qc .score-value{font-size:24px;line-height:1.05;white-space:nowrap}
+.card-media .qc .score-value small{font-size:11px}
+.card-media .qc .score-label{text-align:center;font-size:9px;letter-spacing:.45px;color:#c3b3d8;margin-top:4px}
+.card-media .file-name{left:9px;right:9px;bottom:8px;max-width:calc(100% - 18px);text-align:left;z-index:1}
+.card-content{display:flex;flex-direction:column;min-width:0;padding:16px 19px 17px}
+.card-top{margin:0 0 11px;min-height:28px;gap:10px}
+.card-top-tools{margin-left:auto}
+.card-overview{display:flex;flex-direction:column;gap:11px;min-width:0}
+.card-overview .editable-title{min-height:56px}
+.card-overview .editable-description{min-height:85px}
+.card-overview .textarea{font-size:12.5px;padding:10px 11px}
+.card-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px;padding-top:12px}
+.card-actions .btn{flex:0 1 auto;min-width:105px;padding:8px 13px;font-size:11px}
+.card .editor-details{margin-top:12px}
+.card .editor-details-body .platform-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+.card .editor-details-body .platform-fields .field.wide{grid-column:1/-1}
+.card .loading{min-height:130px}
+@media(max-width:900px){.card{grid-template-columns:minmax(195px,230px) minmax(0,1fr)}.card-content{padding:14px 15px 15px}.card-media{height:215px;min-height:215px}}
+@media(max-width:600px){
+ .cards{display:flex;flex-direction:column;gap:12px}
+ .card{display:grid;grid-template-columns:minmax(0,1fr)}
+ .card-aside{border-right:none;border-bottom:1px solid #413354}
+ .card-media{height:220px;min-height:220px}
+ .card-content{padding:14px 14px 16px}
+ .card-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+ .card-actions .btn{padding:8px 5px;min-width:0;width:100%;font-size:10.5px}
+ .card .editor-details-body .platform-fields{grid-template-columns:1fr}
+ .card .editor-details-body .platform-fields .field.wide{grid-column:auto}
+}
+@media(max-width:370px){.card-actions{grid-template-columns:1fr 1fr}.card-actions .btn:last-child{grid-column:1/-1}}
+
+/* v1.3.8 — Compact editing fields with directly visible keywords and bottom actions. */
+.card-overview{gap:8px}
+.card-overview .textarea{font-size:12.5px;line-height:1.4;padding:8px 10px;resize:vertical;overflow-y:auto}
+.card-overview .editable-title{height:39px;min-height:39px;font-weight:690}
+.card-overview .editable-description{height:58px;min-height:58px}
+.card-overview .editable-keywords{height:61px;min-height:61px;color:#d6bdfb;font-weight:400}
+.card .platform-settings.editor-details{padding:0;margin:11px 0 0;overflow:hidden;border:1px solid #49385f;background:#231a34}
+.card .platform-settings.editor-details>summary{margin:0;padding:10px 12px;min-height:38px;display:flex;align-items:center;justify-content:space-between;gap:10px;line-height:1.35;color:#dfc2ff;font-size:11px;font-weight:750;list-style:none}
+.card .platform-settings.editor-details>summary::-webkit-details-marker{display:none}
+.card .platform-settings.editor-details>summary::after{content:'⌄';font-size:16px;color:#b990ff;flex:none}
+.card .platform-settings.editor-details[open]>summary::after{content:'⌃'}
+.card .platform-settings.editor-details[open]>summary{border-bottom:1px solid #49385f}
+.card .platform-settings.editor-details .editor-details-body{padding:12px}
+.card .platform-settings.editor-details .platform-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+.card .platform-settings.editor-details .platform-fields .field.wide{grid-column:1/-1}
+.card .card-actions{margin-top:11px;padding-top:11px;display:flex;flex-wrap:wrap;gap:8px}
+.card .card-actions .btn{min-width:0;min-height:36px;padding:8px 12px;flex:0 1 auto;white-space:nowrap}
+@media(max-width:900px){.card .card-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.card .card-actions .btn{width:100%;font-size:11px}}
+@media(max-width:600px){.card-overview .editable-title{height:39px;min-height:39px}.card-overview .editable-description{height:58px;min-height:58px}.card-overview .editable-keywords{height:61px;min-height:61px}.card .platform-settings.editor-details .platform-fields{grid-template-columns:1fr}.card .platform-settings.editor-details .platform-fields .field.wide{grid-column:auto}}
+
+
+/* v1.4.1: distinct CSV setting heading and clearly separated action colors */
+.card .platform-settings.editor-details>summary{color:#7dd3fc}
+.card .platform-settings.editor-details>summary::after{color:#7dd3fc}
+.btn.blue,.card .card-actions .btn.blue.regenerate{background:linear-gradient(115deg,#1d65d8,#297fef);border-color:#60a5fa;color:#fff}
+.card .card-actions .btn.green.txt,.card .card-actions .btn.green.save-csv{background:linear-gradient(115deg,#168267,#17a27a);border-color:#3abd99;color:#fff}
+
+/* Compact per-field copy controls */
+.field-copy-row{display:flex;justify-content:flex-end;margin-top:3px}
+.field-copy-btn{border:1px solid #5b477b;border-radius:6px;background:#261c3d;color:#cbb8e9;padding:3px 9px;font:inherit;font-size:10px;font-weight:600;cursor:pointer;line-height:1.3;transition:background .15s,color .15s}
+.field-copy-btn:hover,.field-copy-btn:focus-visible{background:#43305f;color:#fff;outline-offset:2px}
+
+/* v1.4.2: left aligned green per-field copy buttons */
+.field-copy-row{justify-content:flex-start}
+.field-copy-btn{background:#116b50;border-color:#259d75;color:#fff}
+.field-copy-btn:hover,.field-copy-btn:focus-visible{background:#168d69;color:#fff}
+/* Full-size preview overlay */
+.card-media img{cursor:zoom-in}
+.image-lightbox{position:fixed;inset:0;z-index:10000;background:rgba(5,3,12,.94);display:flex;align-items:center;justify-content:center;padding:56px 16px 28px}
+.image-lightbox.hidden{display:none}
+.image-lightbox img{display:block;max-width:100%;max-height:100%;object-fit:contain;box-shadow:0 12px 48px #0008}
+.image-lightbox-close{position:absolute;top:12px;right:16px;min-width:42px;min-height:42px;border:1px solid #a48ac9;border-radius:12px;background:#241936;color:#fff;font-size:26px;cursor:pointer}
+.image-lightbox-label{position:absolute;left:16px;right:75px;top:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e8dbff;font-size:12px}
+
+/* v1.4.7 — score is separate from the picture; filename and generated category are below it. */
+.card-aside{background:#171124}
+.card-aside .qc-strip{min-height:47px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-bottom:1px solid #3d3054;background:#1e1730}
+.qc-strip-title{font-size:10px;font-weight:700;color:#ac9bbc;letter-spacing:.35px}
+.card-aside .qc-strip .qc{position:static;display:flex;gap:6px;padding:0;margin:0;border:0;box-shadow:none;background:transparent;backdrop-filter:none;align-items:baseline}
+.card-aside .qc-strip .qc.hidden{display:none!important}
+.card-aside .qc-strip .score-label{font-size:10px;font-weight:750;color:#b59acb;letter-spacing:.5px;margin:0}
+.card-aside .qc-strip .score-value{font-size:21px;white-space:nowrap}
+.card-aside .qc-strip .score-value small{font-size:10px}
+.card-aside .card-media{height:225px;min-height:225px;border-bottom:1px solid #403254;cursor:zoom-in}
+.card-aside .card-media img{padding:8px;transform:none;pointer-events:none}
+.asset-meta{padding:9px 12px 11px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.card-aside .asset-meta .file-name{position:static;display:block;max-width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere;text-overflow:initial;border:0;background:transparent;backdrop-filter:none;padding:0;font-size:11px;font-weight:700;color:#e6d8f6}
+.asset-category{font-size:11px;color:#77dfbf;line-height:1.45;overflow-wrap:anywhere}
+.field-copy-row{align-items:center;flex-wrap:wrap;gap:7px}
+.keyword-optimize-btn{border:1px solid #7460c8;background:#372464;color:#ecddff;border-radius:6px;padding:3px 9px;font:inherit;font-size:10px;font-weight:700;line-height:1.3}
+.keyword-optimize-btn:hover:not(:disabled){background:#5a3999;color:white}
+.keyword-seo-note{font-size:10px;color:#bbaacd}
+/* Full-screen image explorer: independent controls, original pixels / safe SVG where available. */
+.image-lightbox{z-index:10000;display:flex;flex-direction:column;justify-content:stretch;align-items:stretch;gap:0;padding:0;background:#080512f5;overscroll-behavior:contain}
+.image-lightbox-top{height:57px;display:flex;align-items:center;gap:12px;padding:10px 15px;background:#160e22;border-bottom:1px solid #3b2c50;flex:none}
+.image-lightbox .image-lightbox-label{position:static;display:block;flex:1;min-width:0;font-size:12px}
+.image-lightbox .image-lightbox-close{position:static;flex:none;font-size:25px}
+.image-lightbox-stage{position:relative;flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;touch-action:none;overscroll-behavior:contain;user-select:none;-webkit-user-select:none;cursor:zoom-in;background:repeating-conic-gradient(#171320 0% 25%,#1c1727 0% 50%) 50%/24px 24px}
+.image-lightbox-stage.can-pan{cursor:grab}.image-lightbox-stage.is-panning{cursor:grabbing}
+.image-lightbox-stage img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;transform-origin:center center;transition:none;will-change:transform;pointer-events:none;user-select:none;-webkit-user-drag:none;box-shadow:0 9px 30px #0007}
+.image-lightbox-controls{min-height:59px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:9px 16px;background:#160e22;border-top:1px solid #3b2c50;flex:none}
+.image-lightbox-controls button{min-width:42px;min-height:36px;border:1px solid #766294;border-radius:9px;background:#33234e;color:white;font-size:17px;font-weight:700}
+.image-lightbox-controls button:hover{background:#5e398c}
+.image-lightbox-controls .zoom-level{min-width:54px;text-align:center;color:#e2cffb;font-size:12px;font-weight:700}
+.image-zoom-help{font-size:11px;color:#a996c1}
+@media(max-width:600px){.card-aside .card-media{height:230px;min-height:230px}.image-lightbox-top{height:50px}.image-lightbox-controls{gap:8px;padding:7px 9px}.image-zoom-help{width:100%;text-align:center;font-size:10px}.asset-meta{padding:9px 13px}}
+@media(prefers-reduced-motion:reduce){.card-aside .card-media img{transition:none}}
+
+/* v1.4.7: platform and upload side by side. Both remain interactive. */
+.input-row{display:grid;grid-template-columns:minmax(275px,335px) minmax(0,1fr);gap:14px;align-items:stretch;margin-bottom:15px}
+.input-row .platform-panel{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:12px;min-width:0;margin:0;padding:18px 19px}
+.input-row .platform-panel p{font-size:11.5px;line-height:1.55}
+.input-row .upload{min-width:0;min-height:200px;padding:18px 18px;display:flex;flex-direction:column;justify-content:center}
+.input-row .upload-icon{width:43px;height:43px;border-radius:12px;margin:0 auto 8px}
+.input-row .upload-icon svg{width:24px}
+.input-row .upload-title{font-size:16px;margin:0 0 4px}
+.input-row .upload-desc{font-size:11.5px;line-height:1.45}
+.input-row .upload-cap{margin-top:10px}
+@media(max-width:760px){.input-row{grid-template-columns:1fr;gap:11px}.input-row .platform-panel{padding:15px}.input-row .upload{min-height:0;padding:19px 15px}}
+
+/* Enlargement floats beside the mouse; the thumbnail itself never changes size. */
+.image-hover-popup{position:fixed;left:0;top:0;z-index:80;pointer-events:none;width:min(400px,calc(100vw - 24px));border:1px solid #9169c4;border-radius:13px;background:#1c152c;padding:8px;box-shadow:0 22px 60px #05030acf;opacity:0;visibility:hidden;transform:translateY(5px);transition:opacity .1s ease,transform .1s ease,visibility .1s;overflow:hidden}
+.image-hover-popup.visible{opacity:1;visibility:visible;transform:translateY(0)}
+.image-hover-popup img{display:block;width:100%;height:285px;object-fit:contain;background:repeating-conic-gradient(#252037 0% 25%,#191427 0% 50%) 50%/18px 18px;border-radius:8px}
+.image-hover-popup .hover-popup-foot{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:7px;color:#e9dcfa;font-size:11px}
+.image-hover-popup .hover-popup-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:750;min-width:0}
+.image-hover-popup .hover-popup-tip{color:#a98fca;white-space:nowrap;flex:none;font-size:10px}
+@media(max-width:850px){.image-hover-popup{width:min(330px,calc(100vw - 24px))}.image-hover-popup img{height:240px}}
+@media(hover:none),(pointer:coarse){.image-hover-popup{display:none!important}}
+@media(prefers-reduced-motion:reduce){.image-hover-popup{transition:none}}
+
+/* Full-window overlay guides drag-and-drop no matter where the image is released. */
+.global-drop-overlay{position:fixed;inset:0;z-index:9000;pointer-events:none;background:#0b0616d9;backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:18px}
+.global-drop-overlay.hidden{display:none!important}
+.global-drop-message{width:min(100%,560px);padding:35px 23px;border:2px dashed #c89bff;background:linear-gradient(135deg,#2d1b47,#211530);border-radius:22px;text-align:center;box-shadow:0 20px 100px #000b}
+.global-drop-message strong{display:block;font-size:21px;color:#f6eafa;margin-bottom:8px}
+.global-drop-message span{font-size:13px;color:#d1b8eb}
+
+/* v1.4.7 — small offline template button below the upload panel. */
+.upload-column{min-width:0;display:flex;flex-direction:column;gap:7px}
+.upload-column>.upload{flex:1}
+.upload-test-actions{display:flex;justify-content:flex-end;align-items:center}
+.upload-test-actions .demo-mini{min-height:30px;padding:5px 11px;border-radius:8px;border-color:#675184;background:#352647;color:#cab9e5;font-size:10.5px;font-weight:650;line-height:1.2}
+.upload-test-actions .demo-mini:hover{background:#4d3569;color:#f6ecff}
+.upload-title strong{font-weight:760}
+.upload-title .upload-anywhere{font-weight:450;color:#c9b6df}
+</style>
+</head>
+<body>
+<header>
+  <div class="container header-inner">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l5-5 4 4 3-3 4 4M4 5h16v14H4z"/><circle cx="16.5" cy="8.5" r="1.5"/></svg></div>
+      <div><div class="brand-name">Vectorich <span>Metadata</span></div><div class="brand-sub">Microstock Metadata Studio · v1.4.8</div></div>
+    </div>
+    <div class="header-side"><span class="hide-medium hide-mobile">AI-powered metadata for stock assets</span><span class="pill">English Output</span></div>
+  </div>
+</header>
+<main class="container">
+  <div class="intro"><div><h2>Generate metadata yang lebih relevan</h2><p>Title, description, dan keywords dalam bahasa Inggris untuk kebutuhan microstock.</p></div><span class="small-note">Batch processing · Auto categories · Ready-to-package ZIP</span></div>
+  <div class="input-row" aria-label="Platform microstock dan upload file">
+  <section class="platform-panel" aria-label="Microstock platform options"><div><label for="platformSelect">Target microstock</label><select id="platformSelect"><option value="adobe">Adobe Stock · official CSV</option><option value="shutterstock">Shutterstock · official CSV</option><option value="vecteezy">Vecteezy · official CSV</option><option value="freepik">Freepik · CSV preview (verify template)</option><option value="generic">Generic / other microstock</option></select></div><p id="platformInfo">Choose your target platform to switch its CSV headers, metadata limits and required fields. Metadata already generated stays editable.</p></section>
+  <div class="upload-column">
+  <section class="upload" id="uploadSection" role="button" tabindex="0" aria-label="Pilih atau tarik gambar untuk dianalisis">
+    <input type="file" id="fileInput" accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml" multiple hidden>
+    <div class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></div>
+    <p class="upload-title"><strong>Klik atau tarik gambar disini</strong> <span class="upload-anywhere">atau dimana saja</span></p>
+    <p class="upload-desc">Unggah PNG, JPG, WebP, atau SVG. SVG dirender aman menjadi PNG sementara untuk analisis Gemini; berkas asli tidak dimodifikasi. Metadata selalu berbahasa Inggris.</p>
+    <div class="upload-cap"><span class="cap">PNG / JPG / WebP / SVG</span><span class="cap">Multiple images</span><span class="cap">English only</span></div>
+  </section>
+    <div class="upload-test-actions"><button type="button" class="btn demo-mini" id="loadOfflineDemo">Load Test Template</button></div>
+  </div>
+  </div>
+  <div class="status hidden" id="statusContainer" role="status" aria-live="polite"><div class="status-row"><div class="status-label"><span class="spin" aria-hidden="true"></span><span class="status-text" id="statusText">Preparing files...</span></div><span class="status-percent" id="statusPercent">0%</span></div><div class="progress"><div class="progress-bar" id="progressBar"></div></div></div>
+  <div class="summary hidden" id="resultsHeader"><div><h3>Hasil Metadata</h3><div class="summary-sub" id="resultSummary">List hasil · Title dan Description langsung dapat diedit</div></div><div class="summary-actions"><button type="button" class="btn green hidden" id="downloadZipButton" title="Download renamed original images (max 30 characters each) and one matching platform CSV">⬇ ZIP + Images + CSV</button><button type="button" class="btn all-metadata" id="downloadAllMetadataButton" title="Download one combined platform-specific CSV for all successfully generated cards">⬇ Download All Metadata</button><button type="button" class="btn primary" id="downloadCsvButton" title="Download ZIP with one CSV for each generated card">⬇ Batch CSV (ZIP)</button><button type="button" class="btn secondary" id="copyAllButton">Copy All</button><button type="button" class="btn clear-all" id="clearAllButton" title="Remove all generated cards">Clear All</button></div></div>
+  <div class="csv-info" id="csvGuide">Adobe Stock · <strong>Filename · Title · Keywords · Category · Releases</strong>. Choose another platform above to change CSV format and validations.</div>
+  <div id="resultsGrid" class="cards" aria-live="polite"></div>
+</main>
+<div class="copy-overlay hidden" id="copyDialog" role="dialog" aria-modal="true" aria-label="Salin metadata" aria-hidden="true" aria-describedby="copyHelp">
+  <div class="copy-dialog">
+    <div class="copy-dialog-header"><h3>Salin Metadata</h3><button type="button" id="copyDialogClose" class="copy-close" aria-label="Tutup jendela salin">×</button></div>
+    <p id="copyHelp" class="copy-help">Pilih teks metadata untuk disalin.</p>
+    <textarea id="copyDialogText" class="copy-area" aria-label="Teks metadata yang siap disalin" readonly spellcheck="false"></textarea>
+    <div class="copy-dialog-actions"><button type="button" id="copyDialogCopy" class="btn primary">Copy Again</button><button type="button" id="copyDialogSelect" class="btn secondary">Select All</button><button type="button" id="copyDialogDownload" class="btn green">Save TXT</button></div>
+  </div>
+</div>
+<div class="image-lightbox hidden" id="imageLightbox" role="dialog" aria-modal="true" aria-label="Zoomable image preview" aria-hidden="true" tabindex="-1">
+  <div class="image-lightbox-top"><span class="image-lightbox-label" id="imageLightboxLabel"></span><button type="button" class="image-lightbox-close" id="imageLightboxClose" aria-label="Close image preview">×</button></div>
+  <div class="image-lightbox-stage" id="imageLightboxStage" aria-label="Image viewport: drag to pan, wheel or pinch to zoom"><img id="imageLightboxImg" alt="Enlarged preview" draggable="false"></div>
+  <div class="image-lightbox-controls"><span class="zoom-level" id="imageZoomLevel" aria-live="polite">100%</span><button type="button" id="imageZoomOut" aria-label="Zoom out">−</button><button type="button" id="imageZoomIn" aria-label="Zoom in">+</button><button type="button" id="imageZoomReset" aria-label="Fit image to view">Fit</button><span class="image-zoom-help">Wheel / drag · Pinch to zoom</span></div>
+</div>
+<div id="imageHoverPopup" class="image-hover-popup" aria-hidden="true"><img id="imageHoverPopupImg" alt=""><div class="hover-popup-foot"><span id="imageHoverPopupName" class="hover-popup-name"></span><span class="hover-popup-tip">Klik untuk zoom</span></div></div>
+<div id="globalDropOverlay" class="global-drop-overlay hidden" aria-hidden="true"><div class="global-drop-message"><strong>Lepaskan gambar untuk upload</strong><span>PNG · JPG · WebP · SVG · Bisa beberapa gambar sekaligus</span></div></div>
+<div id="toastContainer" class="toast-box" aria-live="polite"></div>
+<footer>Vectorich Metadata v1.4.8 · Quality scores are heuristic checks, not sales or marketplace approval predictions.</footer>
+<script>
+'use strict';
+// Preserve the original Gemini Canvas API route and intentionally empty API key.
+// Gemini Canvas supplies API access in supported Canvas environments.
+const apiKey = "";
+const apiUrl = ""; // RIVIS supplies the shared Gemini API route.
+const SYSTEM_PROMPT = `You are an expert in accurate English-language microstock metadata for stock photos, illustrations, vectors, and design assets.
+Inspect the attached image (including any SVG raster preview) carefully and return a VALID JSON OBJECT only, with no markdown, commentary, or extra fields.
+HARD LANGUAGE REQUIREMENT: Write EVERY word of the title, description, and tags in natural, fluent ENGLISH. Never use Indonesian or another language, except authentic place names, proper nouns and unavoidable visually relevant native concepts.
+Write professional, searchable, descriptive microstock metadata without clickbait, unverifiable claims, invented visual details, unnecessary hype, keyword stuffing, or unrelated trending terms.
+Title: concise, accurate, specific English, preferably 35–70 characters, <=70 characters, with NO COMMAS or unusual symbols (Adobe Stock CSV requirements). Describe the primary subject and visual style / context, no brand names unless essential and explicitly visible.
+Description: 80–190 characters in English, factual, depict subject, composition, and suitable conceptual or commercial usage without claiming facts that are not visible.
+Search keyword strategy: think like a real buyer searching for this exact depicted asset. Generate 30–40 DISTINCT, strongly relevant English keyword entries per asset, ideally 35–38, with a total maximum of 40. Provide at least 30 when 30 truthful, independently useful search terms can be identified from the visual. Never reach a numeric target by fabricating objects, activities, materials, concepts, locations or styles. For unusually simple images with fewer truthful terms, return fewer rather than use spam.
+KEYWORD COVERAGE: (a) precise main subject and common genuine alternate buyer search names; (b) visible parts, colors, patterns, composition, pose, setting and action; (c) actual art style, vector/illustration type and viewpoint; (d) accurately supported concepts and use cases. Prefer a useful blend of concise single words and natural 2–3 word buyer phrases. Avoid minor variations that repeat the same query intent.
+IMPORTANT KEYWORD PRIORITY: Put the TEN most specific and commercially useful terms in positions 1–10 in descending order of relevance. Lead with the literal main subject, its accurate common synonyms, visible actions and distinctive visible features. Include the most important title subject terms among these first ten when accurate. Keep general style and broader design-use context after the subject-focused keywords. Do not sort alphabetically. Search ranking priority is critical for Adobe Stock.
+Avoid near-duplicate keyword stuffing (same repeated root in many phrases), speculative events or locations, invented emotions, irrelevant seasonal trends, unverified demographics, and subjective sales claims. Do not add 'trending', 'viral', 'best seller', 'high quality', brand names, or unrelated topics. Do not artificially force a quota by inventing terms. Use lowercase keyword text.
+Avoid trademarks, protected character names, logos, misleading brand associations, or demographic claims not verifiable from the image. Prioritize search accuracy over quantity.
+Also select the best single ADOBE STOCK category ID from this exact list: 1 Animals; 2 Buildings and Architecture; 3 Business; 4 Drinks; 5 The Environment; 6 States of Mind; 7 Food; 8 Graphic Resources; 9 Hobbies and Leisure; 10 Industry; 11 Landscapes; 12 Lifestyle; 13 People; 14 Plants and Flowers; 15 Culture and Religion; 16 Science; 17 Social Issues; 18 Sports; 19 Technology; 20 Transport; 21 Travel. Add the optional field "adobeCategory" as a NUMBER between 1 and 21. Do not infer protected attributes. Categorize the main subject rather than the file extension or vector style.
+Return the tags array in relevance order; prefer 30–40 accurate, distinct terms. Only use "isolated", "transparent", "copy space", "photography", "3d" or "vector" when actually supported by the asset.
+Required JSON example (illustrative; in actual outputs give 30–40 relevant tags): {"title":"Specific English Stock Asset Title","description":"Accurate English description of the visible subject and composition.","tags":["primary subject","visual detail","illustration","isolated"],"adobeCategory":8}`;
+const els = {
+  drop: document.getElementById('uploadSection'), file: document.getElementById('fileInput'),
+  status: document.getElementById('statusContainer'), statusText: document.getElementById('statusText'),
+  statusPercent: document.getElementById('statusPercent'), progress: document.getElementById('progressBar'),
+  resultsHeader: document.getElementById('resultsHeader'), results: document.getElementById('resultsGrid'),
+  summary: document.getElementById('resultSummary'), zip: document.getElementById('downloadZipButton'),
+  csv: document.getElementById('downloadCsvButton'), allMetadata: document.getElementById('downloadAllMetadataButton'), all: document.getElementById('copyAllButton'), clear: document.getElementById('clearAllButton'),
+  toast: document.getElementById('toastContainer')
+};
+let entries=[];let processing=false;let nextId=0;let clearConfirmTimer=null;
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const tagsFromText=t=>String(t||'').split(/[,;\n]+/).map(s=>s.trim().replace(/\s+/g,' ').toLowerCase()).filter(Boolean);
+const uniqueTags=tags=>{let seen=new Set();return tags.filter(t=>{let k=t.toLocaleLowerCase('en');if(seen.has(k))return false;seen.add(k);return true})};
+const words=s=>String(s||'').toLowerCase().match(/[a-z0-9]+(?:[-'][a-z0-9]+)?/g)||[];
+const wordSet=s=>new Set(words(s).filter(w=>w.length>2 && !['the','and','for','with','from','that','this','into','its','are','over','under','their','using','image','photo','stock','illustration'].includes(w)));
+const overlap=(a,b)=>{if(!a.size)return 0;let n=0;for(let w of a)if(b.has(w))n++;return n/a.size};
+const ADOBE_HEADERS=['Filename','Title','Keywords','Category','Releases'];
+const SEO_MIN_KEYWORDS=30, SEO_MAX_KEYWORDS=40; // Do not pad thin/simple assets with ungrounded keywords.
+const ADOBE_CATEGORIES=['Animals','Buildings and Architecture','Business','Drinks','The Environment','States of Mind','Food','Graphic Resources','Hobbies and Leisure','Industry','Landscapes','Lifestyle','People','Plants and Flowers','Culture and Religion','Science','Social Issues','Sports','Technology','Transport','Travel'];
+const CSV_MAX_BYTES=1000000,CSV_MAX_ROWS=5000;
+const SHUTTER_CATEGORIES=['Abstract','Animals/Wildlife','Arts','Backgrounds/Textures','Beauty/Fashion','Buildings/Landmarks','Business/Finance','Celebrities','Education','Food and Drink','Healthcare/Medical','Holidays','Industrial','Interiors','Miscellaneous','Nature','Objects','Parks/Outdoor','People','Religion','Science','Signs/Symbols','Sports/Recreation','Technology','Transportation','Vintage'];
+// Conservative local category suggestions (fallback for old Gemini JSON and offline test templates).
+// A suggested category is never a guarantee of marketplace classification; users can override it.
+const ADOBE_CATEGORY_TERMS={
+ 1:['animal','wildlife','pet','cat','dog','bird','fish','butterfly','bee','horse','insect','lion','bear','owl'],
+ 2:['architecture','building','house','home exterior','facade','interior','skyscraper','temple','bridge','church','apartment'],
+ 3:['business','finance','money','corporate','office','marketing','startup','investment','invoice','commerce','entrepreneur','meeting'],
+ 4:['drink','beverage','coffee','tea','juice','cocktail','wine','beer','milkshake','smoothie','cup of coffee'],
+ 5:['environment','climate','ecology','recycling','sustainability','pollution','renewable','conservation','earth day'],
+ 6:['emotion','sadness','happiness','anxiety','stress','mental health','loneliness','heartbreak','mindfulness','meditation'],
+ 7:['food','donut','cake','meal','burger','bread','pizza','cookie','dessert','pasta','salad','pastry','chocolate','fruit plate'],
+ 8:['graphic resource','background','pattern','texture','abstract','seamless','infographic','template','wallpaper','typography','icon set'],
+ 9:['hobby','leisure','craft','knitting','gardening','fishing','board game','reading book','camping','recreation'],
+ 10:['industry','factory','manufacturing','construction','warehouse','industrial','machinery','assembly line','production'],
+ 11:['landscape','mountain','scenery','scenic','sunset','sunrise','vista','forest','valley','lake','seascape','waterfall','snowy peak'],
+ 12:['lifestyle','family','daily life','couple','romance','home life','friendship','parenting','everyday','celebration'],
+ 13:['person','people','portrait','man','woman','child','children','adult','face','human','senior'],
+ 14:['flower','floral','plant','leaf','botanical','bloom','rose','sunflower','tulip','orchid','garden flower','petal','bouquet'],
+ 15:['culture','religion','prayer','mosque','festival','tradition','heritage','spiritual','ceremony'],
+ 16:['science','laboratory','research','microscope','chemistry','biology','physics','medical research','dna','molecule'],
+ 17:['social issues','poverty','inequality','protest','activism','human rights','homelessness','social justice'],
+ 18:['sports','sport','fitness','football','soccer','basketball','cycling','bicycle race','tennis','running','swimming','yoga'],
+ 19:['technology','computer','smartphone','digital','robot','artificial intelligence','cybersecurity','software','code','circuit','laptop'],
+ 20:['transport','transportation','vehicle','car','truck','motorcycle','train','airplane','bus','bicycle','ship','scooter'],
+ 21:['travel','tourism','destination','vacation','holiday trip','tourist','sightseeing','passport','journey','adventure trip']
+};
+const SHUTTER_BY_ADOBE={1:'Animals/Wildlife',2:'Buildings/Landmarks',3:'Business/Finance',4:'Food and Drink',5:'Nature',6:'People',7:'Food and Drink',8:'Backgrounds/Textures',9:'Sports/Recreation',10:'Industrial',11:'Nature',12:'People',13:'People',14:'Nature',15:'Religion',16:'Science',17:'People',18:'Sports/Recreation',19:'Technology',20:'Transportation',21:'Parks/Outdoor'};
+function categoryWordScore(text,term){const phrase=term.replace(/ /g,'\\s+');return new RegExp('(?:^|[^a-z])'+phrase+'(?:s|es)?(?:$|[^a-z])','i').test(text)?1:0}
+function localAdobeCategory(m){
+ const title=String(m.title||'').toLowerCase(),description=String(m.description||'').toLowerCase();
+ const leading=(m.tags||[]).slice(0,10).join(' ').toLowerCase(),trailing=(m.tags||[]).slice(10).join(' ').toLowerCase();
+ let best=0,max=0;
+ for(const [id,terms] of Object.entries(ADOBE_CATEGORY_TERMS)){
+  let score=0;for(const term of terms){score+=5*categoryWordScore(title,term)+2.5*categoryWordScore(leading,term)+categoryWordScore(description,term)+.5*categoryWordScore(trailing,term)}
+  if(score>max){max=score;best=Number(id)}
+ }
+ return max>=3?best:0;
+}
+function updateCategoryCaption(e){
+ if(!e?.card)return;
+ const el=e.card.querySelector('.asset-category');if(!el)return;
+ const n=Number(e.category);
+ const adobe=n>=1&&n<=21?`${n} · ${ADOBE_CATEGORIES[n-1]}`:'';
+ let text=platform==='shutterstock'?e.shutterCat1||(adobe?ADOBE_CATEGORIES[n-1]:''):
+          platform==='adobe'?adobe:e.genericCategory||adobe;
+ el.textContent='Category: '+(text||'Not set');
+}
+function updateAutoCategory(e){
+ if(!e.metadata||!e.card)return;
+ const guess=(Number(e.metadata.adobeCategory)||localAdobeCategory(e.metadata));
+ if(guess>=1&&guess<=21){
+  if(!e.manualAdobeCategory){e.category=String(guess);e.card.querySelector('.csv-category').value=e.category}
+  if(!e.manualShutterCategory){const mapped=SHUTTER_BY_ADOBE[guess]||'';if(SHUTTER_CATEGORIES.includes(mapped)){e.shutterCat1=mapped;e.card.querySelector('.shutter-category1').value=mapped}}
+  if(!e.manualGenericCategory){e.genericCategory=ADOBE_CATEGORIES[guess-1];e.card.querySelector('.generic-category').value=e.genericCategory}
+ }
+ updateCategoryCaption(e);
+}
+const PLATFORM_RULES={
+ adobe:{name:'Adobe Stock',headers:['Filename','Title','Keywords','Category','Releases'],delimiter:',',maxTitle:70,minTags:1,maxTags:50,note:'Official CSV · Filename, Title, Keywords required · Adobe: 70-char title, up to 50 keywords, 5,000 rows / 1 MB. Filename must match the uploaded file exactly.',url:'https://helpx.adobe.com/stock/contributor/manage-your-portfolio/csv-requirements-content.html'},
+ shutterstock:{name:'Shutterstock',headers:['Filename','Description','Keywords','Categories','Illustration','Mature Content','Editorial'],delimiter:',',maxTitle:200,minTags:7,maxTags:50,note:'Official CSV · Description uses the editable Description field · 7–50 keywords · at least one category required. Illustration/Mature Content/Editorial flags are manual.',url:'https://submit.shutterstock.com/help/en/articles/10617486-how-do-i-include-existing-metadata-with-my-content-submission'},
+ vecteezy:{name:'Vecteezy',headers:['Filename','Title','Description','Keywords','License'],delimiter:',',maxTitle:100,minTags:10,maxTags:30,note:'CSV export uses the first 30 prioritized keywords (Vecteezy limit), while all generated keywords remain editable in the card. Individual CSV keeps the source filename. ZIP export generates filenames up to 30 characters and omits extensions from Vecteezy CSV Filename (FTP format). For Add Data updates use the CSV downloaded from Vecteezy (with Id).',url:'https://eezycontributors.zendesk.com/hc/en-us/articles/360029388091-CSV-Metadata-Upload'},
+ freepik:{name:'Freepik',headers:['File name','Title','Keywords','Prompt','Model'],delimiter:';',maxTitle:100,minTags:5,maxTags:50,note:'Experimental semicolon-separated CSV · Official guidance confirms CSV support but not an exact current sample schema. Compare with the template in your Freepik/Magnific Contributor account before upload. AI assets need _ai_generated.',url:'https://www.freepik.com/ai/contributors/web-upload-method'},
+ generic:{name:'Generic',headers:['Filename','Title','Description','Keywords','Category'],delimiter:',',maxTitle:200,minTags:1,maxTags:50,note:'Portable CSV for other microstock providers or spreadsheet editing. Not guaranteed direct-import compatible; map its columns to your platform’s official template.',url:''}
+};
+const platformSelect=document.getElementById('platformSelect'),csvGuide=document.getElementById('csvGuide'),platformInfo=document.getElementById('platformInfo');
+// Individual CSV preserves the input filename. ZIP packages renamed assets (up to 30 chars) and maps CSV references to those names.
+// Standalone CSV output names replace only the source extension.
+function sourceCsvName(name){
+ const dot=name.lastIndexOf('.');
+ return (dot>0?name.slice(0,dot):name)+'.csv';
+}
+let platform='adobe';
+const rule=()=>PLATFORM_RULES[platform];
+function targetFilename(e){return e.filename}
+function platformKeywords(e){
+ let tags=(e.metadata?.tags||[]).map(t=>t.trim()).filter(Boolean);
+ // The card keeps 30–40 keywords, but the Vecteezy CSV profile supports at most 30.
+ // Prioritize the first 30 rather than changing a user's editable metadata.
+ if(platform==='vecteezy')tags=tags.slice(0,rule().maxTags);
+ if(platform==='freepik'&&e.aiGenerated&&!tags.includes('_ai_generated'))tags.push('_ai_generated');
+ return tags;
+}
+function updatePlatform(){platform=platformSelect.value;const p=rule();csvGuide.textContent=p.name+' CSV: '+p.headers.join(' · ')+' · ZIP + Images + CSV renames assets to ≤30 characters; Batch CSV (ZIP) keeps original filenames in individual CSVs.';platformInfo.replaceChildren();platformInfo.append(document.createTextNode(p.note+' '));if(p.url){const a=document.createElement('a');a.href=p.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Official guidance ↗';platformInfo.append(a)}
+ for(const e of entries){const card=e.card;if(e.metadata)updateAutoCategory(e);const head=card.querySelector('.platform-settings summary');head.textContent=p.name+' CSV settings · Filename & platform options';for(const block of card.querySelectorAll('[data-for]'))block.classList.toggle('hidden',block.dataset.for!==platform);e.csvFilename=e.filename;card.querySelector('.csv-filename').value=e.filename;if(e.metadata)updateScore(e);updateCategoryCaption(e)}refreshActions()}
+platformSelect.addEventListener('change',updatePlatform);
+
+const indicativeIndonesian=/\b(yang|dengan|untuk|pada|sebagai|gambar|ilustrasi|latar belakang|berwarna|tanpa|berbagai|menampilkan|berbentuk|dikelilingi|warna|bersama|sangat|cocok|penggunaan|desain grafis|kumpulan|benda|memiliki|memperlihatkan)\b/i;
+function likelyNonEnglish(m){return indicativeIndonesian.test([m.title,m.description,...m.tags].join(' '))}
+function scoreMetadata(m){
+  let title=(m.title||'').trim(),desc=(m.description||'').trim(),tags=tagsFromText((m.tags||[]).join(', '));
+  let distinct=uniqueTags(tags),twords=words(title),dwords=words(desc),subj=wordSet(title),top=wordSet(tags.slice(0,10).join(' ')),all=wordSet(tags.join(' '));
+  let sections={title:0,description:0,keywords:0,compliance:0},tips=[];
+  if(title)sections.title+=5;
+  if(title.length>=30&&title.length<=70)sections.title+=8;else if(title.length>=17&&title.length<=85)sections.title+=4;
+  if(twords.length>=5&&new Set(twords).size>=4)sections.title+=6;else if(twords.length>=3)sections.title+=3;
+  if(overlap(subj,top)>=.5)sections.title+=6;else if(overlap(subj,all)>=.35)sections.title+=3;
+  if(!title || title.length>70 || title.length<25)tips.push('Use a specific, accurate English title of about 30–70 characters.');
+  if(overlap(subj,top)<.5)tips.push('Put the main visible subject in the first 10 keywords.');
+  if(desc)sections.description+=4;
+  if(desc.length>=75&&desc.length<=200)sections.description+=5;else if(desc.length>=40&&desc.length<=230)sections.description+=3;
+  if(dwords.length>=12)sections.description+=3;else if(dwords.length>=7)sections.description+=1;
+  if(overlap(subj,wordSet(desc))>=.4)sections.description+=3;
+  if(!desc||desc.length<75||desc.length>200)tips.push('Describe the image accurately in about 75–200 characters.');
+  const targetMax=platform==='vecteezy'?30:SEO_MAX_KEYWORDS;
+  if(tags.length>=SEO_MIN_KEYWORDS&&tags.length<=SEO_MAX_KEYWORDS)sections.keywords+=12;
+  else if(tags.length>=24&&tags.length<SEO_MIN_KEYWORDS)sections.keywords+=8;
+  else if(tags.length>=15&&tags.length<=49)sections.keywords+=5;
+  else if(tags.length>=10)sections.keywords+=2;
+  if(tags.length&&distinct.length===tags.length)sections.keywords+=10;else if(tags.length&&distinct.length/tags.length>=.9)sections.keywords+=5;
+  if(overlap(subj,top)>=.5)sections.keywords+=10;else if(overlap(subj,all)>=.35)sections.keywords+=5;
+  const singles=tags.filter(t=>words(t).length===1).length,multi=tags.filter(t=>words(t).length>=2).length;
+  if(singles>=4&&multi>=5)sections.keywords+=6;else if(singles>=2&&multi>=2)sections.keywords+=3;
+  const filler=/\b(best seller|high quality|trending|viral|must have|buy now|amazing|perfect image)\b/i;
+  if(!tags.some(t=>filler.test(t)))sections.keywords+=7;
+  if(tags.length<SEO_MIN_KEYWORDS||tags.length>SEO_MAX_KEYWORDS)tips.push('Target 30–40 distinct, visually accurate keywords. Never invent terms to fill the count.');
+  if(distinct.length!==tags.length)tips.push('Remove duplicate keywords.');
+  if(singles<4||multi<5)tips.push('Mix focused one-word keywords with relevant multi-word phrases.');
+  // Heuristic SEO audit: warn about repeating the same generic root across too many phrases.
+  const leadingRoots=['illustration','design','vector','stock','background','artwork','graphic'];
+  const repeatedGeneric=leadingRoots.find(w=>tags.filter(t=>words(t).includes(w)).length>Math.max(5,Math.floor(tags.length*.35)));
+  if(repeatedGeneric){sections.keywords=Math.max(0,sections.keywords-5);tips.push('Avoid repeating "'+repeatedGeneric+'" in too many keyword phrases.');}
+  if(overlap(subj,top)<.5)tips.push('Move primary title subjects into the first ten keywords; keep them visually accurate.');
+  if(!likelyNonEnglish(m))sections.compliance+=8;else tips.push('Translate non-English content to English.');
+  if(!filler.test(title+' '+desc))sections.compliance+=4;else tips.push('Avoid promotional or unverifiable claims.');
+  if(title.length<=70&&desc.length<=200)sections.compliance+=3;else tips.push('Stay within the recommended title and description limits.');
+  let score=Object.values(sections).reduce((sum,x)=>sum+x,0);
+  return {score,sections,tips:tips.slice(0,5)};
+}
+// Conservative local SEO tidy-up on AI output, not a search popularity estimator.
+// Never invent keywords. Keep the AI's order as the main signal and elevate obvious title terms
+// into the first ten when the AI placed them later. Manual keyword edits are never rewritten.
+function seoKeywordOrder(tags,title){
+ const clean=uniqueTags(tags.map(t=>String(t||'').toLowerCase().replace(/\s+/g,' ').trim()).filter(Boolean));
+ const titleTokens=wordSet(title);if(clean.length<2||!titleTokens.size)return clean;
+ const enriched=clean.map((tag,index)=>{
+  const kwTokens=wordSet(tag);let match=0;for(const w of kwTokens)if(titleTokens.has(w))match++;
+  const specific=(kwTokens.size&&match/kwTokens.size>=.5)?2:0;
+  // Original order gets substantial weight: move only clearly relevant title terms.
+  const priority=Math.max(0,25-index)+match*4+specific;
+  return {tag,index,priority};
+ });
+ // Consider later keywords too if they match the title strongly; leave most of the model's top 10 intact.
+ const head=enriched.slice(0,Math.min(SEO_MAX_KEYWORDS,enriched.length)).sort((a,b)=>b.priority-a.priority||a.index-b.index);
+ const chosen=head.slice(0,10),used=new Set(chosen.map(x=>x.index));
+ return [...chosen.map(x=>x.tag),...enriched.filter(x=>!used.has(x.index)).map(x=>x.tag)];
+}
+function normalizeMetadata(raw){
+  const clean=s=>String(s==null?'':s).replace(/\s+/g,' ').trim();
+  let tags=Array.isArray(raw.tags)?raw.tags:typeof raw.tags==='string'?tagsFromText(raw.tags):[];
+  tags=uniqueTags(tags.flatMap(tag=>tagsFromText(tag))).slice(0,SEO_MAX_KEYWORDS);
+  let title=clean(raw.title).replace(/[,，]+/g,' '),description=clean(raw.description);
+  if(!title || !description || !tags.length)throw new Error('The AI returned incomplete metadata. Retry this image.');
+  tags=seoKeywordOrder(tags,title);
+  return {title,description,tags,adobeCategory:Number.isInteger(Number(raw.adobeCategory))&&Number(raw.adobeCategory)>=1&&Number(raw.adobeCategory)<=21?Number(raw.adobeCategory):null};
+}
+function updateProgress(n,total,filename){els.statusText.textContent=`Processing ${n} of ${total} · ${filename}`;let pct=Math.round((n-1)/total*100);els.progress.style.width=pct+'%';els.statusPercent.textContent=pct+'%'}
+function showToast(text,error=false){let t=document.createElement('div');t.className='toast'+(error?' error':'');t.textContent=text;els.toast.appendChild(t);setTimeout(()=>t.remove(),3900)}
+function setUploading(isBusy){processing=isBusy;els.drop.setAttribute('aria-disabled',String(isBusy));els.drop.style.opacity=isBusy?'.74':'1';els.file.disabled=isBusy;refreshActions()}
+function readImage(file){return new Promise((resolve,reject)=>{let reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(new Error('Could not read this image.'));reader.readAsDataURL(file)})}
+const SVG_MAX_BYTES=8*1024*1024,SVG_RENDER_MAX=2048;
+function fileIsSvg(file){return /\.svg$/i.test(file.name)||file.type==='image/svg+xml'}
+function svgLength(v){const m=String(v||'').trim().match(/^([\d.]+)\s*(px|pt|pc|in|cm|mm)?$/i);if(!m)return 0;const n=Number(m[1]);const f={px:1,pt:96/72,pc:16,in:96,cm:96/2.54,mm:96/25.4};return n*(f[(m[2]||'px').toLowerCase()]||1)}
+function prepareSafeSvg(raw){
+ if(/<!DOCTYPE|<!ENTITY|<\?xml-stylesheet/i.test(raw))throw Error('SVG with DOCTYPE, ENTITY, or external stylesheets is blocked. Export a clean SVG.');
+ if(raw.length>SVG_MAX_BYTES)throw Error('SVG file is too large for safe local rasterization (8 MB maximum).');
+ const doc=new DOMParser().parseFromString(raw,'image/svg+xml');
+ if(doc.querySelector('parsererror')||doc.documentElement.localName!=='svg')throw Error('This SVG is invalid or cannot be parsed.');
+ const root=doc.documentElement;
+ const blocked=new Set(['script','foreignobject','iframe','object','embed','audio','video','animate','animatetransform','animatemotion','set']);
+ const elements=[root,...Array.from(root.getElementsByTagName('*'))];
+ for(const el of elements){const tag=el.localName.toLowerCase();if(blocked.has(tag)){el.remove();continue}
+   for(const attr of Array.from(el.attributes)){
+     const name=attr.name.toLowerCase(),val=attr.value.trim();
+     if(name.startsWith('on')||name==='xml:base'){el.removeAttribute(attr.name);continue}
+     if(name==='href'||name==='xlink:href'){
+       const allow=val.startsWith('#')||(tag==='image'&&/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(val));
+       if(!allow)throw Error('SVG contains external image or font references. Embed or remove external resources before importing.');
+     }
+     if(/url\s*\(/i.test(val)&&!/^(?:(?!url\s*\().)*url\s*\(\s*['"]?#[^)'"]+['"]?\s*\)(?:(?!url\s*\().)*$/i.test(val)){
+       // Multiple url(#id) fragments are fine; external URLs are not.
+       const all=Array.from(val.matchAll(/url\s*\(\s*([^)]*)\)/gi));
+       if(all.some(m=>!/^['"]?#[^)'"]+['"]?$/.test(m[1].trim())))throw Error('SVG uses external resources in style/paint. Only internal url(#id) references are supported.');
+     }
+   }
+ }
+ for(const st of Array.from(root.querySelectorAll('style'))){if(/@import|@font-face|url\(\s*(?!['"]?#)/i.test(st.textContent||''))throw Error('SVG CSS has remote resources. Convert those to local paths or remove them.');}
+ let v=(root.getAttribute('viewBox')||'').trim().split(/[\s,]+/).map(Number),w=svgLength(root.getAttribute('width')),h=svgLength(root.getAttribute('height'));
+ if(v.length===4&&v.every(Number.isFinite)&&v[2]>0&&v[3]>0){if(!w)w=v[2];if(!h)h=v[3]}else{if(!w)w=1024;if(!h)h=1024;root.setAttribute('viewBox',`0 0 ${w} ${h}`)}
+ if(!(w>0&&h>0)||w>100000||h>100000)throw Error('SVG dimensions are invalid or too large.');
+ root.setAttribute('width',String(w));root.setAttribute('height',String(h));
+ const text=new XMLSerializer().serializeToString(root);
+ return {text,w,h};
+}
+async function rasterizeSvg(file){
+ if(file.size>SVG_MAX_BYTES)throw Error('SVG exceeds 8 MB safe processing limit.');
+ const raw=await file.text(),clean=prepareSafeSvg(raw);
+ const url=URL.createObjectURL(new Blob([clean.text],{type:'image/svg+xml;charset=utf-8'}));
+ try{
+   const image=await new Promise((resolve,reject)=>{const im=new Image();const timer=setTimeout(()=>reject(new Error('SVG rendering timed out. Check embedded fonts and resources.')),12000);im.onload=()=>{clearTimeout(timer);resolve(im)};im.onerror=()=>{clearTimeout(timer);reject(new Error('Could not render SVG. Check its syntax and embedded assets.'))};im.src=url});
+   const scale=Math.min(1,SVG_RENDER_MAX/Math.max(clean.w,clean.h));
+   const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(clean.w*scale));canvas.height=Math.max(1,Math.round(clean.h*scale));
+   const ctx=canvas.getContext('2d');if(!ctx)throw Error('Canvas 2D rendering is not supported in this browser.');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);
+   let data=canvas.toDataURL('image/png');return {base64:data.slice(data.indexOf(',')+1),mime:'image/png',preview:data,safeSvg:clean.text};
+ }finally{URL.revokeObjectURL(url)}
+}
+function apiError(err,status,text){const message=(text||'').slice(0,280);if(status===401||status===403)return new Error('Gemini authorization unavailable. Periksa API Key dan izin Gemini pada RIVIS.');if(status===429)return new Error('Gemini rate limit reached (429). Try again after some time.');if(status>=500)return new Error('Gemini service is temporarily unavailable ('+status+').');return new Error('Gemini API HTTP '+status+(message?': '+message:''))}
+async function fetchGeminiMetadata(base64Data,mimeType,extraEnglish=false,existingMetadata=null){
+  const payload={contents:[{role:'user',parts:[{text:SYSTEM_PROMPT+(extraEnglish?'\nIMPORTANT CORRECTION: The previous attempt did not fully comply. Generate all fields entirely in English.':'' )+(existingMetadata?'\nKEYWORD COMPLETENESS REFINEMENT: Your earlier image analysis produced '+existingMetadata.tags.length+' keywords. Inspect this same image again and add NEW truthful, non-duplicative buyer search terms so the final JSON has 30–40 entries (ideally 36) whenever supported. Retain the same main subject, title and description. Preserve the 10 most specific original keywords in the top positions; do not invent irrelevant terms. Existing metadata: '+JSON.stringify(existingMetadata):'')},{inlineData:{mimeType,data:base64Data}}]}],generationConfig:{responseMimeType:'application/json',responseSchema:{type:'OBJECT',properties:{title:{type:'STRING'},description:{type:'STRING'},tags:{type:'ARRAY',items:{type:'STRING'}},adobeCategory:{type:'INTEGER'}},required:['title','description','tags']}}};
+  for(let attempt=1;attempt<=1;attempt++){
+    let response;
+    try{
+      if(typeof window.parent?.RIVIS_META_GEN_API!=='function')throw new Error('RIVIS Gemini bridge is unavailable.');
+      response=await window.parent.RIVIS_META_GEN_API(payload);
+    }catch(err){throw new Error('Unable to contact the shared RIVIS Gemini runtime: '+String(err?.message||err));}
+    if(!response.ok){const body=await response.text().catch(()=>'');if((response.status===429||response.status>=500)&&attempt<3){await delay(950*2**(attempt-1));continue}throw apiError(null,response.status,body)}
+    const result=await response.json();const parts=result?.candidates?.[0]?.content?.parts||[];
+    let jsonText=parts.map(p=>p.text||'').join('');if(!jsonText)throw new Error('Gemini returned an empty response.');
+    let raw;try{raw=JSON.parse(jsonText.replace(/^```(?:json)?\s*|\s*```$/g,''));}catch(_){throw new Error('Gemini returned invalid JSON. Retry this image.');}
+    return normalizeMetadata(raw);
+  }
+  throw new Error('Gemini request failed.');
+}
+function createEntry(file){
+  let e={id:++nextId,file,filename:file.name,csvFilename:file.name,category:'',manualAdobeCategory:false,manualShutterCategory:false,manualGenericCategory:false,release:'',url:fileIsSvg(file)?'':URL.createObjectURL(file),isSvg:fileIsSvg(file),aiGenerated:false,shutterCat1:'',shutterCat2:'',illustration:fileIsSvg(file),mature:false,editorial:false,vectLicense:'',freepikPrompt:'',freepikModel:'',genericCategory:'',metadata:null,status:'processing',error:''};
+  entries.push(e);
+  let card=document.createElement('article');card.className='card';card.dataset.entryId=String(e.id);
+  card.innerHTML=`<aside class="card-aside" aria-label="Preview dan analisis kualitas metadata">
+    <details class="qc-details"><summary>View metadata score analysis</summary><div class="audit-inner"><div class="audit-grid"></div><ul class="audit-tips"></ul></div></details>
+    <div class="qc-strip"><span class="qc-strip-title">Metadata quality</span><div class="qc hidden" aria-label="Metadata quality score"><span class="score-label">QC SCORE</span><span class="score-value"><span class="score-number">--</span><small>/100</small></span></div></div>
+    <div class="card-media" title="Hover untuk popup gambar; klik untuk preview zoom dan pan"><img alt="Image preview"></div>
+    <div class="asset-meta"><div class="file-name" title="Original input filename"></div><div class="asset-category" aria-live="polite">Category: Analyzing…</div></div>
+  </aside>
+  <div class="card-content"><div class="card-top"><span class="status-chip">Analyzing image</span><div class="card-top-tools"><button type="button" class="card-remove" aria-label="Hapus card" title="Hapus card" aria-describedby="remove-help-${e.id}">×</button><span id="remove-help-${e.id}" class="sr-only">Remove this generated card only</span></div></div>
+  <div class="loading"><span class="spin"></span><span>Generating English metadata with Gemini...</span></div>
+  <div class="editor hidden">
+  <div class="card-overview">
+    <div class="field overview-field"><div class="field-head"><label for="meta-title-${e.id}">Title</label><span class="count title-count"></span></div><textarea id="meta-title-${e.id}" class="textarea meta-title editable-title" rows="1" spellcheck="true" autocomplete="off" aria-label="Edit stock title"></textarea><div class="field-copy-row"><button type="button" class="field-copy-btn" data-copy-field="meta-title" aria-label="Copy Title">⧉ Copy</button></div></div>
+    <div class="field overview-field"><div class="field-head"><label for="meta-desc-${e.id}">Description</label><span class="count desc-count"></span></div><textarea id="meta-desc-${e.id}" class="textarea meta-desc editable-description" rows="2" spellcheck="true" aria-label="Edit stock description"></textarea><div class="field-copy-row"><button type="button" class="field-copy-btn" data-copy-field="meta-desc" aria-label="Copy Desc">⧉ Copy</button></div></div>
+    <div class="field overview-field"><div class="field-head"><label for="meta-tags-${e.id}">Keywords</label><span class="count tag-count"></span></div><textarea id="meta-tags-${e.id}" class="textarea keywords meta-tags editable-keywords" rows="2" spellcheck="true" aria-label="Edit comma-separated microstock keywords"></textarea><div class="field-copy-row"><button type="button" class="field-copy-btn" data-copy-field="meta-tags" aria-label="Copy Tags">⧉ Copy</button><button type="button" class="keyword-optimize-btn" aria-label="Optimize and reorder existing keywords by relevance">Optimize SEO</button><span class="keyword-seo-note">Target 30–40 · Best 10 first · Vecteezy exports top 30</span></div></div>
+  </div>
+  <div class="csv-validation hidden" role="status"></div>
+  <details class="platform-settings editor-details"><summary>Platform CSV settings</summary><div class="editor-details-body">
+   <div class="field"><div class="field-head"><label>Original input filename</label></div><input class="input csv-filename" type="text" spellcheck="false" autocomplete="off" readonly aria-readonly="true"><div class="hint">Single CSV keeps the source filename. ZIP export automatically renames included assets to ≤30 characters and matches the batch CSV. Vecteezy FTP CSV uses the renamed basename without extension.</div></div>
+   <div class="platform-fields"><div class="field" data-for="adobe"><div class="field-head"><label>Adobe category · auto suggested / editable</label></div><select class="csv-category" aria-label="Adobe Stock category"><option value="">— Not set —</option></select></div>
+   <div class="field" data-for="adobe"><div class="field-head"><label>Release filename · optional</label></div><input class="input csv-release" placeholder="release.jpg" spellcheck="false"></div>
+   <div class="field" data-for="shutterstock"><div class="field-head"><label>Shutterstock category · auto suggested / editable</label></div><select class="shutter-category1"><option value="">— Select category —</option></select></div>
+   <div class="field" data-for="shutterstock"><div class="field-head"><label>Second category · optional</label></div><select class="shutter-category2"><option value="">— None —</option></select></div>
+   <div class="field wide" data-for="shutterstock"><label class="toggle-line"><input type="checkbox" class="shutter-illustration"> Illustration (select for vectors / illustrations)</label><label class="toggle-line"><input type="checkbox" class="shutter-mature"> Mature Content (only if applicable)</label><label class="toggle-line"><input type="checkbox" class="shutter-editorial"> Editorial (only if applicable)</label></div>
+   <div class="field wide" data-for="vecteezy"><div class="field-head"><label>Vecteezy license · optional</label></div><select class="vect-license"><option value="">— Not set —</option><option value="pro">Pro</option><option value="free">Free</option><option value="editorial">Editorial</option></select><p class="platform-options-note">FTP-style CSV uses Filename without extension. In Add Data, prefer the account-exported CSV that contains asset Id.</p></div>
+   <div class="field wide" data-for="freepik"><label class="toggle-line"><input type="checkbox" class="freepik-ai"> Mark actual AI-generated assets via _ai_generated keyword</label><p class="platform-options-note">Do not mark manually authored assets as AI-generated.</p></div>
+   <div class="field wide" data-for="freepik"><div class="field-head"><label>Actual original generation prompt · optional</label></div><textarea class="textarea freepik-prompt" rows="2" placeholder="Only if known; never fabricate a prompt"></textarea></div>
+   <div class="field wide" data-for="freepik"><div class="field-head"><label>AI model used · optional</label></div><input class="input freepik-model" placeholder="e.g. actual model used; leave blank if unknown"></div>
+   <div class="field wide" data-for="generic"><div class="field-head"><label>Category / subject · optional</label></div><input class="input generic-category" placeholder="e.g. Illustration"></div>
+   </div>
+  <div class="csv-validation-full" role="status"></div>
+  </div></details>
+  <div class="card-actions"><button type="button" class="btn green txt">Download TXT</button><button type="button" class="btn green save-csv">Save CSV</button><button type="button" class="btn secondary copy">Copy</button><button type="button" class="btn blue regenerate">↻ Regenerate</button></div>
+  </div>
+  <div class="failure hidden"><div class="fail-message"></div><button type="button" class="btn secondary retry">Retry image</button></div></div>`;
+  if(e.url)card.querySelector('img').src=e.url;else card.querySelector('img').alt='SVG preview will appear after safe rendering';card.querySelector('.file-name').textContent=file.name;
+  e.card=card;card.querySelector('.card-remove').setAttribute('aria-label','Hapus card '+file.name);els.results.appendChild(card);
+  let select=card.querySelector('.csv-category');for(let i=0;i<ADOBE_CATEGORIES.length;i++){let option=document.createElement('option');option.value=String(i+1);option.textContent=(i+1)+' · '+ADOBE_CATEGORIES[i];select.appendChild(option)}
+  for(const selector of ['.shutter-category1','.shutter-category2']){const sel=card.querySelector(selector);for(const cat of SHUTTER_CATEGORIES){const opt=document.createElement('option');opt.value=cat;opt.textContent=cat;sel.appendChild(opt)}}
+  card.querySelector('.shutter-illustration').checked=e.illustration;
+  for(const block of card.querySelectorAll('[data-for]'))block.classList.toggle('hidden',block.dataset.for!==platform);
+  
+  card.querySelector('.platform-settings summary').textContent=rule().name+' CSV settings · Filename & platform options';
+  let filenameField=card.querySelector('.csv-filename');filenameField.value=e.csvFilename;
+  for(const selector of ['.meta-title','.meta-desc','.meta-tags'])card.querySelector(selector).addEventListener('input',()=>{syncMetadata(e);updateScore(e);refreshActions()});
+  // Filename is intentionally read-only: CSV always uses e.file.name exactly.
+  select.addEventListener('change',()=>{e.manualAdobeCategory=true;e.category=select.value;updateCsvValidation(e);updateCategoryCaption(e)});
+  card.querySelector('.csv-release').addEventListener('input',ev=>{e.release=ev.target.value.trim();updateCsvValidation(e)});
+  const inputs=[['.shutter-category1','shutterCat1','change'],['.shutter-category2','shutterCat2','change'],['.shutter-illustration','illustration','change'],['.shutter-mature','mature','change'],['.shutter-editorial','editorial','change'],['.vect-license','vectLicense','change'],['.freepik-ai','aiGenerated','change'],['.freepik-prompt','freepikPrompt','input'],['.freepik-model','freepikModel','input'],['.generic-category','genericCategory','input']];
+  for(const [selector,key,eventName] of inputs){card.querySelector(selector).addEventListener(eventName,ev=>{e[key]=ev.target.type==='checkbox'?ev.target.checked:ev.target.value;if(key==='shutterCat1')e.manualShutterCategory=true;if(key==='genericCategory')e.manualGenericCategory=true;updateCsvValidation(e);updateCategoryCaption(e);refreshActions()})}
+  
+  card.querySelector('.save-csv').addEventListener('click',()=>{try{saveCsvList([e],sourceCsvName(e.filename))}catch(err){showToast(err.message,true)}});
+  
+  for(const btn of card.querySelectorAll('[data-copy-field]')){
+    btn.addEventListener('click',()=>{
+      const field=btn.dataset.copyField;
+      const value=card.querySelector('.'+field).value;
+      copyText(value,field==='meta-title'?'Title copied.':field==='meta-desc'?'Description copied.':'Keywords copied.');
+    });
+  }
+  card.querySelector('.keyword-optimize-btn').addEventListener('click',()=>{
+    if(!e.metadata)return;
+    syncMetadata(e);
+    const before=e.metadata.tags.join(', ');
+    e.metadata.tags=seoKeywordOrder(e.metadata.tags,e.metadata.title);
+    card.querySelector('.meta-tags').value=e.metadata.tags.join(', ');
+    updateScore(e);refreshActions();
+    showToast(before===e.metadata.tags.join(', ')?'Keywords already prioritized. Review accuracy manually.':'Existing keywords reordered by title relevance. Review accuracy before upload.');
+  });
+  card.querySelector('.copy').addEventListener('click',()=>copyText(renderText(e), 'Metadata copied.'));
+  card.querySelector('.txt').addEventListener('click',()=>download(new Blob([renderText(e)],{type:'text/plain;charset=utf-8'}),baseName(e.filename)+'.txt'));
+  card.querySelector('.retry').addEventListener('click',()=>retryEntry(e));card.querySelector('.regenerate').addEventListener('click',()=>retryEntry(e));card.querySelector('.card-remove').addEventListener('click',()=>removeEntry(e));return e;
+}
+function syncMetadata(e){if(!e.metadata)return;let c=e.card;e.metadata.title=c.querySelector('.meta-title').value;e.metadata.description=c.querySelector('.meta-desc').value;e.metadata.tags=tagsFromText(c.querySelector('.meta-tags').value)}
+function updateScore(e){if(!e.metadata)return;let q=scoreMetadata(e.metadata),c=e.card;e.qc=q;let v=c.querySelector('.score-value');v.className='score-value '+(q.score>=85?'good':q.score>=70?'mid':'low');c.querySelector('.score-number').textContent=q.score;c.querySelector('.title-count').textContent=e.metadata.title.length+' / '+rule().maxTitle;c.querySelector('.desc-count').textContent=e.metadata.description.length+' / 200';c.querySelector('.tag-count').textContent=e.metadata.tags.length+' / 30–40 keywords'+(platform==='vecteezy'&&e.metadata.tags.length>30?' · top 30 exported':'');let audit=c.querySelector('.audit-grid');audit.replaceChildren();for(let [label,val,max] of [['Title',q.sections.title,25],['Description',q.sections.description,15],['Keywords',q.sections.keywords,45],['Language & format',q.sections.compliance,15]]){let line=document.createElement('div');line.className='audit-line';let left=document.createElement('span'),right=document.createElement('strong');left.textContent=label;right.textContent=val+' / '+max;line.append(left,right);audit.appendChild(line)}let list=c.querySelector('.audit-tips');list.replaceChildren();(q.tips.length?q.tips:['Core metadata checks look good. Review visual accuracy manually.']).forEach(t=>{let li=document.createElement('li');li.textContent=t;list.appendChild(li)});updateCsvValidation(e)}
+function showEntrySuccess(e,metadata){e.status='success';e.metadata=metadata;updateAutoCategory(e);let c=e.card;c.querySelector('.loading').classList.add('hidden');c.querySelector('.failure').classList.add('hidden');c.querySelector('.editor').classList.remove('hidden');c.querySelector('.qc').classList.remove('hidden');let chip=c.querySelector('.status-chip');chip.textContent='Ready';chip.className='status-chip success';c.querySelector('.meta-title').value=metadata.title;c.querySelector('.meta-desc').value=metadata.description;c.querySelector('.meta-tags').value=metadata.tags.join(', ');updateScore(e);refreshActions()}
+function showEntryError(e,error){e.status='failed';e.error=error?.message||String(error);let c=e.card;c.querySelector('.loading').classList.add('hidden');c.querySelector('.editor').classList.add('hidden');c.querySelector('.failure').classList.remove('hidden');let chip=c.querySelector('.status-chip');chip.textContent='Failed';chip.className='status-chip error';c.querySelector('.fail-message').textContent=e.error;refreshActions()}
+async function generateEntry(e){let c=e.card;e.status='processing';c.querySelector('.loading').classList.remove('hidden');c.querySelector('.failure').classList.add('hidden');let chip=c.querySelector('.status-chip');chip.className='status-chip';chip.textContent='Analyzing image';let prepared=e.isSvg?await rasterizeSvg(e.file):{base64:await readImage(e.file),mime:e.file.type};
+ if(e.isSvg){e.safeSvgText=prepared.safeSvg;e.card.querySelector('img').src=prepared.preview;e.card.querySelector('img').alt='Rasterized preview of '+e.filename}
+ let base64=prepared.base64;let result=await fetchGeminiMetadata(base64,prepared.mime);
+ if(likelyNonEnglish(result)){
+  result=await fetchGeminiMetadata(base64,prepared.mime,true);
+  if(likelyNonEnglish(result))throw new Error('Gemini still returned non-English metadata. Retry to enforce English output.');
+ }
+ if(result.tags.length<SEO_MIN_KEYWORDS){
+  // One optional image-grounded refinement. Keep original metadata if a second call fails.
+  try{
+   const refined=await fetchGeminiMetadata(base64,prepared.mime,false,result);
+   if(!likelyNonEnglish(refined)){
+    const combined=uniqueTags([...result.tags.slice(0,10),...refined.tags,...result.tags.slice(10)]).slice(0,SEO_MAX_KEYWORDS);
+    if(combined.length>result.tags.length)result.tags=seoKeywordOrder(combined,result.title);
+   }
+  }catch(err){console.warn('Keyword refinement unavailable; keeping accurate initial result.',err)}
+ }
+ showEntrySuccess(e,result);
+ if(result.tags.length<SEO_MIN_KEYWORDS)showToast('Only '+result.tags.length+' distinct keywords found. Review image accuracy before adding more.');}
+const OFFLINE_EXAMPLES=[
+ {name:'offline_flower_icon.svg',svg:'<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600"><rect width="600" height="600" fill="#f4edff"/><g fill="#a56be2"><circle cx="300" cy="200" r="95"/><circle cx="400" cy="300" r="95"/><circle cx="300" cy="400" r="95"/><circle cx="200" cy="300" r="95"/></g><circle cx="300" cy="300" r="70" fill="#ffc969"/></svg>',title:'Purple Flower Icon with Yellow Center on Light Background',description:'Minimal flat vector illustration of a purple four petal flower with a yellow center on a soft lavender background for spring themed design.',tags:['purple flower','flower icon','floral illustration','flat vector','yellow center','spring','botanical','minimal','flower petals','lavender','nature symbol','decorative flower','graphic design','simple shape','pastel colors','floral design','bloom','garden','isolated icon','cute flower','abstract flower','stylized plant','springtime','flower graphic','flower symbol','four petal flower','purple petals','center circle','flower shape','flower illustration','decorative icon','simple floral','stylized blossom','lavender background','vector flower','floral graphic','symmetrical petals']},
+ {name:'offline_mountain_scene.svg',svg:'<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600"><rect width="600" height="600" fill="#d8edff"/><circle cx="465" cy="140" r="65" fill="#ffca69"/><path d="M0 480L220 140L430 480Z" fill="#6076bc"/><path d="M150 480L380 210L600 480Z" fill="#394f8f"/><path d="M150 245L220 140L287 245Z" fill="white"/><path d="M315 285L380 210L440 285Z" fill="white"/><rect y="480" width="600" height="120" fill="#69b5a1"/></svg>',title:'Mountain Landscape with Sun and Snowy Peaks Vector',description:'Simple geometric mountain landscape illustration with snow capped peaks, a warm yellow sun and green foreground on a pale blue sky.',tags:['mountain landscape','mountain vector','snowy peaks','nature illustration','sun','landscape design','geometric mountains','outdoors','scenic view','blue sky','mountain range','minimal landscape','flat design','travel','nature background','hiking','wilderness','alpine','mountain art','vector scenery','green foreground','sunny day','geometric illustration','nature graphic','snow capped mountain','landscape illustration','mountain scene','mountain peaks','sun illustration','green hills','outdoor scenery','geometric landscape','nature vector','mountain silhouette','flat landscape','scenic mountains','colorful landscape']}
+];
+function addOfflineExamples(){
+ if(processing){showToast('Wait until processing finishes.',true);return}
+ const known=new Set(entries.map(e=>e.filename.toLowerCase()));let added=0;
+ for(const d of OFFLINE_EXAMPLES){
+  if(known.has(d.name.toLowerCase()))continue;
+  const f=new File([d.svg],d.name,{type:'image/svg+xml'});
+  const e=createEntry(f);e.offlineDemo=true;e.offlineVariant=0;
+  e.card.querySelector('img').src=URL.createObjectURL(f);e.url=e.card.querySelector('img').src;
+  showEntrySuccess(e,{title:d.title,description:d.description,tags:[...d.tags]});
+  e.card.querySelector('.status-chip').textContent='Offline demo · No AI';
+  added++;
+ }
+ showToast(added?added+' offline demo cards loaded. No API used.':'Demo cards already exist. Remove them to reload.');
+}
+document.getElementById('loadOfflineDemo').addEventListener('click',addOfflineExamples);
+async function retryEntry(e){
+ if(e.offlineDemo){
+  e.offlineVariant=(e.offlineVariant||0)+1;
+  const d=OFFLINE_EXAMPLES.find(x=>x.name===e.filename);
+  if(d){showEntrySuccess(e,{title:d.title,description:d.description,tags:[...d.tags]});e.card.querySelector('.status-chip').textContent='Offline demo · Reset';showToast('Demo metadata reset without Gemini API.');}
+  return;
+ }
+
+ if(processing||!entries.includes(e))return;
+ const hasPrevious=e.status==='success'&&!!e.metadata;
+ setUploading(true);els.status.classList.remove('hidden');updateProgress(1,1,e.filename);
+ try{await generateEntry(e);showToast('Metadata regenerated for '+e.filename+'.')}
+ catch(err){
+   if(hasPrevious){
+     // Keep the previous editable metadata if regeneration fails.
+     e.status='success';e.card.querySelector('.loading').classList.add('hidden');
+     const chip=e.card.querySelector('.status-chip');chip.className='status-chip success';chip.textContent='Ready · Previous result';
+     updateScore(e);showToast('Regenerate failed. Previous metadata kept for '+e.filename+'.',true);
+   }else{showEntryError(e,err);showToast('Generate failed for '+e.filename+'.',true)}
+ }finally{els.progress.style.width='100%';els.statusPercent.textContent='100%';els.status.classList.add('hidden');setUploading(false)}
+}
+function removeEntry(e){
+ if(processing||!entries.includes(e))return;
+ entries=entries.filter(item=>item!==e);
+ if(e.url)URL.revokeObjectURL(e.url);
+ e.card.remove();resetClearConfirmation();refreshActions();showToast('Card removed: '+e.filename);
+}
+function cleanupEntries(){
+ for(const e of entries)if(e.url)URL.revokeObjectURL(e.url);
+ entries=[];els.results.replaceChildren();
+}
+function resetClearConfirmation(){
+ if(clearConfirmTimer!==null){clearTimeout(clearConfirmTimer);clearConfirmTimer=null}
+ els.clear.dataset.confirm='false';els.clear.textContent='Clear All';els.clear.classList.remove('confirm-clear');
+}
+els.clear.addEventListener('click',()=>{
+ if(processing||!entries.length)return;
+ if(els.clear.dataset.confirm==='true'){
+   const count=entries.length;cleanupEntries();resetClearConfirmation();
+   refreshActions();showToast(count+' cards removed.');return;
+ }
+ els.clear.dataset.confirm='true';els.clear.textContent='Confirm Clear All';els.clear.classList.add('confirm-clear');
+ clearConfirmTimer=setTimeout(resetClearConfirmation,6000);
+});
+async function handleFiles(fileList){
+ if(processing)return;
+ const arr=Array.from(fileList||[]);
+ const valid=arr.filter(f=>['image/png','image/jpeg','image/webp'].includes(f.type)||fileIsSvg(f));
+ if(!valid.length){showToast('Choose PNG, JPG, WebP, or SVG images only.',true);return}
+ if(valid.length<arr.length)showToast('Unsupported files were skipped.',true);
+ // Duplicate original filenames cannot be represented uniquely in a single platform CSV.
+ const names=new Set(entries.map(e=>e.filename.toLowerCase()));
+ const incoming=[];let skipped=0;
+ for(const file of valid){const key=file.name.toLowerCase();if(names.has(key)){skipped++;continue}names.add(key);incoming.push(file)}
+ if(skipped)showToast(skipped+' duplicate filename(s) skipped. Use Regenerate on existing cards.',true);
+ if(!incoming.length)return;
+ resetClearConfirmation();
+ els.resultsHeader.classList.remove('hidden');
+ const newlyAdded=incoming.map(createEntry); // Leave previous cards and manual edits untouched.
+ refreshActions();setUploading(true);els.status.classList.remove('hidden');els.progress.style.width='0%';els.statusPercent.textContent='0%';
+ let successes=0;
+ try{
+   for(let i=0;i<newlyAdded.length;i++){
+     const e=newlyAdded[i];updateProgress(i+1,newlyAdded.length,e.filename);
+     try{await generateEntry(e);successes++}catch(err){showEntryError(e,err)}
+     const pct=Math.round((i+1)/newlyAdded.length*100);
+     els.progress.style.width=pct+'%';els.statusPercent.textContent=pct+'%';
+     if(i<newlyAdded.length-1)await delay(800);
+   }
+ }finally{els.status.classList.add('hidden');setUploading(false);showToast(successes+' / '+newlyAdded.length+' newly added images processed.'+(successes<newlyAdded.length?' Retry failed cards.':''),successes===0)}
+}
+function refreshActions(){
+ const ok=entries.filter(e=>e.status==='success');
+ els.resultsHeader.classList.toggle('hidden',entries.length===0);
+ els.summary.textContent=`${entries.length} cards · ${ok.length} ready · ${entries.length-ok.length} pending/failed · Editable metadata`;
+ els.zip.classList.toggle('hidden',entries.length===0);
+ els.zip.disabled=processing||ok.length===0;
+ els.csv.disabled=processing||ok.length===0;
+ els.allMetadata.disabled=processing||ok.length===0;
+ els.all.disabled=processing||ok.length===0;
+ els.clear.disabled=processing||entries.length===0;
+ for(const e of entries){
+   e.card.querySelector('.card-remove').disabled=processing;
+   const regenerate=e.card.querySelector('.regenerate');if(regenerate)regenerate.disabled=processing;
+   const retry=e.card.querySelector('.retry');if(retry)retry.disabled=processing;
+   if(e.metadata)updateCsvValidation(e);
+ }
+}
+function renderText(e){let m=e.metadata;return `Filename: ${e.filename}\nTitle: ${m.title}\nDescription: ${m.description}\nKeywords: ${m.tags.join(', ')}\nMetadata QC Score: ${scoreMetadata(m).score}/100 (heuristic; not a marketplace approval prediction)\n`}
+// Clipboard compatibility: try a synchronous user-gesture copy first.
+// Gemini Canvas may embed the app in a sandboxed iframe without clipboard-write permission.
+// When the browser blocks both APIs, keep the entire text in a selectable dialog.
+let copyRequestId=0;
+let copyPreviousFocus=null;
+const copyDialog=document.getElementById('copyDialog');
+const copyArea=document.getElementById('copyDialogText');
+const copyHelp=document.getElementById('copyHelp');
+function selectCopyText(){
+ copyArea.focus({preventScroll:true});
+ copyArea.select();
+ try{copyArea.setSelectionRange(0,copyArea.value.length)}catch(_){/* Some mobile browsers omit setSelectionRange */}
+}
+function tryLegacyCopy(value,existingArea){
+ let ta=existingArea||document.createElement('textarea');
+ if(!existingArea){
+  ta.value=value;
+  ta.readOnly=true;
+  ta.setAttribute('aria-hidden','true');
+  ta.style.cssText='position:fixed;left:50%;top:50%;width:2px;height:2px;padding:0;border:0;opacity:.01;z-index:9999;';
+  document.body.appendChild(ta);
+ }
+ let succeeded=false;
+ try{
+  ta.focus({preventScroll:true});ta.select();
+  try{ta.setSelectionRange(0,ta.value.length)}catch(_){}
+  succeeded=typeof document.execCommand==='function'&&document.execCommand('copy')===true;
+ }catch(_){succeeded=false}
+ finally{if(!existingArea)ta.remove()}
+ return succeeded;
+}
+function showCopyDialog(value){
+ copyPreviousFocus=document.activeElement;
+ copyArea.value=value;
+ copyHelp.textContent='Clipboard otomatis diblokir oleh browser atau Gemini Canvas. Teks sudah dipilih: tekan Ctrl+C (Windows) atau Cmd+C (Mac). Pada HP, tekan lama teks lalu pilih Salin.';
+ copyDialog.classList.remove('hidden');
+ copyDialog.setAttribute('aria-hidden','false');
+ // Focus and select without a delay, so the fallback is ready immediately.
+ selectCopyText();
+}
+function hideCopyDialog(){
+ copyDialog.classList.add('hidden');copyDialog.setAttribute('aria-hidden','true');
+ if(copyPreviousFocus&&typeof copyPreviousFocus.focus==='function')copyPreviousFocus.focus({preventScroll:true});
+ copyPreviousFocus=null;
+}
+function copyText(value,message){
+ value=String(value??'');if(!value){showToast('Tidak ada teks untuk disalin.',true);return}
+ const request=++copyRequestId;
+ // execCommand must execute synchronously inside the original button click.
+ if(tryLegacyCopy(value)){showToast(message);return}
+ if(navigator.clipboard&&typeof navigator.clipboard.writeText==='function'){
+  try{
+   // Do not await before requesting clipboard permission: that can lose user activation.
+   Promise.resolve(navigator.clipboard.writeText(value))
+    .then(()=>{if(request===copyRequestId)showToast(message)})
+    .catch(()=>{if(request===copyRequestId)showCopyDialog(value)});
+   return;
+  }catch(_){/* Fall back to a selectable dialog */}
+ }
+ showCopyDialog(value);
+}
+function copyFromDialog(){
+ const value=copyArea.value;
+ if(tryLegacyCopy(value,copyArea)){hideCopyDialog();showToast('Metadata disalin.');return}
+ if(navigator.clipboard&&typeof navigator.clipboard.writeText==='function'){
+  try{
+   Promise.resolve(navigator.clipboard.writeText(value))
+    .then(()=>{hideCopyDialog();showToast('Metadata disalin.')})
+    .catch(()=>{copyHelp.textContent='Akses clipboard diblokir. Tekan Ctrl+C / Cmd+C saat teks terpilih; pada HP tekan lama teks kemudian pilih Salin.';selectCopyText()});
+   return;
+  }catch(_){}
+ }
+ copyHelp.textContent='Akses clipboard diblokir. Tekan Ctrl+C / Cmd+C saat teks terpilih; pada HP tekan lama teks kemudian pilih Salin.';
+ selectCopyText();
+}
+document.getElementById('copyDialogCopy').addEventListener('click',copyFromDialog);
+document.getElementById('copyDialogSelect').addEventListener('click',selectCopyText);
+document.getElementById('copyDialogDownload').addEventListener('click',()=>download(new Blob([copyArea.value],{type:'text/plain;charset=utf-8'}),'Vectorich_Metadata_Copy.txt'));
+document.getElementById('copyDialogClose').addEventListener('click',hideCopyDialog);
+copyDialog.addEventListener('click',ev=>{if(ev.target===copyDialog)hideCopyDialog()});
+document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&!copyDialog.classList.contains('hidden'))hideCopyDialog()});
+function csvCell(value){
+  let text=String(value??'');
+  // Excel interprets cells beginning with formulas as active expressions.
+  // Guard formula-like values without changing normal filenames or keywords.
+  if(/^[\t\r\n ]*[=+@]/.test(text))text="'"+text;
+  return '"'+text.replace(/"/g,'""')+'"';
+}
+function csvRow(e,mappedNames){
+ const m=e.metadata,k=platformKeywords(e).join(', ');let name=mappedNames?.get(e)||targetFilename(e);if(mappedNames&&platform==='vecteezy')name=name.replace(/\.[^.]+$/,'');
+ switch(platform){
+ case 'adobe':return [name,m.title,k,e.category||'',e.release||''];
+ case 'shutterstock':return [name,m.description,k,[e.shutterCat1,e.shutterCat2].filter(Boolean).join(', '),e.illustration?'Yes':'No',e.mature?'Yes':'No',e.editorial?'Yes':'No'];
+ case 'vecteezy':return [name,m.title,m.description,k,e.vectLicense||''];
+ case 'freepik':return [name,m.title,k,e.freepikPrompt||'',e.freepikModel||''];
+ default:return [name,m.title,m.description,k,e.genericCategory||''];
+ }
+}
+function exportCsv(list,mappedNames){let rows=[rule().headers,...list.map(e=>csvRow(e,mappedNames))];return '\uFEFF'+rows.map(r=>r.map(csvCell).join(rule().delimiter)).join('\r\n')+'\r\n'}
+function validatePlatformEntry(e,mappedNames){
+ let errors=[],warnings=[];if(!e.metadata)return {errors:['Metadata is not available yet.'],warnings};
+ const m=e.metadata,filename=mappedNames?.get(e)||targetFilename(e),title=(m.title||'').trim(),keywords=platformKeywords(e),p=rule();
+ if(!filename)errors.push('Original input filename is required.');
+ if(/[\/\\\x00-\x1f]/.test(filename))errors.push('Filename contains forbidden path characters.');
+ if(/^[ \t]*[=+@]/.test(filename))errors.push('Unsafe filename for spreadsheet CSV. Rename the original source file before uploading it here.');
+ if(!/\.[a-z0-9]{2,6}$/i.test(filename))warnings.push('The original filename has an uncommon or missing extension. Check marketplace compatibility.');
+ if(platform==='adobe'&&filename.length>30)warnings.push('Adobe Filename exceeds 30 characters. Use ZIP + Images + CSV for automatic matching 30-character filenames.');
+ if(e.isSvg&&platform!=='adobe'&&platform!=='vecteezy'&&/\.svg$/i.test(filename))warnings.push('Confirm this platform accepts SVG uploads. Adobe Stock does accept SVG vectors.');
+ if(platform==='vecteezy'&&!mappedNames)warnings.push('Vecteezy FTP expects Filename without the extension. Use ZIP export for FTP-compatible basenames, or the official Add Data template.');
+ // Standalone CSV preserves original names; ZIP references its explicitly renamed, included assets.
+ if(!title)errors.push('Title is required.');
+ if(title.length>p.maxTitle)errors.push('Title exceeds '+p.maxTitle+' characters for '+p.name+'.');
+ if(platform==='adobe'&&/[,，]/.test(title))errors.push('Remove commas from Adobe Stock titles.');
+ if(/^[ \t]*[=+@]/.test(title))errors.push('Title must not begin with spreadsheet formula characters.');
+ if(title.includes('\n'))errors.push('Title cannot contain line breaks.');
+ if(keywords.length<p.minTags)errors.push(p.name+' requires at least '+p.minTags+' keywords.');
+ if(keywords.length>p.maxTags)errors.push(p.name+' supports at most '+p.maxTags+' keywords.');
+ if(uniqueTags(keywords).length!==keywords.length)warnings.push('Remove duplicated keywords.');
+ if(keywords.some(t=>/^[ \t]*[=+@]/.test(t)&&t!=='_ai_generated'))errors.push('Keyword starts with a spreadsheet formula character.');
+ if(platform==='adobe'){
+   if(e.category&&!/^([1-9]|1\d|2[01])$/.test(e.category))errors.push('Adobe category must be 1–21.');
+   if(e.release&&e.release.length>30)errors.push('Release exceeds 30 characters.');
+   if(e.release&&!/\.jpe?g$/i.test(e.release))warnings.push('Confirm release name exactly matches your uploaded release.');
+ }
+ if(platform==='shutterstock'){
+   if(!(m.description||'').trim())errors.push('Shutterstock Description is required.');
+   if((m.description||'').length>2048)errors.push('Shutterstock Description exceeds 2048 characters.');
+   if(!e.shutterCat1)errors.push('Select at least one Shutterstock category.');
+   if(e.shutterCat1&&e.shutterCat1===e.shutterCat2)errors.push('Second category must differ from the first.');
+   if(e.editorial)warnings.push('Editorial descriptions may require real date and place; verify manually.');
+ }
+ if(platform==='vecteezy'){
+   if(title.split(/\s+/).length<3||title.split(/\s+/).length>8)warnings.push('Vecteezy recommends titles containing 3–8 words.');
+ }
+ const ext=(filename.match(/\.[a-z0-9]+$/i)||[''])[0].toLowerCase();
+ if(platform==='adobe'&&!['.svg','.jpg','.jpeg','.ai','.eps'].includes(ext))warnings.push('Asset format '+ext+' is not a standard Adobe Stock upload format. The ZIP keeps original bytes; convert outside the app if required.');
+ if(platform==='shutterstock'&&!['.jpg','.jpeg','.tif','.tiff','.eps'].includes(ext))warnings.push('Shutterstock does not accept '+ext+' as a standard image/vector upload. Convert separately before submission; ZIP does not perform conversion.');
+ if(platform==='vecteezy'&&!['.jpg','.jpeg','.eps'].includes(ext))warnings.push('Vecteezy contributor guidelines specify JPG photos or EPS 10 vectors; '+ext+' requires a supported conversion before submission.');
+ if(platform==='freepik'){
+   warnings.push('Experimental CSV: verify delimiter, headers and fields against your current Freepik contributor sample.');
+   if(e.aiGenerated&&!e.freepikPrompt.trim())warnings.push('For AI content, enter the original prompt if Freepik requests it.');
+ }
+ return {errors,warnings};
+}
+function updateCsvValidation(e){
+ if(!e.metadata||!e.card)return;
+ const {errors,warnings}=validatePlatformEntry(e),element=e.card.querySelector('.csv-validation');
+ element.className='csv-validation'+(errors.length?' error':' hidden');
+ element.textContent=errors.length?'CSV needs correction · '+errors[0]:'';
+ const full=e.card.querySelector('.csv-validation-full');
+ if(full)full.textContent=errors.length?'Corrections required:\n• '+errors.join('\n• ')+(warnings.length?'\n\nReview:\n• '+warnings.join('\n• '):''):warnings.length?'Review before upload:\n• '+warnings.join('\n• '):'All CSV checks passed for '+rule().name+'.';
+ e.card.querySelector('.save-csv').disabled=processing||errors.length>0;
+ e.card.querySelector('.title-count').textContent=e.metadata.title.length+' / '+rule().maxTitle;
+ e.card.querySelector('.tag-count').textContent=e.metadata.tags.length+' / 30–40 keywords'+(platform==='vecteezy'&&e.metadata.tags.length>30?' · top 30 exported':'');
+}
+function assertExportable(list,mappedNames){
+ if(!list.length)throw Error('No generated metadata available.');
+ let fails=list.filter(e=>validatePlatformEntry(e,mappedNames).errors.length);
+ if(fails.length)throw Error(`${fails.length} asset(s) need CSV corrections: ${fails.slice(0,3).map(e=>e.filename).join(', ')}`);
+ let seen=new Set();for(const e of list){let name=mappedNames?.get(e)||targetFilename(e);let key=name.toLowerCase();if(seen.has(key))throw Error('Duplicate target filenames in batch: '+name);seen.add(key)}
+}
+function splitCsvBatches(list,mappedNames){
+ const enc=new TextEncoder(),p=rule();const headerBytes=enc.encode('\uFEFF'+p.headers.map(csvCell).join(p.delimiter)+'\r\n').length;
+ let batches=[],current=[],bytes=headerBytes;for(const e of list){let rowBytes=enc.encode(csvRow(e,mappedNames).map(csvCell).join(p.delimiter)+'\r\n').length;
+ if(headerBytes+rowBytes>CSV_MAX_BYTES)throw Error('A single CSV row is larger than 1 MB.');
+ if(current.length&&(current.length>=CSV_MAX_ROWS||bytes+rowBytes>CSV_MAX_BYTES)){batches.push(current);current=[];bytes=headerBytes}
+ current.push(e);bytes+=rowBytes}if(current.length)batches.push(current);return batches;
+}
+function saveCsvList(list,name){assertExportable(list);let batches=splitCsvBatches(list);
+ if(batches.length===1){download(new Blob([exportCsv(batches[0])],{type:'text/csv;charset=utf-8'}),name);showToast(rule().name+' CSV downloaded.');return}
+ let files=batches.map((items,i)=>({name:`${platform}_metadata_part${String(i+1).padStart(2,'0')}.csv`,content:exportCsv(items)}));
+ download(buildZip(files),`Vectorich_${platform}_CSV_Parts_${dateStamp()}.zip`);showToast(`${batches.length} CSV parts downloaded in ZIP.`);
+}
+function dateStamp(){const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')}
+function baseName(name){let s=String(name||'image').replace(/\.[^.]+$/,'').normalize('NFKC').replace(/[\\/:*?"<>|\x00-\x1f]/g,'-').replace(/^\.+|\.+$/g,'').slice(0,100).trim();return s||'image'}
+function download(blob,name){let u=URL.createObjectURL(blob);let a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2500)}
+const CRC_TABLE=Uint32Array.from({length:256},(_,i)=>{let c=i;for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xedb88320:0);return c>>>0});
+function crc32(arr){let crc=0xffffffff;for(const b of arr)crc=(crc>>>8)^CRC_TABLE[(crc^b)&255];return (crc^0xffffffff)>>>0}
+// Platform ZIP: original image bytes, safe file names max 30 chars including extension,
+// exactly one metadata_YYYY-MM-DD.csv with names mapped to included image assets.
+const ZIP_ASSET_FILENAME_LIMIT=30,ZIP_MAX_BYTES=500*1024*1024;
+function asciiSlug(s){return String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/[_-]{2,}/g,'_').replace(/^[_-]+|[_-]+$/g,'').toLowerCase()||'image'}
+function createZipNameMap(list){
+ const used=new Set(),map=new Map();
+ for(const e of list){
+  const match=String(e.filename).match(/\.([a-zA-Z0-9]{2,8})$/),ext=match?'.'+match[1].toLowerCase():'';
+  if(!ext)throw Error('Cannot package asset without a supported extension: '+e.filename);
+  const originalStem=e.filename.slice(0,-ext.length),slug=asciiSlug(originalStem);
+  for(let i=1;;i++){
+   const tail=i===1?'':'_'+i;
+   const limit=ZIP_ASSET_FILENAME_LIMIT-ext.length-tail.length;
+   if(limit<1)throw Error('Unable to create unique short asset names (too many collisions).');
+   const prefix=slug.slice(0,limit).replace(/[_-]+$/,'')||'i';
+   const name=prefix+tail+ext,key=name.toLowerCase();
+   if(!used.has(key)){used.add(key);map.set(e,name);break}
+  }
+ }
+ return map;
+}
+function zipSummaryName(list){
+ const primary=list[0]?.metadata?.title||baseName(list[0]?.filename||'images');
+ const core=asciiSlug(primary).split('_').filter(Boolean).slice(0,5).join('_').slice(0,48).replace(/[_-]+$/,'')||'microstock_assets';
+ const count=list.length>1?'_'+list.length+'images':'';
+ return core+count+'_'+dateStamp()+'.zip';
+}
+function zipCompatibilityWarnings(list){return list.flatMap(e=>{
+ const ext=(e.filename.match(/\.[^.]+$/)||[''])[0].toLowerCase();
+ if(platform==='adobe'&&!['.svg','.jpg','.jpeg','.eps','.ai'].includes(ext))return [e.filename+' ('+ext+' requires source conversion for Adobe)'];
+ if(platform==='shutterstock'&&!['.jpg','.jpeg','.tif','.tiff','.eps'].includes(ext))return [e.filename+' ('+ext+' is not a Shutterstock upload format)'];
+ if(platform==='vecteezy'&&!['.jpg','.jpeg','.eps'].includes(ext))return [e.filename+' ('+ext+' requires JPEG/EPS for Vecteezy)'];
+ return [];
+})}
+async function createUploadZip(list){
+ const map=createZipNameMap(list);
+ assertExportable(list,map);
+ const csv=exportCsv(list,map),size=new TextEncoder().encode(csv).length;
+ if(list.length>CSV_MAX_ROWS||size>CSV_MAX_BYTES)throw Error('Combined CSV exceeds Adobe-compatible limits (5000 rows / 1 MB). Export a smaller set of cards.');
+ const total=list.reduce((acc,e)=>acc+e.file.size,0)+size;
+ if(total>ZIP_MAX_BYTES)throw Error('ZIP exceeds 500 MB in browser memory. Please export a smaller batch.');
+ const files=[];
+ for(const e of list){files.push({name:map.get(e),content:new Uint8Array(await e.file.arrayBuffer())})}
+ files.push({name:'metadata_'+dateStamp()+'.csv',content:csv});
+ return {blob:buildZip(files),names:map,warningCount:zipCompatibilityWarnings(list).length};
+}
+// Dependency-free ZIP (STORE method), compatible with standard ZIP readers.
+function buildZip(files){const encoder=new TextEncoder(),locals=[],centrals=[];if(files.length>65535)throw Error('ZIP contains too many files.');let offset=0;const dt=new Date();const yr=Math.max(1980,dt.getFullYear());const dosDate=((yr-1980)<<9)|((dt.getMonth()+1)<<5)|dt.getDate();const dosTime=(dt.getHours()<<11)|(dt.getMinutes()<<5)|Math.floor(dt.getSeconds()/2);const u16=(v,p,n)=>v.setUint16(p,n,true),u32=(v,p,n)=>v.setUint32(p,n>>>0,true);for(let f of files){let name=encoder.encode(f.name),data=typeof f.content==='string'?encoder.encode(f.content):f.content instanceof Uint8Array?f.content:new Uint8Array(f.content);if(name.length>65535)throw Error('ZIP filename too long.');if(data.length>0xffffffff||offset+data.length>0xffffffff)throw Error('ZIP larger than 4 GB is not supported.');const crc=crc32(data);let lh=new Uint8Array(30+name.length),lv=new DataView(lh.buffer);u32(lv,0,0x04034b50);u16(lv,4,20);u16(lv,6,0x800);u16(lv,8,0);u16(lv,10,dosTime);u16(lv,12,dosDate);u32(lv,14,crc);u32(lv,18,data.length);u32(lv,22,data.length);u16(lv,26,name.length);lh.set(name,30);locals.push(lh,data);let ch=new Uint8Array(46+name.length),cv=new DataView(ch.buffer);u32(cv,0,0x02014b50);u16(cv,4,20);u16(cv,6,20);u16(cv,8,0x800);u16(cv,10,0);u16(cv,12,dosTime);u16(cv,14,dosDate);u32(cv,16,crc);u32(cv,20,data.length);u32(cv,24,data.length);u16(cv,28,name.length);u32(cv,42,offset);ch.set(name,46);centrals.push(ch);offset+=lh.length+data.length}let centralLen=centrals.reduce((x,c)=>x+c.length,0);let end=new Uint8Array(22),ev=new DataView(end.buffer);u32(ev,0,0x06054b50);u16(ev,8,files.length);u16(ev,10,files.length);u32(ev,12,centralLen);u32(ev,16,offset);return new Blob([...locals,...centrals,end],{type:'application/zip'})}
+function individualCsvZipName(e,duplicateStems){const csv=sourceCsvName(e.filename);return duplicateStems.has(csv.toLowerCase())?'per_image/'+e.filename+'/'+csv:csv}
+function successful(){return entries.filter(e=>e.status==='success')}
+function makeBatchIndividualCsvZip(list){
+ assertExportable(list);
+ const counts=new Map();for(const e of list){const name=sourceCsvName(e.filename).toLowerCase();counts.set(name,(counts.get(name)||0)+1)}
+ const duplicates=new Set(Array.from(counts).filter(([,n])=>n>1).map(([name])=>name));
+ const fileItems=[],used=new Set();
+ for(const e of list){
+  // Identical stems with different extensions go into their own subfolders,
+  // preserving each CSV's exact basename (source file name without extension).
+  const csvName=sourceCsvName(e.filename);
+  const archiveName=individualCsvZipName(e,duplicates);
+  if(used.has(archiveName.toLowerCase()))throw Error('Duplicate CSV ZIP path: '+archiveName);
+  used.add(archiveName.toLowerCase());
+  const content=exportCsv([e]);
+  if(new TextEncoder().encode(content).length>CSV_MAX_BYTES)throw Error('Individual CSV exceeds 1 MB: '+csvName);
+  fileItems.push({name:archiveName,content});
+ }
+ return buildZip(fileItems);
+}
+els.csv.addEventListener('click',()=>{
+ try{
+  const list=successful();
+  const blob=makeBatchIndividualCsvZip(list);
+  download(blob,`Vectorich_${platform}_per_image_CSV_${dateStamp()}.zip`);
+  showToast(`Batch CSV ZIP: ${list.length} per-image CSV file(s) downloaded.`);
+ }catch(err){showToast('Batch CSV failed: '+(err.message||err),true)}
+});
+// v1.4.8 — one standalone, platform-specific CSV containing every ready card.
+// Pending/failed cards are skipped because they do not yet have complete metadata.
+function downloadAllMetadataCsv(list){
+ if(!list.length)throw Error('No completed metadata is available to download.');
+ assertExportable(list);
+ if(list.length>CSV_MAX_ROWS)throw Error('A single metadata CSV supports up to '+CSV_MAX_ROWS+' rows. Use Batch CSV (ZIP) for a larger collection.');
+ const content=exportCsv(list);
+ const byteLength=new TextEncoder().encode(content).length;
+ if(byteLength>CSV_MAX_BYTES)throw Error('The combined metadata CSV exceeds the 1 MB file limit. Use Batch CSV (ZIP) to split it into smaller files.');
+ const filename=`Vectorich_${platform}_all_metadata_${dateStamp()}.csv`;
+ download(new Blob([content],{type:'text/csv;charset=utf-8'}),filename);
+ const skipped=entries.length-list.length;
+ showToast(`${rule().name}: one combined CSV downloaded for ${list.length} image(s).`+(skipped?` ${skipped} pending/failed card(s) skipped.`:''));
+}
+els.allMetadata.addEventListener('click',()=>{
+ try{downloadAllMetadataCsv(successful())}
+ catch(err){showToast('Download All Metadata failed: '+(err.message||err),true)}
+});
+els.all.addEventListener('click',()=>{let list=successful();if(list.length)copyText(list.map(renderText).join('\n---\n\n'),'All metadata copied.')});
+els.zip.addEventListener('click',async()=>{
+ const list=successful();if(!list.length||processing)return;
+ els.zip.disabled=true;const oldLabel=els.zip.textContent;els.zip.textContent='Packaging images...';
+ try{
+  const {blob,warningCount}=await createUploadZip(list);
+  const name=zipSummaryName(list);download(blob,name);
+  showToast('ZIP ready: '+list.length+' renamed image(s) + metadata_'+dateStamp()+'.csv.'+(warningCount?' '+warningCount+' asset(s) need format conversion before upload.':''));
+ }catch(err){showToast('ZIP export error: '+(err.message||err),true)}
+ finally{els.zip.textContent=oldLabel;refreshActions()}
+});
+
+// v1.4.4 — hover inspection, full-screen zoom, drag-pan and mobile pinch zoom.
+const imageLightbox=document.getElementById('imageLightbox');
+const imageLightboxImg=document.getElementById('imageLightboxImg');
+const imageLightboxLabel=document.getElementById('imageLightboxLabel');
+const imageLightboxClose=document.getElementById('imageLightboxClose');
+const imageLightboxStage=document.getElementById('imageLightboxStage');
+const zoomLevelText=document.getElementById('imageZoomLevel');
+let imageLightboxPreviousFocus=null,lightboxHighResUrl=null;
+let lbScale=1,lbX=0,lbY=0;
+const lbPointers=new Map();let lbDrag=null,lbPinch=null;
+const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
+function limitImagePan(){
+ const w=imageLightboxImg.clientWidth*lbScale,h=imageLightboxImg.clientHeight*lbScale;
+ const r=imageLightboxStage.getBoundingClientRect();
+ lbX=clamp(lbX,-Math.max(0,(w-r.width)/2),Math.max(0,(w-r.width)/2));
+ lbY=clamp(lbY,-Math.max(0,(h-r.height)/2),Math.max(0,(h-r.height)/2));
+}
+function paintLightbox(){
+ limitImagePan();
+ imageLightboxImg.style.transform=`translate3d(${lbX}px,${lbY}px,0) scale(${lbScale})`;
+ zoomLevelText.textContent=Math.round(lbScale*100)+'%';
+ imageLightboxStage.classList.toggle('can-pan',lbScale>1);
+}
+function resetImageZoom(){lbScale=1;lbX=0;lbY=0;lbPointers.clear();lbPinch=null;lbDrag=null;imageLightboxStage.classList.remove('is-panning');paintLightbox()}
+// Anchor the image pixel under the wheel cursor / pinch midpoint while zooming.
+function zoomImage(factor,clientX,clientY){
+ const next=clamp(lbScale*factor,1,12);if(next===lbScale)return;
+ const r=imageLightboxStage.getBoundingClientRect(),ax=clientX-(r.left+r.width/2),ay=clientY-(r.top+r.height/2),ratio=next/lbScale;
+ lbX=ax-(ax-lbX)*ratio;lbY=ay-(ay-lbY)*ratio;lbScale=next;paintLightbox();
+}
+function zoomCentered(factor){const r=imageLightboxStage.getBoundingClientRect();zoomImage(factor,r.left+r.width/2,r.top+r.height/2)}
+function closeImageLightbox(){
+ imageLightbox.classList.add('hidden');imageLightbox.setAttribute('aria-hidden','true');
+ imageLightboxImg.removeAttribute('src');imageLightboxImg.style.transform='';
+ if(lightboxHighResUrl){URL.revokeObjectURL(lightboxHighResUrl);lightboxHighResUrl=null}
+ lbPointers.clear();lbPinch=null;lbDrag=null;imageLightboxStage.classList.remove('is-panning');
+ document.body.style.overflow='';
+ if(imageLightboxPreviousFocus?.isConnected)imageLightboxPreviousFocus.focus();
+}
+function openImageLightbox(img){
+ if(!img?.src)return;
+ imageLightboxPreviousFocus=img;
+ const entry=entries.find(e=>e.card===img.closest('.card'));
+ if(entry?.safeSvgText){lightboxHighResUrl=URL.createObjectURL(new Blob([entry.safeSvgText],{type:'image/svg+xml;charset=utf-8'}));imageLightboxImg.src=lightboxHighResUrl}
+ else imageLightboxImg.src=img.currentSrc||img.src;
+ imageLightboxImg.alt=img.alt||'Enlarged image';
+ imageLightboxLabel.textContent=entry?.filename||'Image preview';
+ imageLightbox.classList.remove('hidden');imageLightbox.setAttribute('aria-hidden','false');
+ document.body.style.overflow='hidden';
+ resetImageZoom();imageLightboxImg.onload=()=>{if(!imageLightbox.classList.contains('hidden'))paintLightbox()};
+ imageLightboxClose.focus();
+}
+const resultsGrid=document.getElementById('resultsGrid');
+const hoverPopup=document.getElementById('imageHoverPopup');
+const hoverPopupImg=document.getElementById('imageHoverPopupImg');
+const hoverPopupName=document.getElementById('imageHoverPopupName');
+let activeHoverMedia=null;
+function hideImageHoverPopup(){
+ activeHoverMedia=null;hoverPopup.classList.remove('visible');hoverPopup.setAttribute('aria-hidden','true');
+}
+function positionImageHoverPopup(clientX,clientY){
+ const margin=12,offset=21;
+ const w=hoverPopup.offsetWidth||400,h=hoverPopup.offsetHeight||330;
+ // Prefer right of cursor. Flip horizontally/vertically before clamping to viewport.
+ let x=clientX+offset,y=clientY+offset;
+ if(x+w>window.innerWidth-margin)x=clientX-w-offset;
+ if(y+h>window.innerHeight-margin)y=clientY-h-offset;
+ hoverPopup.style.left=Math.max(margin,Math.min(x,window.innerWidth-w-margin))+'px';
+ hoverPopup.style.top=Math.max(margin,Math.min(y,window.innerHeight-h-margin))+'px';
+}
+resultsGrid.addEventListener('pointermove',ev=>{
+ if(ev.pointerType!=='mouse'||!window.matchMedia('(hover:hover) and (pointer:fine)').matches){hideImageHoverPopup();return}
+ const media=ev.target.closest('.card-media');
+ if(!media||!media.querySelector('img')?.getAttribute('src')){hideImageHoverPopup();return}
+ if(activeHoverMedia!==media){
+  activeHoverMedia=media;
+  const img=media.querySelector('img');
+  hoverPopupImg.src=img.currentSrc||img.src;
+  hoverPopupName.textContent=media.closest('.card')?.querySelector('.file-name')?.textContent||img.alt||'Image preview';
+  hoverPopup.classList.add('visible');hoverPopup.setAttribute('aria-hidden','false');
+ }
+ positionImageHoverPopup(ev.clientX,ev.clientY);
+});
+resultsGrid.addEventListener('pointerleave',hideImageHoverPopup);
+resultsGrid.addEventListener('pointerout',ev=>{if(activeHoverMedia&&!activeHoverMedia.contains(ev.relatedTarget))hideImageHoverPopup()});
+resultsGrid.addEventListener('click',ev=>{
+ const media=ev.target.closest('.card-media');if(media){hideImageHoverPopup();const img=media.querySelector('img');if(img)openImageLightbox(img)}
+});
+window.addEventListener('scroll',hideImageHoverPopup,{passive:true});
+window.addEventListener('blur',hideImageHoverPopup);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)hideImageHoverPopup()});
+imageLightboxClose.addEventListener('click',closeImageLightbox);
+document.getElementById('imageZoomIn').addEventListener('click',()=>zoomCentered(1.5));
+document.getElementById('imageZoomOut').addEventListener('click',()=>zoomCentered(1/1.5));
+document.getElementById('imageZoomReset').addEventListener('click',resetImageZoom);
+imageLightboxStage.addEventListener('wheel',ev=>{
+ ev.preventDefault();zoomImage(Math.exp(-ev.deltaY*.0018),ev.clientX,ev.clientY);
+},{passive:false});
+imageLightboxStage.addEventListener('dblclick',ev=>{
+ ev.preventDefault();if(lbScale>1.05)resetImageZoom();else zoomImage(2.5,ev.clientX,ev.clientY);
+});
+imageLightboxStage.addEventListener('pointerdown',ev=>{
+ if(ev.button!==0 && ev.pointerType==='mouse')return;
+ ev.preventDefault();try{imageLightboxStage.setPointerCapture(ev.pointerId)}catch(_){/* Synthetic / embedded pointer contexts may reject capture. */}
+ lbPointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+ const pts=Array.from(lbPointers.values());
+ if(pts.length>=2){
+  const [a,b]=pts,midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;
+  lbPinch={distance:Math.hypot(b.x-a.x,b.y-a.y)||1,midX,midY};lbDrag=null;
+ }else {lbDrag={x:ev.clientX,y:ev.clientY};}
+});
+imageLightboxStage.addEventListener('pointermove',ev=>{
+ if(!lbPointers.has(ev.pointerId))return;
+ ev.preventDefault();
+ const old=lbPointers.get(ev.pointerId);lbPointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+ const pts=Array.from(lbPointers.values());
+ if(pts.length>=2){
+  const [a,b]=pts,dist=Math.hypot(b.x-a.x,b.y-a.y)||1,midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;
+  if(lbPinch){
+   lbX+=midX-lbPinch.midX;lbY+=midY-lbPinch.midY;
+   zoomImage(dist/lbPinch.distance,midX,midY);
+  }
+  lbPinch={distance:dist,midX,midY};lbDrag=null;
+ }else if(lbScale>1 && lbDrag){
+  lbX+=ev.clientX-old.x;lbY+=ev.clientY-old.y;
+  imageLightboxStage.classList.add('is-panning');paintLightbox();
+ }
+});
+function endImagePointer(ev){
+ lbPointers.delete(ev.pointerId);
+ if(imageLightboxStage.hasPointerCapture(ev.pointerId))imageLightboxStage.releasePointerCapture(ev.pointerId);
+ lbPinch=null;imageLightboxStage.classList.remove('is-panning');
+ const remain=Array.from(lbPointers.values());lbDrag=remain.length===1?{...remain[0]}:null;
+}
+imageLightboxStage.addEventListener('pointerup',endImagePointer);
+imageLightboxStage.addEventListener('pointercancel',endImagePointer);
+window.addEventListener('resize',()=>{if(!imageLightbox.classList.contains('hidden'))paintLightbox()});
+imageLightbox.addEventListener('click',ev=>{if(ev.target===imageLightbox)closeImageLightbox()});
+document.addEventListener('keydown',ev=>{
+ if(imageLightbox.classList.contains('hidden'))return;
+ if(ev.key==='Escape'){closeImageLightbox();return}
+ if(['+','='].includes(ev.key)){zoomCentered(1.3);ev.preventDefault()}
+ else if(ev.key==='-'){zoomCentered(1/1.3);ev.preventDefault()}
+ else if(ev.key==='0'){resetImageZoom();ev.preventDefault()}
+ else if(lbScale>1&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(ev.key)){
+  lbX+=ev.key==='ArrowLeft'?38:ev.key==='ArrowRight'?-38:0;
+  lbY+=ev.key==='ArrowUp'?38:ev.key==='ArrowDown'?-38:0;
+  paintLightbox();ev.preventDefault();
+ }
+});
+
+updatePlatform();
+els.drop.addEventListener('click',()=>{if(!processing)els.file.click()});
+els.drop.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&!processing){e.preventDefault();els.file.click()}});
+els.file.addEventListener('change',e=>{let selected=Array.from(e.target.files||[]);e.target.value='';handleFiles(selected)});
+
+// Drop anywhere on the app page, including header, card list and empty space.
+// Only external file drags are captured; text dragging/selecting keeps working.
+const globalDropOverlay=document.getElementById('globalDropOverlay');
+let activeFileDragDepth=0;
+function isFileDrag(ev){return Array.from(ev.dataTransfer?.types||[]).includes('Files')}
+function hideGlobalDrop(){activeFileDragDepth=0;globalDropOverlay.classList.add('hidden');els.drop.classList.remove('dragover')}
+window.addEventListener('dragenter',ev=>{
+ if(!isFileDrag(ev))return;
+ ev.preventDefault();activeFileDragDepth++;
+ globalDropOverlay.classList.remove('hidden');els.drop.classList.add('dragover');hideImageHoverPopup();
+});
+window.addEventListener('dragover',ev=>{
+ if(!isFileDrag(ev))return;
+ ev.preventDefault();if(ev.dataTransfer)ev.dataTransfer.dropEffect=processing?'none':'copy';
+ globalDropOverlay.classList.remove('hidden');
+});
+window.addEventListener('dragleave',ev=>{
+ if(!isFileDrag(ev))return;
+ activeFileDragDepth=Math.max(0,activeFileDragDepth-1);
+ const outOfWindow=ev.clientX<=0||ev.clientY<=0||ev.clientX>=window.innerWidth||ev.clientY>=window.innerHeight;
+ if(activeFileDragDepth===0||outOfWindow)hideGlobalDrop();
+});
+window.addEventListener('drop',ev=>{
+ if(!isFileDrag(ev))return;
+ ev.preventDefault();const files=Array.from(ev.dataTransfer?.files||[]);
+ hideGlobalDrop();
+ if(processing){showToast('Batch masih diproses. Tambahkan gambar setelah selesai.',true);return}
+ if(files.length)handleFiles(files);
+});
+window.addEventListener('blur',hideGlobalDrop);
+document.addEventListener('keydown',ev=>{if(ev.key==='Escape')hideGlobalDrop()});
+</script>
+</body>
+</html>
