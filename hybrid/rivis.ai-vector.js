@@ -1,4 +1,4 @@
-/* RIVIS AI Vector Bridge v3.3.66 — hosted in GitHub. */
+/* RIVIS AI Vector Bridge — carried forward unchanged for app v3.4.68. */
 (function(){'use strict';
 const MAX_SVG=750000;
 function extractSvg(raw){let t=String(raw||'').trim();t=t.replace(/^```(?:svg|xml|html)?\s*/i,'').replace(/```\s*$/,'');const start=t.search(/<svg\b/i);const end=t.toLowerCase().lastIndexOf('</svg>');if(start<0||end<start)throw Error('AI tidak mengembalikan kode SVG. Coba prompt lebih sederhana.');return t.slice(start,end+6);}
