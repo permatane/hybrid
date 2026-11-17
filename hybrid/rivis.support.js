@@ -1,3 +1,4 @@
+/* RIVIS GitHub Support — App v3.4.67 (Canvas 3.4 / GitHub 67). Metadata filename consistency and Library card order. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -219,12 +220,20 @@ function normalizeAdobeStockMetadata(idea,meta={}){const adobeCategoryCode=resol
 meta);return{...meta,stockTitle:adobeCsvText(meta.stockTitle||idea?.conceptName||idea?.mainSubject||'Stock asset',70).replace(/[,;<>]/g,
 '').trim(),keywords:normalizeAdobeKeywords(meta.keywords,idea,meta),adobeCategory:ADOBE_STOCK_CATEGORIES[adobeCategoryCode]||'',
 adobeCategoryCode,releases:normalizeAdobeReleases(meta.releases??meta.releaseNames)};}
-function metadataEditedFilename(filename){return String(filename||'').replace(/(?:-edt)?(\.[^./\\]+)$/i,
-'-edt$1');}
-function buildAdobeStockCsvRow(idea,metaInput=idea?.metadata||{},filenameOverride=''){const meta=normalizeAdobeStockMetadata(idea,
-metaInput);const actualName=filenameOverride||(isRasterIdea(idea)?`${getCardBaseFilename(idea)}.${rasterSnapshot(idea).format==='png'?'png':'jpg'}`:`${getCardBaseFilename(idea)}.svg`);
-const filename=metadataEditedFilename(actualName);return[adobeCsvCell(filename),adobeCsvCell(meta.stockTitle),adobeCsvCell(meta.keywords.join(', ')),
-String(meta.adobeCategoryCode),adobeCsvCell(meta.releases)].join(',');}
+function getMetadataAssetFilename(idea,exportedFilename=''){
+  const base=getCardBaseFilename(idea);
+  if(!isRasterIdea(idea))return`${base}-edt.svg`;
+  const exportedExt=(String(exportedFilename||'').match(/\.([^.\/\\]+)$/)||[])[1]?.toLowerCase();
+  const configuredExt=String(rasterSnapshot(idea).format||'jpg').toLowerCase();
+  const ext=exportedExt==='png'||(!exportedExt&&configuredExt==='png')?'png':'jpg';
+  return`${base}-edt.${ext}`;
+}
+function buildAdobeStockCsvRow(idea,metaInput=idea?.metadata||{},filenameOverride=''){
+  const meta=normalizeAdobeStockMetadata(idea,metaInput);
+  const filename=getMetadataAssetFilename(idea,filenameOverride);
+  return[adobeCsvCell(filename),adobeCsvCell(meta.stockTitle),adobeCsvCell(meta.keywords.join(', ')),
+    String(meta.adobeCategoryCode),adobeCsvCell(meta.releases)].join(',');
+}
 function buildAdobeStockCsv(ideas){const rows=(Array.isArray(ideas)?ideas:[ideas]).filter(Boolean).map(idea=>buildAdobeStockCsvRow(idea));
 return`Filename,Title,Keywords,Category,Releases\r\n${rows.join('\r\n')}`;}
 function checkForDuplicateConcept(idea,currentList){if(!idea||!currentList||!currentList.length)return false;
@@ -592,11 +601,11 @@ if(btn)btn.title=`${type==='images'?'Image All':'Meta All'}: ${done}/${total} se
 }const panel=byId('batchQueuePanel');if(panel)panel.classList.add('hidden');}
 function buildCardMetadataText(idea){const meta=normalizeAdobeStockMetadata(idea,
 idea.metadata||{});return['RICH VECTOR IDEA STUDIO - ADOBE STOCK METADATA',`Card Code: ${getCardUniqueCode(idea).toUpperCase()}`,
-`Concept Name: ${idea.conceptName||'-'}`,`Asset Filename: ${getCardBaseFilename(idea)}-edt.svg`,'',`Adobe Stock Title (${meta.stockTitle.length}/70 chars):`,
+`Concept Name: ${idea.conceptName||'-'}`,`Asset Filename: ${getMetadataAssetFilename(idea)}`,'',`Adobe Stock Title (${meta.stockTitle.length}/70 chars):`,
 meta.stockTitle,'',`Adobe Stock Category (${meta.adobeCategoryCode}): ${meta.adobeCategory}`,`Adobe Stock Releases: ${meta.releases||'(none)'}`,
 `Adobe Stock AI Disclosure: ${meta.aiDisclosure!==false?'Yes (Generative AI)':'No'}`,'',`Adobe Stock Keywords (${meta.keywords.length}/40):`,
 meta.keywords.join(', ')].join('\r\n');}
-async function helperCreateCardZipContent(zip,idea,folderName="",includeBlueprint=true){const baseName=getCardBaseFilename(idea);
+async function helperCreateCardZipContent(zip,idea,folderName="",includeBlueprint=true){const baseName=getCardBaseFilename(idea);const metadataFilename=getMetadataAssetFilename(idea);
 const prefix=folderName?`${folderName}/`:"";const promptContent=`RICH VECTOR IDEA STUDIO - ASSET BRIEF
 --------------------------------------------------
 Card Code: ${getCardUniqueCode(idea).toUpperCase()}
@@ -618,7 +627,7 @@ const metaText=`ADOBE STOCK METADATA & SEO
 --------------------------------------------------
 Card Code: ${getCardUniqueCode(idea).toUpperCase()}
 Concept: ${idea.conceptName}
-Filename (CSV): ${baseName}-edt.svg
+Filename (CSV): ${metadataFilename}
 Title: ${meta.stockTitle}
 Category: ${meta.adobeCategoryCode} (${meta.adobeCategory})
 Releases: ${meta.releases||'(empty)'}
@@ -627,7 +636,7 @@ AI Disclosure: ${meta.aiDisclosure!==false?'Yes (Generative AI)':'No'}
 Keywords (${meta.keywords.length} tags ordered by relevance):
 ${meta.keywords.join(', ')}
 `;zip.file(`${prefix}${baseName}_metadata.txt`,metaText);zip.file(`${prefix}${baseName}_metadata.csv`,buildAdobeStockCsv([idea]));
-}const jsonClean={...idea,cardCode:getCardUniqueCode(idea).toUpperCase(),exportedFilename:`${baseName}-edt.svg`};delete jsonClean.generatedImageUrl;
+}const jsonClean={...idea,cardCode:getCardUniqueCode(idea).toUpperCase(),exportedFilename:metadataFilename};delete jsonClean.generatedImageUrl;
 delete jsonClean.visualPreflightPending;if(jsonClean.metadata)jsonClean.metadata=normalizeAdobeStockMetadata(idea,jsonClean.metadata);
 zip.file(`${prefix}${baseName}_data.json`,JSON.stringify(jsonClean,null,2));if(includeBlueprint)zip.file(`${prefix}${baseName}_blueprint.json`,
 readonlyBlueprintText(idea));if(idea.generatedImageUrl){const exported=await getExportedAsset(idea);zip.file(`${prefix}${exported.filename}`,
@@ -766,11 +775,11 @@ try{qualityDownloadNotice([idea]);const exported=await getExportedAsset(idea);aw
 filename:exported.filename,mimeType:exported.mimeType});}catch(err){showToast("Gagal menyiapkan download gambar: "+err.message,
 "error");}}
 async function exportSavedIdeaMetadataTXT(ideaId){const idea=state.savedIdeas.find(i=>i.ideaId===ideaId);if(!idea||!idea.metadata)return;
-const meta=normalizeAdobeStockMetadata(idea,idea.metadata);const baseName=getCardBaseFilename(idea);const content=`ADOBE STOCK METADATA & SEO
+const meta=normalizeAdobeStockMetadata(idea,idea.metadata);const baseName=getCardBaseFilename(idea);const metadataFilename=getMetadataAssetFilename(idea);const content=`ADOBE STOCK METADATA & SEO
 ----------------------------------------
 Card Code: ${getCardUniqueCode(idea).toUpperCase()}
 Concept: ${idea.conceptName}
-Filename (CSV): ${baseName}-edt.svg
+Filename (CSV): ${metadataFilename}
 Title: ${meta.stockTitle}
 Category: ${meta.adobeCategoryCode} (${meta.adobeCategory})
 Releases: ${meta.releases||'(empty)'}
@@ -834,7 +843,7 @@ for(const [prefix,value] of [['title',idea.conceptName],['prompt',idea.finalGene
 if(!normalized)continue;const key=prefix+':'+normalized;if(!firstSeen.has(key))firstSeen.set(key,id);else if(firstSeen.get(key)!==id){duplicates.add(firstSeen.get(key));
 duplicates.add(id);}}}return duplicates;}
 function renderSavedCardHtml(idea,libraryDuplicates){const code=getCardUniqueCode(idea);
-const baseName=getCardBaseFilename(idea);const audit=auditIdeaQuality(idea);const isDuplicate=libraryDuplicates.has(idea.ideaId);
+const baseName=getCardBaseFilename(idea);const metadataFilename=getMetadataAssetFilename(idea);const audit=auditIdeaQuality(idea);const isDuplicate=libraryDuplicates.has(idea.ideaId);
 const meta=idea.metadata?normalizeAdobeStockMetadata(idea,idea.metadata):null;const titleLength=meta?.stockTitle.length||0;const keywordCount=meta?.keywords.length||0;
 const titleValid=titleLength>0&&titleLength<=70;const keywordsValid=keywordCount>=30&&keywordCount<=40;const csvReady=Boolean(meta&&titleValid&&keywordsValid&&meta.adobeCategoryCode>=1&&meta.adobeCategoryCode<=21);
 return`<div data-rivis-card-id="${escapeHtml(String(idea.ideaId))}" class="p-4 rounded-xl bg-slate-950 border ${isDuplicate?'border-amber-700/80 shadow-lg shadow-amber-950/20':'border-slate-800 hover:border-purple-600/60'} transition-all flex flex-col justify-between space-y-4">
@@ -849,12 +858,12 @@ return`<div data-rivis-card-id="${escapeHtml(String(idea.ideaId))}" class="p-4 r
               ${(idea.visualPreflight.issues||[]).map(issue=>`<p class="text-amber-300">! ${escapeHtml(visualPreflightIssueText(issue))}</p>`).join('')}
               ${(idea.visualPreflight.manualChecks||[]).map(check=>`<p class="text-slate-400">• ${escapeHtml(check)}</p>`).join('')}
               <p class="text-slate-500 pt-1">Penilaian AI berbasis gambar yang dirender; bukan jaminan persetujuan Adobe Stock. Periksa 100% dan vectorize sebelum unggah.</p> </div> </details> <button type="button" onclick="handleAuditGeneratedImage('${escapeHtml(idea.ideaId)}',this)" class="rivis-preflight-recheck rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold border border-slate-700" title="Periksa Ulang Visual Preflight">Periksa Ulang</button> </div>`:`<div class="rivis-preflight-row"> <div class="rivis-preflight-empty rounded-lg bg-slate-900/60 border border-slate-800 text-[10px] text-slate-400"><span class="rivis-preflight-title">${idea.visualPreflightPending?'Memeriksa detail 1:1 & teknis…':'Visual Preflight belum tersedia.'}</span></div> <button type="button" ${idea.visualPreflightPending?'disabled':''} onclick="handleAuditGeneratedImage('${escapeHtml(idea.ideaId)}',this)" class="rivis-preflight-recheck rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 font-semibold border border-slate-700" title="Periksa Ulang Visual Preflight">${idea.visualPreflightPending?'Memeriksa…':'Periksa Ulang'}</button> </div>`):''}
+        ${idea.productionType==='collection'&&idea.collectionCheck?`<div class="text-[10px] rounded-lg border px-2.5 py-2 ${idea.collectionCheck.pass?'border-emerald-800/70 bg-emerald-950/25 text-emerald-300':'border-amber-800/70 bg-amber-950/20 text-amber-300'}">Collection AI Check: ${escapeHtml(idea.collectionCheck.summary||'Perlu verifikasi manual')} · Target ${Number(idea.collectionItemCount)||'?'} item</div>`:''}
         ${idea.colorPaletteHex&&Array.isArray(idea.colorPaletteHex)?`<details class="rounded-lg border border-slate-800 bg-slate-900/60 text-[10px]" ontoggle="trackLibraryAccordion(this,'palette','${escapeHtml(idea.ideaId)}')" ${openPaletteAccordions.has(idea.ideaId)?'open':''}><summary class="cursor-pointer select-none px-2.5 py-2 font-bold text-slate-300">Extracted Dominant Colors <span class="text-slate-500">(${idea.colorPaletteHex.length})</span></summary><div class="px-2 pb-2 space-y-1"><div class="flex items-center justify-end gap-1.5"><button type="button" onclick="copyCardPalette('${escapeHtml(idea.ideaId)}','library',this)" title="Salin semua warna HEX kartu ini." class="px-2 py-1 rounded border border-slate-700 bg-slate-900 text-purple-200 text-[9px] font-bold flex items-center gap-1"> Copy Palette</button></div> <div class="flex items-center gap-1.5 flex-wrap">
             ${idea.colorPaletteHex.map(hex=>`<button type="button" onclick="copySingleHexCode('${hex}')" title="Click to copy ${hex}" class="flex items-center gap-1 bg-slate-900 border border-slate-800 hover:border-purple-500 rounded px-1.5 py-0.5 text-[9px] font-mono text-slate-300 transition-colors"><span class="w-2.5 h-2.5 rounded-full border border-white/20" style="background-color: ${hex}"></span>${hex}</button>`).join('')}
           </div> </div></details>`:''}
-        ${idea.productionType==='collection'&&idea.collectionCheck?`<div class="text-[10px] rounded-lg border px-2.5 py-2 ${idea.collectionCheck.pass?'border-emerald-800/70 bg-emerald-950/25 text-emerald-300':'border-amber-800/70 bg-amber-950/20 text-amber-300'}">Collection AI Check: ${escapeHtml(idea.collectionCheck.summary||'Perlu verifikasi manual')} · Target ${Number(idea.collectionItemCount)||'?'} item</div>`:''}
         ${cardPromptEditor(idea,'library')}
-        ${meta?`<details class="rivis-meta-accordion rounded-lg bg-blue-950/30 border border-blue-900/60 text-[10px]" data-meta-id="${escapeHtml(idea.ideaId)}" ontoggle="handleMetadataAccordionToggle(this,'${escapeHtml(idea.ideaId)}')" ${openMetadataAccordions.has(idea.ideaId)?'open':''}> <summary class="rivis-meta-summary" title="Buka atau tutup metadata Adobe Stock."> <span class="font-bold text-blue-300 truncate">ADOBE STOCK CSV METADATA</span> <span class="flex items-center gap-1.5 shrink-0"><span class="px-1.5 py-0.5 rounded border ${csvReady?'bg-emerald-950/80 border-emerald-700 text-emerald-300':'bg-amber-950/80 border-amber-700 text-amber-300'} text-[9px] font-mono">${csvReady?'CSV READY':'CHECK'}</span></span> </summary> <div class="p-3 space-y-2 border-t border-blue-900/40"> <div class="flex justify-end gap-1.5"><button type="button" onclick="exportSavedIdeaMetadataTXT('${escapeHtml(idea.ideaId)}')" title="Unduh metadata TXT." class="px-2 py-1 bg-slate-800 rounded text-slate-200">TXT</button><button type="button" onclick="exportSavedIdeaMetadataCSV('${escapeHtml(idea.ideaId)}')" title="Unduh metadata CSV." class="px-2 py-1 bg-slate-800 rounded text-slate-200">CSV</button></div> <div class="rivis-meta-line rounded border border-slate-800 bg-slate-950/70 p-2 text-[9px] font-mono text-slate-400"> <span class="rivis-meta-file" title="${escapeHtml(baseName)}-edt.svg"><span>Filename:</span> <span class="text-cyan-300">${escapeHtml(baseName)}-edt.svg</span></span> <span class="rivis-meta-category"><span>Category:</span> <span class="text-slate-200">${meta.adobeCategoryCode} (${escapeHtml(meta.adobeCategory)})</span></span> </div> <div><div class="flex justify-between items-center text-[9px] mb-0.5"><span class="font-bold text-slate-400">Title</span><span class="font-mono ${titleValid?'text-emerald-400':'text-amber-400'}">${titleLength}/70 chars</span></div><p class="font-bold text-white bg-slate-900/80 p-1.5 rounded border border-slate-800">${escapeHtml(meta.stockTitle)}</p></div> <div class="space-y-1"><div class="flex justify-between text-[9px]"><span class="text-slate-400 font-bold">Keywords (relevance-ordered)</span><span class="font-mono ${keywordsValid?'text-emerald-400':'text-amber-400'}">${keywordCount}/40 tags</span></div><div class="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">${meta.keywords.map(kw=>`<span class="px-1.5 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded text-[9px]">${escapeHtml(kw)}</span>`).join('')}</div></div> <button type="button" onclick="copyIdeaKeywords('${escapeHtml(idea.ideaId)}',this)" title="Salin semua keyword Adobe Stock." class="w-full py-1.5 bg-blue-900/50 hover:bg-blue-800 text-blue-200 font-bold rounded text-[9px] border border-blue-700/50"> Copy All Keywords</button> </div> </details>`:''}
+        ${meta?`<details class="rivis-meta-accordion rounded-lg bg-blue-950/30 border border-blue-900/60 text-[10px]" data-meta-id="${escapeHtml(idea.ideaId)}" ontoggle="handleMetadataAccordionToggle(this,'${escapeHtml(idea.ideaId)}')" ${openMetadataAccordions.has(idea.ideaId)?'open':''}> <summary class="rivis-meta-summary" title="Buka atau tutup metadata Adobe Stock."> <span class="font-bold text-blue-300 truncate">ADOBE STOCK CSV METADATA</span> <span class="flex items-center gap-1.5 shrink-0"><span class="px-1.5 py-0.5 rounded border ${csvReady?'bg-emerald-950/80 border-emerald-700 text-emerald-300':'bg-amber-950/80 border-amber-700 text-amber-300'} text-[9px] font-mono">${csvReady?'CSV READY':'CHECK'}</span></span> </summary> <div class="p-3 space-y-2 border-t border-blue-900/40"> <div class="flex justify-end gap-1.5"><button type="button" onclick="exportSavedIdeaMetadataTXT('${escapeHtml(idea.ideaId)}')" title="Unduh metadata TXT." class="px-2 py-1 bg-slate-800 rounded text-slate-200">TXT</button><button type="button" onclick="exportSavedIdeaMetadataCSV('${escapeHtml(idea.ideaId)}')" title="Unduh metadata CSV." class="px-2 py-1 bg-slate-800 rounded text-slate-200">CSV</button></div> <div class="rivis-meta-line rounded border border-slate-800 bg-slate-950/70 p-2 text-[9px] font-mono text-slate-400"> <span class="rivis-meta-file" title="${escapeHtml(metadataFilename)}"><span>Filename:</span> <span class="text-cyan-300">${escapeHtml(metadataFilename)}</span></span> <span class="rivis-meta-category"><span>Category:</span> <span class="text-slate-200">${meta.adobeCategoryCode} (${escapeHtml(meta.adobeCategory)})</span></span> </div> <div><div class="flex justify-between items-center text-[9px] mb-0.5"><span class="font-bold text-slate-400">Title</span><span class="font-mono ${titleValid?'text-emerald-400':'text-amber-400'}">${titleLength}/70 chars</span></div><p class="font-bold text-white bg-slate-900/80 p-1.5 rounded border border-slate-800">${escapeHtml(meta.stockTitle)}</p></div> <div class="space-y-1"><div class="flex justify-between text-[9px]"><span class="text-slate-400 font-bold">Keywords (relevance-ordered)</span><span class="font-mono ${keywordsValid?'text-emerald-400':'text-amber-400'}">${keywordCount}/40 tags</span></div><div class="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">${meta.keywords.map(kw=>`<span class="px-1.5 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded text-[9px]">${escapeHtml(kw)}</span>`).join('')}</div></div> <button type="button" onclick="copyIdeaKeywords('${escapeHtml(idea.ideaId)}',this)" title="Salin semua keyword Adobe Stock." class="w-full py-1.5 bg-blue-900/50 hover:bg-blue-800 text-blue-200 font-bold rounded text-[9px] border border-blue-700/50"> Copy All Keywords</button> </div> </details>`:''}
       </div> <div class="space-y-2 pt-3 border-t border-slate-800"> <div class="flex gap-1.5 flex-wrap"> <button type="button" data-card-meta-btn="${escapeHtml(idea.ideaId)}" onclick="handleGenerateMetadataForIdea('${escapeHtml(idea.ideaId)}', this)" class="flex-1 min-w-[75px] py-1.5 bg-slate-800 hover:bg-slate-700 text-blue-300 font-bold rounded text-[10px] flex items-center justify-center gap-1 border border-slate-700 transition-all active:scale-95"> <span>Re Metadata</span></button> <button type="button" onclick="handleRemixStyleVariations('${escapeHtml(idea.ideaId)}', this)" class="px-2.5 py-1 bg-purple-900/60 hover:bg-purple-800 text-purple-200 font-bold rounded text-[10px] flex items-center gap-1 border border-purple-700 transition-all active:scale-95"> <span>Remix</span></button> <button type="button" onclick="handleDownloadSingleCardZip('${escapeHtml(idea.ideaId)}', this)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-purple-300 font-bold rounded text-[10px] flex items-center gap-1 border border-slate-700 transition-all active:scale-95" title="Download full ZIP for this card"> <span>ZIP Card</span></button> </div> <button type="button" data-card-image-btn="${escapeHtml(idea.ideaId)}" onclick="handleGenerateStockImageForIdea('${escapeHtml(idea.ideaId)}', this)" class="w-full py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition-all active:scale-95"><svg aria-hidden="true" class="rivis-icon w-3.5 h-3.5"><use href="#rivis-sparkles"></use></svg> <span>${idea.generatedImageUrl?'Regenerate Image':'Generate High-Res Image'}</span></button> </div> </div>`;
 }
 let libraryPaintDirty=true,libraryRenderedDuplicateIds=new Set();
