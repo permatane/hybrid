@@ -1498,7 +1498,47 @@ function render(){
  $('rvCloudPickSheet').addEventListener('click',()=>{try{pick('sheet');}catch(e){status(e.message,'error');}});
  $('rvCloudTest').addEventListener('click',async()=>{try{await test();}catch(e){status(e.message,'error');}});
  $('rvCloudDisconnect').addEventListener('click',()=>{token=null;expires=0;$('rvCloudActions').hidden=true;status('Sesi Google diputus.','warning');});
- $('rvCloudCopyOrigin').addEventListener('click',()=>navigator.clipboard?.writeText(window.location.origin).then(()=>status('Origin disalin.','success')).catch(()=>status('Salin origin secara manual.','warning')));
+ $('rvCloudCopyOrigin').addEventListener('click',async()=>{
+  const origin=window.location.origin;
+  let copied=false;
+  try{
+   if(navigator.clipboard&&window.isSecureContext){
+    await navigator.clipboard.writeText(origin);
+    copied=true;
+   }
+  }catch(_){}
+  if(!copied){
+   let field=$('rvCloudOriginManual');
+   if(!field){
+    field=document.createElement('textarea');
+    field.id='rvCloudOriginManual';
+    field.setAttribute('aria-label','Authorized JavaScript Origin');
+    field.readOnly=true;
+    field.style.cssText='position:fixed;left:8px;top:8px;width:min(90vw,520px);padding:10px;background:#fff;color:#111;border:2px solid #0284c7;border-radius:8px;z-index:2147483647;font:13px monospace';
+    document.body.appendChild(field);
+   }
+   field.value=origin;
+   field.hidden=false;
+   field.focus();
+   field.select();
+   field.setSelectionRange(0,field.value.length);
+   try{copied=!!document.execCommand('copy');}catch(_){}
+   if(copied)field.hidden=true;
+  }
+  if(copied)status('Authorized JavaScript Origin berhasil disalin: '+origin,'success');
+  else{
+   const code=$('rvCloudOrigin');
+   if(code){
+    code.textContent=origin;
+    const range=document.createRange();
+    range.selectNodeContents(code);
+    const selection=window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+   }
+   status('Penyalinan otomatis diblokir browser. Origin sudah dipilih; tekan Ctrl+C untuk menyalin: '+origin,'warning');
+  }
+ });
  $('rvCloudFolderId').addEventListener('change',()=>save({folderPicked:false}));$('rvCloudSpreadsheetId').addEventListener('change',()=>save({sheetPicked:false}));
 }
 window.RIVIS_CLOUD_INIT=async()=>{render();try{await libraries();status('Google Identity Services dan Picker siap. Lengkapi konfigurasi.','info');}catch(e){status('Google library gagal dimuat: '+e.message,'warning');}};
