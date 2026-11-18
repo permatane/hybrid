@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.77. Series Manual controls and isolated scene regeneration. */
+/* RIVIS GitHub Support — v3.4.78. Added VECTORICH QC external navigation link. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1372,6 +1372,10 @@ window.RIVIS_VECTOR=Object.freeze({open,close,convert,downloadSVG:downloadSvg});
  const nav=byId('navTabSavedIdeasTop');
  if(nav&&!byId('navTabMetaGenTop')){
   nav.insertAdjacentHTML('afterend',`<button id="navTabMetaGenTop" type="button" onclick="switchTab('meta_gen')" class="nav-tab flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-slate-400 hover:text-white bg-slate-900/60 border border-slate-800/60" aria-label="Open META GEN"><span aria-hidden="true">✦</span> META GEN</button>`);
+ }
+ const metaNav=byId('navTabMetaGenTop');
+ if(metaNav&&!byId('navTabVectorichQcTop')){
+  metaNav.insertAdjacentHTML('afterend',`<a id="navTabVectorichQcTop" href="https://vectorichqc2026.netlify.app" target="_blank" rel="noopener noreferrer" class="nav-tab flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-cyan-300 hover:text-white bg-cyan-950/60 border border-cyan-800/70 hover:bg-cyan-900/70" aria-label="Open VECTORICH QC in a new tab" title="Buka Vectorich QC di tab baru"><span aria-hidden="true">↗</span> VECTORICH QC</a>`);
  }
  const saved=byId('tabSectionSavedIdeas');
  if(saved&&!byId('tabSectionMetaGen')){
