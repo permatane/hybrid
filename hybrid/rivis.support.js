@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.79. Added Cloud Library OAuth and Drive/Sheets connection foundation. */
+/* RIVIS GitHub Support — v3.4.83. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1448,6 +1448,41 @@ window.RIVIS_CLOUD_FOUNDATION_INSTALLED=true;
 const $=id=>document.getElementById(id),KEY='rivis.cloud.foundation.v1';
 const DEFAULT={clientId:'',apiKey:'',appId:'',folderId:'1GpCjf2La23kJgA0KM6HH_2PjKIQJ5fjN',spreadsheetId:'1Yp5kXgU8pp_a7PxtjDQascoWQHrk_O2NlhNoo7Pc4e0',folderPicked:false,sheetPicked:false,oauthGranted:false};
 let token=null,expires=0,loadPromise=null;
+const GATEWAY_ORIGIN='https://vectorichqc2026.netlify.app';
+let gatewayPopup=null,gatewayChannel='',gatewayConnected=false,gatewayVerified=false;
+function openCloudGateway(){
+ const bytes=new Uint8Array(24);
+ if(!window.crypto?.getRandomValues){status('Browser tidak mendukung secure random generator.','error');return;}
+ window.crypto.getRandomValues(bytes);
+ gatewayChannel=Array.from(bytes,n=>n.toString(16).padStart(2,'0')).join('');
+ const url=GATEWAY_ORIGIN+'/rivis-cloud/?channel='+encodeURIComponent(gatewayChannel);
+ gatewayPopup=window.open(url,'rivis_cloud_gateway','popup=yes,width=680,height=790,resizable=yes,scrollbars=yes');
+ if(!gatewayPopup){status('Browser memblokir popup. Izinkan popup Netlify atau buka '+GATEWAY_ORIGIN+'/rivis-cloud/','warning');return;}
+ status('Cloud Gateway dibuka. Hubungkan Google, pilih folder dan spreadsheet, lalu kirim pilihan ke RIVIS.','info');
+}
+window.addEventListener('message',event=>{
+ if(event.origin!==GATEWAY_ORIGIN || event.source!==gatewayPopup || !gatewayChannel)return;
+ const d=event.data;
+ if(!d || d.channel!==gatewayChannel)return;
+ if(d.type==='RIVIS_CLOUD_HELLO'){
+  event.source.postMessage({type:'RIVIS_CLOUD_ACK',channel:gatewayChannel},GATEWAY_ORIGIN);
+  status('Cloud Gateway aktif. Proses login dan pemilihan file dilakukan di Netlify.','info');
+ }else if(d.type==='RIVIS_CLOUD_STATUS'){
+  gatewayConnected=d.connected===true;
+  gatewayVerified=d.verified===true;
+  status(gatewayConnected?'Cloud Gateway terhubung. Pilih folder dan spreadsheet melalui halaman Netlify.':'Cloud Gateway belum terhubung.','info');
+ }else if(d.type==='RIVIS_CLOUD_SELECTED'){
+  if(d.verified!==true || !/^[A-Za-z0-9_-]{8,128}$/.test(d.folderId||'') || !/^[A-Za-z0-9_-]{8,128}$/.test(d.spreadsheetId||''))return;
+  gatewayConnected=true;gatewayVerified=true;
+  save({folderId:d.folderId,spreadsheetId:d.spreadsheetId,folderPicked:true,sheetPicked:true});
+  if($('rvCloudFolderId'))$('rvCloudFolderId').value=d.folderId;
+  if($('rvCloudSpreadsheetId'))$('rvCloudSpreadsheetId').value=d.spreadsheetId;
+  if($('rvCloudFolderPicked'))$('rvCloudFolderPicked').textContent='Dipilih via Cloud Gateway: '+(d.folderName||'Folder');
+  if($('rvCloudSheetPicked'))$('rvCloudSheetPicked').textContent='Dipilih via Cloud Gateway: '+(d.sheetName||'Spreadsheet');
+  status('Folder dan Google Sheets berhasil diverifikasi di Cloud Gateway. ID disimpan lokal di RIVIS.','success');
+ }
+});
+
 const cfg=()=>{try{return Object.assign({},DEFAULT,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){return Object.assign({},DEFAULT);}};
 const save=o=>{const c=Object.assign(cfg(),o);try{localStorage.setItem(KEY,JSON.stringify(c));}catch(e){}return c;};
 function status(t,type){const e=$('rvCloudStatusMessage'),b=$('rvCloudStatusBadge');if(e)e.textContent=t;if(b){b.textContent=type==='success'?'Connected':type==='error'?'Action Required':'Setup Needed';b.style.color=type==='success'?'#6ee7b7':type==='error'?'#fecaca':'#fde68a';}}
@@ -1505,13 +1540,15 @@ function render(){
  if(nav&&!$('navTabCloudLibraryTop')){const b=document.createElement('button');b.id='navTabCloudLibraryTop';b.type='button';b.className='nav-tab flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold text-sky-300 bg-sky-950/60 border border-sky-800/70';b.textContent='☁ CLOUD LIBRARY';b.addEventListener('click',()=>window.switchTab('cloud_library'));nav.insertAdjacentElement('afterend',b);}
  const sec=document.createElement('section');sec.id='tabSectionCloudLibrary';sec.className='tab-section hidden space-y-3';
  sec.innerHTML='<div class="flex justify-between items-center gap-3"><div><h2 class="text-sm font-black text-white">RIVIS CLOUD LIBRARY</h2><p class="text-xs text-slate-400">Google Drive + Google Sheets · Cloud Foundation</p></div><span id="rvCloudStatusBadge" class="rounded-full px-3 py-1 text-[10px] font-black">Setup Needed</span></div>'+
- '<div class="rv-cloud-card space-y-3"><h3 class="text-xs font-black text-white">Google Cloud Configuration</h3><p class="text-xs text-slate-400">Masukkan OAuth Client ID, Google API Key, dan Project Number. Jangan masukkan Client Secret atau private key.</p>'+
+ '<div class="rv-cloud-card space-y-3"><h3 class="text-xs font-black text-white">Cloud Gateway — Netlify</h3><p class="text-xs text-slate-300">Login Google dipindahkan ke domain tetap agar tidak terkena origin_mismatch dari Gemini Canvas. Token Google tidak disalin ke Canvas.</p><button id="rvCloudOpenGateway" type="button" class="rv-primary">Connect via Netlify Gateway</button><p class="text-xs text-slate-400">Domain: https://vectorichqc2026.netlify.app/rivis-cloud/ · Setelah memilih folder dan Google Sheets, klik Kirim pilihan ke RIVIS di Gateway.</p></div>'+
+ '<div id="rvCloudLegacyConfig" class="rv-cloud-card space-y-3" hidden><h3 class="text-xs font-black text-white">Legacy Direct OAuth (disabled)</h3><p class="text-xs text-slate-400">Masukkan OAuth Client ID, Google API Key, dan Project Number. Jangan masukkan Client Secret atau private key.</p>'+
  '<div class="rv-cloud-grid"><label>OAuth Client ID<input id="rvCloudClientId" placeholder="xxxx.apps.googleusercontent.com"></label><label>Google API Key<input id="rvCloudApiKey" placeholder="AIza..."></label><label>Project Number / Picker App ID<input id="rvCloudAppId" placeholder="123456789012"></label></div>'+
  '<div class="rv-cloud-card space-y-2"><h4 class="text-xs font-bold text-white">OAuth Origin Diagnostics</h4><div class="text-xs text-slate-300">Origin JavaScript (gunakan untuk OAuth): <code id="rvCloudOrigin"></code></div><div class="text-xs text-slate-300">Top page origin: <code id="rvCloudTopOrigin"></code></div><div class="text-xs text-slate-300">Referrer origin: <code id="rvCloudReferrerOrigin"></code></div><div class="flex flex-wrap gap-2"><button id="rvCloudCopyOrigin" type="button">Copy OAuth Origin</button><button id="rvCloudCopyTopOrigin" type="button">Copy Top Origin</button></div><p class="text-[10px] text-slate-500">Daftarkan Origin JavaScript (gunakan untuk OAuth) secara persis pada Authorized JavaScript Origins. Jangan daftarkan URL dengan path atau query.</p></div><button id="rvCloudConnect" type="button" class="rv-primary">Connect Google</button></div>'+
  '<div id="rvCloudActions" class="rv-cloud-card space-y-3" hidden><h3 class="text-xs font-black text-white">Select Cloud Storage</h3><div class="rv-cloud-grid"><label>Folder ID<input id="rvCloudFolderId"></label><div><div id="rvCloudFolderPicked" class="text-xs text-slate-400">Belum dipilih</div><button id="rvCloudPickFolder" type="button">Choose Drive Folder</button></div><label>Spreadsheet ID<input id="rvCloudSpreadsheetId"></label><div><div id="rvCloudSheetPicked" class="text-xs text-slate-400">Belum dipilih</div><button id="rvCloudPickSheet" type="button">Choose Spreadsheet</button></div></div><button id="rvCloudTest" type="button" class="rv-primary">Test Connection</button><button id="rvCloudDisconnect" type="button">Disconnect</button></div>'+
  '<div class="rv-cloud-card"><div id="rvCloudStatusMessage" role="status" aria-live="polite">Belum tersambung.</div><p class="text-[10px] text-slate-500 mt-2">Access token hanya berada di memori browser dan tidak disimpan ke localStorage. Sesi perlu disambungkan kembali setelah halaman dimuat ulang.</p></div>';
  const style=document.createElement('style');style.textContent='#tabSectionCloudLibrary{padding:12px;background:rgba(15,23,42,.76);border:1px solid #334155;border-radius:16px}#tabSectionCloudLibrary .rv-cloud-card{padding:14px;border:1px solid #334155;border-radius:12px;background:#02061788}#tabSectionCloudLibrary label{display:grid;gap:5px;color:#cbd5e1;font-size:11px;font-weight:700}#tabSectionCloudLibrary input{width:100%;min-width:0;background:#020617;color:white;border:1px solid #475569;border-radius:8px;padding:9px;font-size:12px}#tabSectionCloudLibrary button{padding:9px 12px;border-radius:8px;background:#1e293b;color:white;font-size:11px;font-weight:800}#tabSectionCloudLibrary .rv-primary{background:#0369a1}#tabSectionCloudLibrary .rv-cloud-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}#tabSectionCloudLibrary [hidden]{display:none!important}';document.head.appendChild(style);
  const after=$('tabSectionMetaGen')||$('tabSectionSavedIdeas');if(after)after.insertAdjacentElement('afterend',sec);
+ $('rvCloudOpenGateway').addEventListener('click',openCloudGateway);
  const c=cfg();$('rvCloudClientId').value=c.clientId;$('rvCloudApiKey').value=c.apiKey;$('rvCloudAppId').value=c.appId;$('rvCloudFolderId').value=c.folderId;$('rvCloudSpreadsheetId').value=c.spreadsheetId;const originInfo=getCloudOriginDiagnostics();$('rvCloudOrigin').textContent=originInfo.own;$('rvCloudTopOrigin').textContent=originInfo.parent;$('rvCloudReferrerOrigin').textContent=originInfo.referrer;
  $('rvCloudFolderPicked').textContent=c.folderPicked?'Dipilih sebelumnya':'Belum dipilih';$('rvCloudSheetPicked').textContent=c.sheetPicked?'Dipilih sebelumnya':'Belum dipilih';
  $('rvCloudConnect').addEventListener('click',async()=>{try{if(!window.google?.accounts?.oauth2){status('Google library sedang dimuat. Tunggu sebentar lalu klik Connect kembali.','warning');await libraries();return;}await connect();$('rvCloudActions').hidden=false;status('Google terotorisasi. Pilih folder dan spreadsheet melalui Picker.','success');}catch(e){status(e.message,'error');}});
@@ -1568,7 +1605,7 @@ function render(){
  });
  $('rvCloudFolderId').addEventListener('change',()=>save({folderPicked:false}));$('rvCloudSpreadsheetId').addEventListener('change',()=>save({sheetPicked:false}));
 }
-window.RIVIS_CLOUD_INIT=async()=>{render();try{await libraries();status('Google Identity Services dan Picker siap. Lengkapi konfigurasi.','info');}catch(e){status('Google library gagal dimuat: '+e.message,'warning');}};
-window.RIVIS_CLOUD_STATUS=()=>({connected:!!token,folderId:cfg().folderId,spreadsheetId:cfg().spreadsheetId});
+window.RIVIS_CLOUD_INIT=()=>{render();status('Gunakan Connect via Netlify Gateway. OAuth langsung dari Gemini Canvas dinonaktifkan karena origin dinamis.','info');};
+window.RIVIS_CLOUD_STATUS=()=>({connected:gatewayConnected,verified:gatewayVerified,folderId:cfg().folderId,spreadsheetId:cfg().spreadsheetId,gatewayUrl:GATEWAY_ORIGIN+'/rivis-cloud/'});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',render,{once:true});else render();
 })();
