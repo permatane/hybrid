@@ -1459,11 +1459,24 @@ function connect(){
  if(!window.google?.accounts?.oauth2)throw new Error('Google Identity Services belum siap. Buka ulang tab Cloud Library setelah library dimuat.');
  return new Promise((ok,no)=>{const tc=google.accounts.oauth2.initTokenClient({client_id:c.clientId,scope:'https://www.googleapis.com/auth/drive.file',callback:r=>{if(r.error){no(new Error(r.error_description||r.error));return;}token=r.access_token;expires=Date.now()+(Number(r.expires_in)||3600)*1000;save({oauthGranted:true});ok(token);},error_callback:e=>no(new Error(e.message||'OAuth popup gagal.'))});tc.requestAccessToken({prompt:c.oauthGranted?'':'consent'});});
 }
+function getPickerTopOrigin(){
+ try{
+  const topLocation=window.top.location;
+  if(topLocation&&topLocation.protocol&&topLocation.host)return topLocation.protocol+'//'+topLocation.host;
+ }catch(_){}
+ try{
+  if(document.referrer){
+   const referrerUrl=new URL(document.referrer);
+   if(referrerUrl.protocol==='https:'||referrerUrl.protocol==='http:')return referrerUrl.origin;
+  }
+ }catch(_){}
+ return window.location.origin;
+}
 function pick(kind){
  const c=fields();if(!token)throw new Error('Connect Google terlebih dahulu.');if(!c.apiKey||!c.appId)throw new Error('API Key dan Project Number wajib diisi.');
  const view=new google.picker.DocsView(kind==='folder'?google.picker.ViewId.FOLDERS:google.picker.ViewId.SPREADSHEETS);
  if(kind==='folder'){view.setIncludeFolders(true);view.setSelectFolderEnabled(true);}else view.setMimeTypes('application/vnd.google-apps.spreadsheet');
- const p=new google.picker.PickerBuilder().setAppId(c.appId).setDeveloperKey(c.apiKey).setOAuthToken(token).setOrigin(window.location.origin).addView(view).setCallback(d=>{if(d.action!==google.picker.Action.PICKED)return;const doc=d.docs&&d.docs[0];if(!doc||!doc.id)return;if(kind==='folder'){save({folderId:doc.id,folderPicked:true});$('rvCloudFolderId').value=doc.id;$('rvCloudFolderPicked').textContent='Dipilih: '+doc.name;}else{save({spreadsheetId:doc.id,sheetPicked:true});$('rvCloudSpreadsheetId').value=doc.id;$('rvCloudSheetPicked').textContent='Dipilih: '+doc.name;}status('File dipilih. Jalankan Test Connection.','success');}).build();p.setVisible(true);
+ const p=new google.picker.PickerBuilder().setAppId(c.appId).setDeveloperKey(c.apiKey).setOAuthToken(token).setOrigin(getPickerTopOrigin()).addView(view).setCallback(d=>{if(d.action!==google.picker.Action.PICKED)return;const doc=d.docs&&d.docs[0];if(!doc||!doc.id)return;if(kind==='folder'){save({folderId:doc.id,folderPicked:true});$('rvCloudFolderId').value=doc.id;$('rvCloudFolderPicked').textContent='Dipilih: '+doc.name;}else{save({spreadsheetId:doc.id,sheetPicked:true});$('rvCloudSpreadsheetId').value=doc.id;$('rvCloudSheetPicked').textContent='Dipilih: '+doc.name;}status('File dipilih. Jalankan Test Connection.','success');}).build();p.setVisible(true);
 }
 async function get(url){if(!token||Date.now()>expires-30000)throw new Error('Sesi Google habis. Connect Google kembali.');const r=await fetch(url,{headers:{Authorization:'Bearer '+token}});if(!r.ok)throw new Error('Google API HTTP '+r.status+': '+(await r.text()).slice(0,200));return r.json();}
 async function test(){
