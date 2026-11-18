@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — App v3.4.71 (Canvas 3.4 / GitHub 71). META GEN presentation update + memory-safe Library. */
+/* RIVIS GitHub Support — v3.4.73. C-F taxonomy, palette, creative direction and asset modes. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -72,62 +72,99 @@ const IDEA_STUDIO_SIZES=[{id:'1:1',label:'Square (1:1)',ratio:'1:1',defaultDims:
 nativeRatio:'1:1'},{id:'2:3',label:'Portrait (2:3)',ratio:'2:3',defaultDims:'3333 × 5000 px',nativeRatio:'2:3'},{id:'3:2',label:'Landscape (3:2)',
 ratio:'3:2',defaultDims:'5000 × 3333 px',nativeRatio:'3:2'},{id:'16:9',label:'Widescreen (16:9)',ratio:'16:9',defaultDims:'5120 × 2880 px',
 nativeRatio:'16:9'},{id:'custom',label:'Custom Size',ratio:'Custom px',defaultDims:'Width × Height px',nativeRatio:'custom'}];
-const STOCK_CATEGORIES=[{id:'business',name:'Business & Finance',subcategories:['Corporate Tech','Banking & Crypto','Startups & Growth',
-'Office & Remote Work','Marketing Analytics']},{id:'tech',name:'Technology & AI',subcategories:['Artificial Intelligence','Cybersecurity',
-'Cloud Computing','Robotics & Automation','Data Science']},{id:'nature',name:'Nature & Botanical',subcategories:['Tropical Leaves',
-'Wildflowers & Floral','Forest & Wilderness','Ecology & Green Energy','Ocean & Marine Life']},{id:'food',name:'Food & Beverage',
-subcategories:['Gourmet & Restaurant','Coffee & Cafe','Fresh Fruits & Vegetables','Bakery & Pastry','Cocktails & Craft Drinks']},
-{id:'people',name:'People & Lifestyle',subcategories:['Modern Diversity','Fitness & Wellness','Remote Work & Study','Family & Community',
-'Creative Professionals']},{id:'bg',name:'Backgrounds & Textures',subcategories:['Abstract Geometric','Fluid Organic Waves','Minimalist Gradients',
-'Seamless Patterns','3D Spatial Waves']},{id:'vector',name:'Vector Illustration & Clipart',subcategories:['Icon','Vector Illustration',
-'Clipart','Object','Mascot Characters','Infographic Elements','Badge & Emblem Logos','Sticker Packs']},{id:'3d',name:'3D Commercial Concepts',
-subcategories:['Iso 3D Icons','Claymate Characters','Glassmorphism Objects','Product Mockup Stages','Metallic Shapes']},{id:'health',
-name:'Health & Wellness',subcategories:['Medical & Healthcare','Mental Health & Yoga','Skincare & Cosmetics','Nutrition & Supplements',
-'Spa & Relaxation']},{id:'edu',name:'Education & Science',subcategories:['Online Learning','STEM & Research','School Supplies',
-'Space & Astronomy','History & Knowledge']},{id:'travel',name:'Travel & Architecture',subcategories:['City Skylines','Landmarks & Heritage',
-'Camping & Adventure','Transportation','Hotel & Hospitality']},{id:'seasonal',name:'Seasonal & Holiday Campaigns',subcategories:['Christmas & Winter',
-'Summer Festival','Halloween & Gothic','Spring Renewal','Autumn Harvest']},{id:'custom',name:'Custom Category',subcategories:['custom']}];
-const VISUAL_STYLES=['Minimalist Logo','Cutout Sticker','Badge','Minimalist','Flat Vector','Geometric','Botanical','Line Art',
-'Isometric','3D Render','Photorealistic','Editorial Illustration','Abstract','Clay Style','Paper Cut','Hand Drawn','Premium Commercial',
-'Custom Style'];
-const COMMERCIAL_PURPOSES=['Website Hero','Advertising','Product Packaging','Social Media','Corporate Presentation',
-'Editorial Illustration','Mobile Application','Infographic','Print Design','Background Design','Stock Illustration'];
-const COLOR_PALETTES=['Vintage',
-'Retro','Cold','Black & White','Dark','Natural Green','Corporate Blue','Blue & Indigo','Warm Earth','Pastel','Monochrome','Black & Gold',
-'Vibrant Colors','Neutral Minimalist','Silhouette','Custom Palette'];
-const COMPOSITIONS=['Centered','Isolated Objects','Negative Space',
-'Balanced Collection','Symmetrical','Asymmetrical','Seamless Pattern','Wide Banner','Close-up','Top View'];
-const ASSET_TYPES=['Logos',
-'Object & Characters','Patterns','Backgrounds','Banner Vectors','Infographics','Vector Illustration','Icon','Clipart','Seamless Pattern',
-'Abstract Background','3D Illustration','Commercial Photography','Editorial Illustration','Botanical'];
-const REFERENCE_MODES=[{id:'STYLE REFERENCE',
-name:'1. STYLE REFERENCE',desc:'Use visual style, color, texture, lighting, or illustration technique.'},{id:'CONCEPT REFERENCE',
-name:'2. CONCEPT REFERENCE',desc:'Use as concept inspiration, create new composition and details.'},{id:'COMPOSITION REFERENCE',
-name:'3. COMPOSITION REFERENCE',desc:'Use general composition structure without copying details.'},{id:'VARIATION',name:'4. VARIATION',
-desc:'Create visual alternatives with related themes.'},{id:'CREATIVE REMIX',name:'5. CREATIVE REMIX',desc:'Combine user idea with reference visual characteristics.'}];
-let dynamicSeasonalCampaigns=[{id:'xmas',icon:'🎄',name:'Christmas & Winter Holidays',rushWindow:'Upload Rush: Aug–Oct',prompt:'Cute cozy winter holiday Christmas gingerbread cookies and evergreen pine cone sticker set',
-category:'seasonal',subcategory:'Christmas & Winter',style:'Cutout Sticker',purpose:'Product Packaging',palette:'Vibrant Colors',
-assetType:'Sticker Packs'},{id:'halloween',icon:'🎃',name:'Halloween & Gothic Fall',rushWindow:'Upload Rush: Jul–Sep',prompt:'Mystical Halloween spooky pumpkin skull and magic potion bottle emblem badge set',
-category:'seasonal',subcategory:'Halloween & Gothic',style:'Badge',purpose:'Social Media',palette:'Dark',assetType:'Badge & Emblem Logos'},
-{id:'back2school',icon:'🎒',name:'Back to School & STEM',rushWindow:'Upload Rush: Jun–Aug',prompt:'Flat vector school supplies set with science chemistry beaker backpack pencil and notebook',
-category:'edu',subcategory:'School Supplies',style:'Flat Vector',purpose:'Infographic',palette:'Vibrant Colors',assetType:'Clipart'},
-{id:'blackfriday',icon:'🛍️',name:'Black Friday & Shopping',rushWindow:'Upload Rush: Aug–Oct',prompt:'Luxury Black Friday promotional sale discount badge emblem collection with golden ribbons',
-category:'business',subcategory:'Marketing Analytics',style:'Badge',purpose:'Advertising',palette:'Black & Gold',assetType:'Badge & Emblem Logos'},
-{id:'spring_easter',icon:'🌸',name:'Spring Renewal & Floral',rushWindow:'Upload Rush: Dec–Feb',prompt:'Elegant pastel botanical wildflowers and delicate spring blossom leaf border set',
-category:'nature',subcategory:'Wildflowers & Floral',style:'Botanical',purpose:'Product Packaging',palette:'Pastel',assetType:'Botanical'},
-{id:'summer_beach',icon:'☀️',name:'Summer Travel & Festival',rushWindow:'Upload Rush: Mar–May',prompt:'Tropical summer beach vacation icons with surfboard coconut cocktail and palm tree',
-category:'travel',subcategory:'Camping & Adventure',style:'Minimalist',purpose:'Social Media',palette:'Vibrant Colors',assetType:'Icon'}];
-const AUTO_PROMPT_PRESETS=[{prompt:"Minimalist eco friendly green energy solar and wind turbine line art icon set",category:"nature",
-subcategory:"Ecology & Green Energy",style:"Line Art",purpose:"Infographic",palette:"Natural Green",composition:"Isolated Objects",
-assetType:"Icon",size:"1:1"},{prompt:"Cute tropical monstera and palm leaf sticker pack with pastel color outline",category:"nature",
-subcategory:"Tropical Leaves",style:"Cutout Sticker",purpose:"Product Packaging",palette:"Natural Green",composition:"Isolated Objects",
-assetType:"Sticker Packs",size:"1:1"},{prompt:"Flat vector illustration of modern business team analyzing cloud data growth chart on desk",
-category:"business",subcategory:"Startups & Growth",style:"Flat Vector",purpose:"Website Hero",palette:"Corporate Blue",composition:"Centered",
-assetType:"Vector Illustration",size:"16:9"},{prompt:"Vintage artisanal coffee roastery emblem badge collection with coffee bean leaves",
-category:"food",subcategory:"Coffee & Cafe",style:"Badge",purpose:"Product Packaging",palette:"Warm Earth",composition:"Centered",
-assetType:"Badge & Emblem Logos",size:"1:1"},{prompt:"Abstract fluid organic gradient wave background for futuristic website header",
-category:"bg",subcategory:"Fluid Organic Waves",style:"Abstract",purpose:"Background Design",palette:"Vibrant Colors",composition:"Wide Banner",
-assetType:"Abstract Background",size:"16:9"}];
+const STOCK_CATEGORIES=[
+ {id:'business',name:'Business & Finance',subcategories:['Banking & Financial Services','Personal Finance & Budgeting','Startups & Entrepreneurship','Marketing & Advertising','E-commerce & Retail','Office & Remote Work','Business Operations & HR']},
+ {id:'tech',name:'Technology & Digital',subcategories:['Artificial Intelligence','Cybersecurity & Privacy','Cloud Computing & Networks','Robotics & Automation','Data Science & Analytics','Software & Applications','Consumer Electronics']},
+ {id:'people',name:'People & Lifestyle',subcategories:['Everyday Life','Family & Relationships','Fashion & Personal Style','Community & Inclusion','Career & Professional Life','Aging & Generations','Personal Growth']},
+ {id:'health',name:'Health & Wellness',subcategories:['Healthcare & Medical','Mental Health & Mindfulness','Fitness & Exercise','Nutrition & Healthy Eating','Beauty & Skincare','Spa & Relaxation','Accessibility & Caregiving']},
+ {id:'food',name:'Food & Beverage',subcategories:['Restaurant & Dining','Cooking & Food Preparation','Bakery & Desserts','Coffee & Tea','Drinks & Beverages','Fresh Produce & Ingredients','Food Culture & Street Food']},
+ {id:'animals',name:'Animals & Pets',subcategories:['Pets & Pet Care','Wildlife & Safari','Birds','Marine Animals','Farm Animals','Insects & Pollinators']},
+ {id:'nature',name:'Nature & Environment',subcategories:['Plants & Flowers','Forests & Woodlands','Mountains & Landscapes','Ocean & Marine Ecosystems','Ecology & Conservation','Climate & Renewable Energy','Weather & Natural Phenomena']},
+ {id:'edu',name:'Education & Science',subcategories:['Classroom & Learning','Online Education','STEM & Laboratory Research','School Supplies','Space & Astronomy','History & Knowledge','Scientific Discoveries']},
+ {id:'travel',name:'Travel & Places',subcategories:['Tourism & Destinations','Architecture & Buildings','Landmarks & Heritage','Camping & Adventure','Transportation & Mobility','Hotels & Hospitality','City Life']},
+ {id:'home',name:'Home & Living',subcategories:['Interior Design','Furniture & Home Decor','Household Objects','Home Organization','Gardening & DIY','Renovation & Improvement']},
+ {id:'industry',name:'Industry & Infrastructure',subcategories:['Manufacturing & Production','Construction & Engineering','Logistics & Supply Chain','Energy & Utilities','Agriculture & Farming','Industrial Safety']},
+ {id:'arts',name:'Arts, Culture & Entertainment',subcategories:['Fine Art & Craft','Music & Performance','Film & Media','Books & Publishing','Festivals & Cultural Heritage','Creative Hobbies']},
+ {id:'sports',name:'Sports & Recreation',subcategories:['Team Sports','Individual Sports','Athletics & Competition','Outdoor Recreation','Adventure Sports','Sports Equipment & Training']},
+ {id:'seasonal',name:'Seasonal & Holidays',subcategories:['Christmas & Winter','Halloween & Autumn','Spring & Easter','Summer & Beach','Valentine & Romance','New Year & Celebrations','Wedding & Special Events']},
+ {id:'abstract',name:'Abstract & Graphic Design',subcategories:['Abstract Geometric','Organic Forms & Waves','Gradient Color Fields','Decorative Motifs','Minimal Patterns & Textures','Experimental Visual Concepts']},
+ {id:'custom',name:'Custom Category',subcategories:['custom']}
+];
+const LEGACY_STOCK_CATEGORY_ALIASES=Object.freeze({bg:'abstract',vector:'abstract','3d':'abstract'});
+const VISUAL_STYLES_BY_MODE=Object.freeze({
+ vector:['Modern Flat Illustration','Editorial Illustration','Geometric Editorial','Botanical Illustration','Character Illustration','Minimalist Line Art','Isometric Illustration','Paper Cut Collage','Screen Print / Risograph','Vintage Engraving','Woodcut Print','Hand-Drawn Ink','Retro Mid-Century','Bauhaus Geometry','Swiss Minimalist Graphic','Children’s Book Illustration','Naive Folk Art','Editorial Cutout','Abstract Organic','Bold Pop Art','Technical Illustration','Monoline Illustration'],
+ photo:['Natural Commercial Photography','Editorial Documentary Photography','Premium Product Photography','Lifestyle Storytelling Photography','Studio Still Life','Food Editorial Photography','Fashion Editorial Photography','Architectural Photography','Travel Documentary Photography','Environmental Portrait Photography','Cinematic Advertising Photography'],
+ editorial:['Editorial Documentary Photography','Lifestyle Storytelling Photography','Fashion Editorial Photography','Environmental Portrait Photography','Travel Documentary Photography','Food Editorial Photography','Architectural Photography'],
+ advertising:['Cinematic Advertising Photography','Premium Product Photography','Lifestyle Storytelling Photography','Studio Still Life','Fashion Editorial Photography','Food Editorial Photography','Natural Commercial Photography'],
+ '3d':['Stylized 3D Illustration','Photorealistic Product Render','Isometric 3D','Clay Render','Soft Plastic Toy Render','Glass & Translucent 3D','Metallic Industrial Render','Abstract 3D Geometry','Architectural Visualization','Miniature Diorama']
+});
+const VISUAL_STYLES=[...new Set(Object.values(VISUAL_STYLES_BY_MODE).flat())];
+const COMMERCIAL_PURPOSES=['Website & Landing Page','Digital Advertising','Social Media Campaign','Product Packaging & Labels','E-commerce Listing','Brand Identity & Marketing','Mobile Application','Corporate Presentation','Editorial & Publishing','Education & Learning','Infographic & Data Communication','Print & Merchandise','Event & Seasonal Promotion','Interior & Environmental Graphics','Stock Asset Library'];
+const PALETTE_GROUPS=Object.freeze({
+ 'Vivid & Playful':['Vibrant Editorial','High-Contrast Pop','Sunset Energy','Playful Pastel','Tech Neon'],
+ 'Natural & Organic':['Soft Botanical','Warm Earth','Cool Ocean','Muted Vintage'],
+ 'Professional & Minimal':['Corporate Blue','Modern Neutral','Monochrome','Black & Gold','Silhouette'],
+ 'Classic & Retro':['Retro Mid-Century']
+});
+const COLOR_PALETTES=[...new Set(Object.values(PALETTE_GROUPS).flat()),'Custom Palette'];
+const PALETTE_HEX_MAP=Object.freeze({
+ 'Vibrant Editorial':['#F44771','#FFC857','#22B8A7','#3157A4','#F7F1E8'],
+ 'High-Contrast Pop':['#F21B5B','#FFB000','#20A6A1','#283D8C','#171717'],
+ 'Sunset Energy':['#8C3155','#E75D4D','#F49B55','#F5CB75','#4C4B78'],
+ 'Playful Pastel':['#F28DB2','#F6C96B','#91D8C1','#9CB7F2','#F8EDE7'],
+ 'Tech Neon':['#101A3A','#315BFF','#00D6C9','#C5FF3D','#F2F5FF'],
+ 'Soft Botanical':['#315C45','#8BAA78','#D6DDBB','#E8BFA7','#F7F1E7'],
+ 'Warm Earth':['#8B4B32','#C47B45','#E5B96F','#5E6650','#F2E5D3'],
+ 'Cool Ocean':['#123F5A','#168C9C','#61C6C2','#A8D9D2','#F0F5EE'],
+ 'Muted Vintage':['#6F7865','#B18A75','#C7B79B','#6E7D8A','#E8E0D2'],
+ 'Corporate Blue':['#123B68','#2878A8','#58B8C5','#D9E9EF','#F5F8FA'],
+ 'Modern Neutral':['#252A32','#737B80','#B7B5AA','#E4DED2','#F8F6F0'],
+ 'Monochrome':['#171717','#505050','#888888','#C7C7C7','#F4F4F4'],
+ 'Black & Gold':['#171717','#3A3024','#A77A2D','#D9B65D','#F2E8D2'],
+ 'Silhouette':['#101820','#35424A','#69757B','#BBC4C7','#F5F5F0'],
+ 'Retro Mid-Century':['#D85A38','#E7B64A','#3F7773','#293F56','#F2E7D2']
+});
+const COMPOSITIONS=['Centered Hero','Isolated with Copy Space','Balanced Collection','Symmetrical Layout','Asymmetrical Editorial','Rule of Thirds','Wide Banner','Vertical Poster','Close-up Detail','Top-Down Flat Lay','Full-Bleed Scene','Layered Depth','Dynamic Diagonal','Negative Space Left','Negative Space Right','Repeat-ready Layout'];
+const ASSET_TYPES_BY_MODE=Object.freeze({
+ vector:['Vector Illustration','Editorial Illustration','Spot Illustration','Scene Illustration','Character & Mascot Set','Icon Set','Sticker Pack','Clipart Set','Infographic & Diagram','Seamless Pattern','Background & Texture','Decorative Elements','Isolated Object','Badge & Emblem','Map & Wayfinding Graphic','Packaging Illustration','Logo & Brand Mark'],
+ photo:['Commercial Photography','Product Photography','Lifestyle Photography','Food Photography','Portrait Photography','Architecture Photography','Travel Photography','Nature & Wildlife Photography','Editorial Photography','Advertising Photography'],
+ editorial:['Editorial Photography','Lifestyle Photography','Portrait Photography','Travel Photography','Food Photography','Architecture Photography','Nature & Wildlife Photography'],
+ advertising:['Advertising Photography','Product Photography','Commercial Photography','Food Photography','Lifestyle Photography','Portrait Photography'],
+ '3d':['3D Illustration','3D Product Render','3D Scene Render','Isometric 3D Asset','3D Icon Set','3D Mockup Render','Material & Texture Render','Architectural Visualization','Miniature Diorama']
+});
+const ASSET_TYPES=[...new Set(Object.values(ASSET_TYPES_BY_MODE).flat())];
+const REFERENCE_MODES=[
+ {id:'STYLE REFERENCE',name:'1. STYLE REFERENCE',desc:'Use general shape language, line quality, palette, lighting and mood; create a new original design.'},
+ {id:'CONCEPT REFERENCE',name:'2. CONCEPT REFERENCE',desc:'Extract broad subject inspiration, then invent original details and activities.'},
+ {id:'COMPOSITION REFERENCE',name:'3. COMPOSITION REFERENCE',desc:'Use only general layout and focal hierarchy, not specific objects or graphics.'},
+ {id:'VARIATION',name:'4. VARIATION',desc:'Create a new substantive variation while preserving suitable general visual principles.'},
+ {id:'CREATIVE REMIX',name:'5. CREATIVE REMIX',desc:'Combine non-identifying reference attributes with a new creative concept.'}
+];
+function getDefaultAssetTypeForMode(mode){return({vector:'Vector Illustration',photo:'Commercial Photography',editorial:'Editorial Photography',advertising:'Advertising Photography','3d':'3D Illustration'})[mode]||'Vector Illustration';}
+function syncCreativeOptionsForMode(mode){
+ const key=Object.prototype.hasOwnProperty.call(RASTER_MODES,mode)?mode:'vector';
+ const styleSel=byId('visualStyleSelect'),styles=VISUAL_STYLES_BY_MODE[key]||VISUAL_STYLES_BY_MODE.vector;
+ if(styleSel){const prev=styleSel.value||state.selectedStyle;styleSel.innerHTML=styles.map(s=>'<option value="'+escapeHtml(s)+'">'+escapeHtml(s)+'</option>').join('');styleSel.value=styles.includes(prev)?prev:styles[0];state.selectedStyle=styleSel.value;}
+ const assetSel=byId('assetTypeSelect'),assets=ASSET_TYPES_BY_MODE[key]||ASSET_TYPES_BY_MODE.vector;
+ if(assetSel){const prev=assetSel.value||state.selectedAssetType;assetSel.innerHTML=assets.map(a=>'<option value="'+escapeHtml(a)+'">'+escapeHtml(a)+'</option>').join('');assetSel.value=assets.includes(prev)?prev:getDefaultAssetTypeForMode(key);state.selectedAssetType=assetSel.value;}
+}
+function paletteHexForSelection(name){return PALETTE_HEX_MAP[name]?[...PALETTE_HEX_MAP[name]]:[];}
+function categoryForId(id){return STOCK_CATEGORIES.find(c=>c.id===id)||STOCK_CATEGORIES.find(c=>c.id===LEGACY_STOCK_CATEGORY_ALIASES[id])||STOCK_CATEGORIES.find(c=>c.id==='custom');}
+let dynamicSeasonalCampaigns=[
+ {id:'xmas',icon:'🎄',name:'Christmas & Winter Holidays',rushWindow:'Upload Rush: Aug–Oct',prompt:'Original winter gift packaging collection with evergreen sprigs, warm festive treats and creative holiday objects',category:'seasonal',subcategory:'Christmas & Winter',style:'Retro Mid-Century',purpose:'Product Packaging & Labels',palette:'Warm Earth',assetType:'Sticker Pack'},
+ {id:'halloween',icon:'🎃',name:'Halloween & Autumn',rushWindow:'Upload Rush: Jul–Sep',prompt:'Original playful seasonal graphics with carved pumpkins, moonlit garden details and handmade decorations',category:'seasonal',subcategory:'Halloween & Autumn',style:'Vintage Engraving',purpose:'Social Media Campaign',palette:'Muted Vintage',assetType:'Badge & Emblem'},
+ {id:'back2school',icon:'🎒',name:'Back to School & STEM',rushWindow:'Upload Rush: Jun–Aug',prompt:'Distinct classroom supplies and science objects arranged as a useful educational collection',category:'edu',subcategory:'School Supplies',style:'Modern Flat Illustration',purpose:'Education & Learning',palette:'Vibrant Editorial',assetType:'Clipart Set'},
+ {id:'blackfriday',icon:'🛍️',name:'Retail Campaign',rushWindow:'Upload Rush: Aug–Oct',prompt:'Original abstract retail promotion layout with generic shopping motifs and no typography',category:'business',subcategory:'Marketing & Advertising',style:'Geometric Editorial',purpose:'Digital Advertising',palette:'Black & Gold',assetType:'Badge & Emblem'},
+ {id:'spring_easter',icon:'🌸',name:'Spring Renewal & Floral',rushWindow:'Upload Rush: Dec–Feb',prompt:'Elegant seed-bearing stems and distinct spring wildflowers arranged as an original botanical collection',category:'nature',subcategory:'Plants & Flowers',style:'Botanical Illustration',purpose:'Product Packaging & Labels',palette:'Soft Botanical',assetType:'Decorative Elements'},
+ {id:'summer_beach',icon:'☀️',name:'Summer Travel & Festival',rushWindow:'Upload Rush: Mar–May',prompt:'Coastal travel essentials and outdoor holiday activities depicted as clearly distinct motifs',category:'travel',subcategory:'Tourism & Destinations',style:'Retro Mid-Century',purpose:'Social Media Campaign',palette:'Sunset Energy',assetType:'Icon Set'}
+];
+const AUTO_PROMPT_PRESETS=[
+ {prompt:'Clean graphic of solar and wind power systems serving a sustainable neighborhood',category:'nature',subcategory:'Climate & Renewable Energy',style:'Technical Illustration',purpose:'Infographic & Data Communication',palette:'Soft Botanical',composition:'Balanced Collection',assetType:'Infographic & Diagram',size:'1:1'},
+ {prompt:'Distinct tropical leaves and flower buds designed as an original sticker collection',category:'nature',subcategory:'Plants & Flowers',style:'Botanical Illustration',purpose:'Product Packaging & Labels',palette:'Soft Botanical',composition:'Isolated with Copy Space',assetType:'Sticker Pack',size:'1:1'},
+ {prompt:'Small business team reviewing orders and inventory on a shared desk',category:'business',subcategory:'Startups & Entrepreneurship',style:'Modern Flat Illustration',purpose:'Website & Landing Page',palette:'Corporate Blue',composition:'Centered Hero',assetType:'Editorial Illustration',size:'16:9'},
+ {prompt:'Artisanal coffee brewing tools and botanically accurate bean branches arranged into an original emblem',category:'food',subcategory:'Coffee & Tea',style:'Vintage Engraving',purpose:'Product Packaging & Labels',palette:'Warm Earth',composition:'Centered Hero',assetType:'Badge & Emblem',size:'1:1'},
+ {prompt:'Wide abstract organic shapes arranged as a structured gradient banner background',category:'abstract',subcategory:'Organic Forms & Waves',style:'Abstract Organic',purpose:'Website & Landing Page',palette:'Vibrant Editorial',composition:'Wide Banner',assetType:'Background & Texture',size:'16:9'}
+];
 const STORAGE_KEYS={API_KEY:'vfp_gemini_api_key',SAVED_IDEAS:'vfp_saved_ideas',
 GRADIENT_ENABLED:'rvis_gradient_enabled',IMAGE_RESOLUTION:'rvis_image_resolution',OUTPUT_MODE:'rvis_output_mode',RASTER_PREFS:'rvis_raster_prefs'};
 const IDB_NAME='rich_vector_idea_studio_db';
@@ -173,7 +210,7 @@ if(!sizeDirty)return;sizeDirty=false;const status=byId('storageStatusText');if(!
 status.textContent=`${idbAvailable?'IndexedDB lokal':'Penyimpanan browser'} • ${state.savedIdeas.length} ide • ${(bytes/1048576).toFixed(2)} MB`;
 });}
 const state={activeTab:'idea_studio',apiKey:safeStorageGet(STORAGE_KEYS.API_KEY,''),refImageUrl:null,refImageFile:null,refMode:REFERENCE_MODES[0].id,
-refModInstruction:'',refSuggestions:null,productionType:'single',collectionItemCount:'',noTextChecked:true,svgFriendly:true,gradientEnabled:safeStorageGet(STORAGE_KEYS.GRADIENT_ENABLED,
+refModInstruction:'',refSuggestions:null,referenceFingerprint:null,referenceAnalysis:null,productionType:'single',collectionItemCount:'',noTextChecked:true,svgFriendly:true,gradientEnabled:safeStorageGet(STORAGE_KEYS.GRADIENT_ENABLED,
 'false')==='true',outputMode:'vector',selectedCategory:STOCK_CATEGORIES.find(c=>c.id==='custom'),customCategory:'',selectedSubcategory:'',
 customSubcategory:'',autoSelectBest:true,selectedStyle:VISUAL_STYLES[0],selectedPurpose:COMMERCIAL_PURPOSES[0],selectedPalette:COLOR_PALETTES[0],
 paletteMode:'auto',manualPaletteHex:[],selectedComposition:COMPOSITIONS[0],selectedAssetType:ASSET_TYPES[0],ideaStudioSizeId:'1:1',
@@ -340,11 +377,11 @@ btn.addEventListener('click',()=>{const item=prompts[Number(btn.dataset.boosterP
 if(input&&item){input.value=item.prompt;input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();}});});}const refSelect=byId('refModeSelect');
 if(refSelect)refSelect.innerHTML=REFERENCE_MODES.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');const catSelect=byId('stockCategorySelect');
 if(catSelect){catSelect.innerHTML=STOCK_CATEGORIES.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');catSelect.value='custom';
-handleCategoryChange('custom');}const styleSel=byId('visualStyleSelect');if(styleSel)styleSel.innerHTML=VISUAL_STYLES.map(s=>`<option value="${s}">${s}</option>`).join('');
-const purposeSel=byId('commercialPurposeSelect');if(purposeSel)purposeSel.innerHTML=COMMERCIAL_PURPOSES.map(p=>`<option value="${p}">${p}</option>`).join('');
-const paletteSel=byId('colorPaletteSelect');if(paletteSel)paletteSel.innerHTML='<option value="__auto__">Auto · Match artwork</option>'+COLOR_PALETTES.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-const compSel=byId('compositionSelect');if(compSel)compSel.innerHTML=COMPOSITIONS.map(c=>`<option value="${c}">${c}</option>`).join('');
-const assetSel=byId('assetTypeSelect');if(assetSel)assetSel.innerHTML=ASSET_TYPES.map(a=>`<option value="${a}">${a}</option>`).join('');
+handleCategoryChange('custom');}const purposeSel=byId('commercialPurposeSelect');if(purposeSel)purposeSel.innerHTML=COMMERCIAL_PURPOSES.map(p=>'<option value="'+escapeHtml(p)+'">'+escapeHtml(p)+'</option>').join('');
+const paletteSel=byId('colorPaletteSelect');if(paletteSel){paletteSel.innerHTML='<option value="__auto__">Auto · Match artwork / reference</option>'+Object.entries(PALETTE_GROUPS).map(([group,names])=>'<optgroup label="'+escapeHtml(group)+'">'+names.map(name=>'<option value="'+escapeHtml(name)+'">'+escapeHtml(name)+'</option>').join('')+'</optgroup>').join('')+'<option value="Custom Palette">Custom Palette · HEX Manual</option>';paletteSel.value='__auto__';handlePaletteChange('__auto__');}
+const compSel=byId('compositionSelect');if(compSel)compSel.innerHTML=COMPOSITIONS.map(c=>'<option value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>').join('');
+const subSelect=byId('stockSubcategorySelect');if(subSelect)subSelect.onchange=()=>handleSubcategoryChange(subSelect.value);
+syncCreativeOptionsForMode(state.outputMode||'vector');
 const sizeSelect=byId('ideaStudioSizeSelect');if(sizeSelect)sizeSelect.innerHTML=IDEA_STUDIO_SIZES.map(s=>`<option value="${s.id}">${s.label}</option>`).join('');
 updateBadges();}
 function parseManualPaletteHex(text){const colors=[...new Set((String(text||'').match(/#[0-9A-Fa-f]{6}\b/g)||[]).map(c=>c.toUpperCase()))];
@@ -358,41 +395,52 @@ hint.classList.toggle('text-amber-300',Boolean(String(value||'').trim())&&colors
 function handlePaletteChange(value){const chosen=value||byId('colorPaletteSelect')?.value||'__auto__';
 state.paletteMode=chosen==='__auto__'?'auto':'manual';const custom=chosen==='Custom Palette';const customEditor=byId('customPaletteEditor');
 if(customEditor)customEditor.classList.toggle('hidden',!custom);if(custom){handleCustomPaletteHexInput(byId('customPaletteHexInput')?.value||'');
-}else{state.manualPaletteHex=state.paletteMode==='manual'?parseManualPaletteHex(chosen):[];if(state.paletteMode==='manual')state.selectedPalette=chosen;
+}else{const mapped=paletteHexForSelection(chosen);state.manualPaletteHex=state.paletteMode==='manual'?(mapped.length?mapped:parseManualPaletteHex(chosen)):[];
+state.selectedPalette=state.paletteMode==='manual'?(mapped.length?chosen+' ('+mapped.join(', ')+')':chosen):'__auto__';
 }}
 function setPaletteByName(name){const select=byId('colorPaletteSelect');if(!select||typeof name!=='string'||!name.trim())return;
-const target=name.trim();if(!Array.from(select.options).some(o=>o.value===target)){const custom=document.createElement('option');
-custom.value=target;custom.textContent=target.length>70?target.slice(0,67)+'…':target;custom.dataset.externalPalette='true';select.add(custom);
-}select.value=target;handlePaletteChange(target);}
+const aliases={'Vibrant Colors':'Vibrant Editorial','Natural Green':'Soft Botanical','Pastel':'Playful Pastel','Dark':'Modern Neutral','Vintage':'Muted Vintage','Retro':'Retro Mid-Century','Cold':'Cool Ocean','Blue & Indigo':'Corporate Blue','Neutral Minimalist':'Modern Neutral','Black & White':'Monochrome','Patterns':'Retro Mid-Century'};
+const normalized=name.trim(),target=aliases[normalized]||normalized;
+if(!Array.from(select.options).some(o=>o.value===target)){const extracted=parseManualPaletteHex(target);if(extracted.length>=3){const input=byId('customPaletteHexInput');if(input)input.value=extracted.join(', ');select.value='Custom Palette';handlePaletteChange('Custom Palette');return;}
+select.value='__auto__';handlePaletteChange('__auto__');return;}
+select.value=target;handlePaletteChange(target);}
 function setInnerProgress(btn,percent,estimated=false){if(!btn)return;const pct=Math.max(0,
 Math.min(100,Math.round(percent)));btn.classList.add('inner-progress');btn.style.setProperty('--fill',pct+'%');btn.dataset.progress=(estimated&&pct<100?'~':'')+pct+'%';
 btn.setAttribute('aria-busy',pct<100?'true':'false');}
 function clearInnerProgress(btn){if(!btn)return;btn.classList.remove('inner-progress');
 btn.style.removeProperty('--fill');delete btn.dataset.progress;btn.removeAttribute('aria-busy');}
-function handleCategoryChange(catId){const cat=STOCK_CATEGORIES.find(c=>c.id===catId)||STOCK_CATEGORIES.find(c=>c.id==='custom');
-state.selectedCategory=cat;const subSelect=byId('stockSubcategorySelect');const customCatInput=byId('customCategoryInput');const customSubInput=byId('customSubcategoryInput');
-const custom=cat?.id==='custom';if(customCatInput)customCatInput.classList.toggle('hidden',!custom);if(customSubInput)customSubInput.classList.toggle('hidden',
-!custom);if(subSelect){subSelect.classList.toggle('hidden',custom);if(custom){subSelect.value='';state.selectedSubcategory='';
-}else{subSelect.innerHTML='<option value="">— Tanpa subkategori —</option>'+(cat?cat.subcategories.map(s=>`<option value="${s}">${s}</option>`).join(''):'');
-subSelect.value=cat?.subcategories[0]||'';state.selectedSubcategory=subSelect.value;}}}
+function handleCategoryChange(catId){
+const cat=categoryForId(catId),subSelect=byId('stockSubcategorySelect'),customCatInput=byId('customCategoryInput'),customSubInput=byId('customSubcategoryInput');
+state.selectedCategory=cat;const custom=cat?.id==='custom';if(customCatInput)customCatInput.classList.toggle('hidden',!custom);
+if(customSubInput)customSubInput.classList.toggle('hidden',!custom);
+if(subSelect){subSelect.classList.toggle('hidden',custom);if(custom){subSelect.innerHTML='';subSelect.value='';state.selectedSubcategory='';}
+else{subSelect.innerHTML='<option value="">— Pilih subkategori (opsional) —</option>'+(cat?cat.subcategories.map(s=>'<option value="'+escapeHtml(s)+'">'+escapeHtml(s)+'</option>').join(''):'')+'<option value="__custom__">+ Subkategori lain…</option>';
+subSelect.value='';state.selectedSubcategory='';}}
+}
+function handleSubcategoryChange(value){const selected=String(value||'');state.selectedSubcategory=selected;const input=byId('customSubcategoryInput');
+const isCustom=selected==='__custom__'||byId('stockCategorySelect')?.value==='custom';if(input)input.classList.toggle('hidden',!isCustom);
+if(selected==='__custom__'&&input)input.focus();}
 const AUTO_PROMPT_HISTORY_KEY='richVector.autoPromptHistory.v1';
 let autoPromptHistory=(()=>{try{const entries=JSON.parse(safeStorageGet(AUTO_PROMPT_HISTORY_KEY,'[]'));return Array.isArray(entries)?entries.filter(x=>x&&typeof x.prompt==='string').slice(-30):[];
 }catch(_){return[];}})();
-const OFFLINE_PROMPT_LENSES={business:['a service handoff from request to verified completion',
-'a resource allocation system with a clear bottleneck','a shared responsibility workflow with an accessible outcome'],tech:['a diagnostic workflow from fault detection to repair',
-'a privacy preserving exchange between two devices','a human controlled tool with a visible feedback loop'],nature:['a life cycle with clearly separated stages',
-'a habitat cross section showing one ecological relationship','a conservation intervention with a visible before and after contrast'],
-food:['an ingredient journey from preparation to serving','a portion planning arrangement with clear grouped elements','a freshness inspection and careful storage workflow'],
-people:['an everyday accessibility adaptation in use','a cooperative task shared between generations','a practical skill being passed from mentor to learner'],
-bg:['a modular arrangement of broad interlocking shapes','a rhythmic border surrounding a generous empty center','an offset repeat with a clear large scale visual hierarchy'],
-vector:['a functional object revealing one useful mechanism','a coordinated family of visual metaphors for a service journey',
-'a simple cause and effect relationship with separated elements'],'3d':['a modular object with a clear assembly mechanism','a practical product cutaway explaining a hidden function',
-'a tactile arrangement showing contrasting material roles'],health:['a preventive care routine with one clear action','an accessible support tool used in an everyday setting',
-'a recovery milestone represented by a practical visual metaphor'],edu:['a hands on experiment showing a cause and its effect',
-'an inclusive learning tool with separated tactile components','a knowledge transfer moment with a clear visual analogy'],travel:['a visitor navigation task solved with a clear visual cue',
-'a local mobility connection between arrival and destination','a thoughtful hospitality service for an overlooked visitor need'],
-seasonal:['a neighborhood preparation activity before a celebration','a reusable decoration with a clear assembly process','a small business seasonal service with an identifiable customer'],
-custom:['a practical problem and a clear visual solution','a meaningful interaction between two relevant elements','an overlooked user need represented by a simple visual metaphor']};
+const OFFLINE_PROMPT_LENSES={
+ business:['a customer onboarding journey from request to confirmed service','a small business workflow connecting orders with inventory','a financial planning interaction with a clear action and outcome'],
+ tech:['a privacy-first exchange between connected devices','an AI workflow that requires a clear human review step','a robotics process solving an operational problem'],
+ people:['an everyday lifestyle moment with meaningful human interaction','a creative self-expression activity grounded in a physical scene','an inclusive community action with natural gestures'],
+ health:['a preventive healthcare routine with one clear action','an accessible wellbeing tool used in everyday life','a nutrition or recovery journey depicted with useful objects'],
+ food:['an ingredient journey from preparation to serving','a specific craft or beverage ritual with recognizable equipment','a freshness and storage task with a useful visual arrangement'],
+ animals:['a species-specific behavior in a plausible habitat','a pet care activity featuring one relevant accessory','a conservation moment revealing an ecological relationship'],
+ nature:['a plant life cycle with clearly different growth stages','a habitat scene showing one ecological interaction','an environmental improvement activity with a visible benefit'],
+ edu:['a hands-on classroom experiment showing cause and effect','a tactile or accessible learning resource in use','a learning activity with separated visual stages'],
+ travel:['a traveler navigating an unfamiliar destination with a practical aid','an arrival and local mobility journey with a recognizable context','a hospitality experience meeting a specific visitor need'],
+ home:['a home organization solution with functional grouped objects','a DIY repair with recognizable tools and materials','an interior detail connecting utility and aesthetics'],
+ industry:['a production process showing a meaningful quality checkpoint','a warehouse or logistics handoff from one stage to another','an infrastructure system with identifiable operating components'],
+ arts:['an artistic craft process with tools and distinct outcomes','a musical performance moment with clear spatial relationships','a cultural practice represented through appropriate original objects'],
+ sports:['a sport-specific movement with believable equipment','a recreational activity with a clear preparation and action','a team strategy moment with defined body positions'],
+ seasonal:['a neighborhood preparing decorations for a celebration','an assembly task for a reusable seasonal craft','a practical seasonal service for a specific audience'],
+ abstract:['broad interlocking geometric forms with deliberate hierarchy','an organic visual rhythm with controlled negative space','a repeat-friendly motif with an original structural relationship'],
+ custom:['a practical problem and a clear visual solution','a meaningful interaction between two relevant elements','an overlooked user need represented by a simple visual metaphor']
+};
 const offlinePromptCursors=new Map();
 const OFFLINE_PRESET_SUBJECTS=['renewable energy generation through solar panels and wind turbines',
 'tropical monstera and palm leaves with clearly differentiated silhouettes','a business team analyzing cloud data growth at a shared desk',
@@ -408,7 +456,7 @@ people:'one',shot:'dynamic',lighting:'highkey',color:'colorpop',authenticity:'ed
 function getOutputMode(){const value=byId('outputModeSelect')?.value||state.outputMode||'vector';
 return Object.hasOwn(RASTER_MODES,value)?value:'vector';}
 function ideaOutputMode(idea){const v=idea?.outputMode;if(v==='vector'||Object.hasOwn(RASTER_MODES,
-v))return v;return/3d illustration/i.test(idea?.suggestedAssetType||'')?'3d':/photograph/i.test(idea?.suggestedAssetType||'')?'photo':'vector';
+v))return v;return/3d|render/i.test(idea?.suggestedAssetType||'')?'3d':/photograph/i.test(idea?.suggestedAssetType||'')?'photo':'vector';
 }
 function isRasterIdea(idea){return ideaOutputMode(idea)!=='vector';}
 function rasterSnapshot(idea){return{people:'auto',
@@ -417,19 +465,24 @@ shot:'auto',lighting:'auto',color:'auto',authenticity:'candid',copySpace:'auto',
 function saveRasterOutputPreferences(){const data=readRasterSettings();safeStorageSet(STORAGE_KEYS.RASTER_PREFS,JSON.stringify(data));
 }
 const studioModeRatios={vector:'1:1',raster:'16:9'};
-function handleOutputModeChange(mode){const previous=state.outputMode;if(previous==='vector')state.vectorSvgPreference=byId('svgFriendlyCheckbox')?.checked!==false;
-const chosen=Object.hasOwn(RASTER_MODES,mode)?mode:'vector';const el=byId('outputModeSelect');if(el)el.value=chosen;state.outputMode=chosen;
-safeStorageSet(STORAGE_KEYS.OUTPUT_MODE,chosen);const raster=chosen!=='vector';byId('rasterControls')?.classList.toggle('hidden',
-!raster);const hint=byId('outputModeHint');if(hint)hint.textContent=raster?(chosen==='3d'?'Original 3D commercial scenes':'Photorealistic · JPG / PNG'):'Clean vector-friendly art';
-const svgLabel=byId('svgFriendlyCheckbox')?.closest('label');if(svgLabel)svgLabel.classList.toggle('hidden',raster);const gradientLabel=byId('gradientColorCheckbox')?.closest('label');
-if(gradientLabel)gradientLabel.classList.toggle('hidden',raster);const collection=byId('prodTypeCollectionBtn');if(collection)collection.classList.toggle('hidden',
-raster);const select=byId('assetTypeSelect');if(raster){setProductionType('single');state.svgFriendly=false;const svg=byId('svgFriendlyCheckbox');
-if(svg)svg.checked=false;if(select){select.value=chosen==='3d'?'3D Illustration':'Commercial Photography';state.selectedAssetType=select.value;
-}if(chosen==='editorial'){byId('rasterColorSelect').value='colorpop';byId('rasterAuthenticitySelect').value='editorial';}else if(chosen==='advertising'){byId('rasterAuthenticitySelect').value='polished';
-}else if(chosen==='photo'){byId('rasterAuthenticitySelect').value='candid';}}else{const svg=byId('svgFriendlyCheckbox');if(svg)svg.checked=state.vectorSvgPreference!==false;
-state.svgFriendly=state.vectorSvgPreference!==false;if(select&&isRasterMedium(select.value)){select.value='Vector Illustration';
-state.selectedAssetType=select.value;}}const ratio=studioModeRatios[raster?'raster':'vector'];const ratioSelect=byId('ideaStudioSizeSelect');
-if(ratioSelect){ratioSelect.value=ratio;handleIdeaSizeChange(ratio);}syncModeResolution(chosen);updateRatioHint();}
+function handleOutputModeChange(mode){
+ const previous=state.outputMode;if(previous==='vector')state.vectorSvgPreference=byId('svgFriendlyCheckbox')?.checked!==false;
+ const chosen=Object.prototype.hasOwnProperty.call(RASTER_MODES,mode)?mode:'vector';const el=byId('outputModeSelect');if(el)el.value=chosen;state.outputMode=chosen;
+ syncCreativeOptionsForMode(chosen);safeStorageSet(STORAGE_KEYS.OUTPUT_MODE,chosen);const raster=chosen!=='vector';
+ byId('rasterControls')?.classList.toggle('hidden',!raster);const hint=byId('outputModeHint');
+ if(hint)hint.textContent=raster?(chosen==='3d'?'Original 3D commercial scenes':'Photography with relevant asset types'):'Clean vector-friendly art';
+ const svgLabel=byId('svgFriendlyCheckbox')?.closest('label');if(svgLabel)svgLabel.classList.toggle('hidden',raster);
+ const gradientLabel=byId('gradientColorCheckbox')?.closest('label');if(gradientLabel)gradientLabel.classList.toggle('hidden',raster);
+ const collection=byId('prodTypeCollectionBtn');if(collection)collection.classList.toggle('hidden',raster);
+ const select=byId('assetTypeSelect');if(raster){setProductionType('single');state.svgFriendly=false;const svg=byId('svgFriendlyCheckbox');if(svg)svg.checked=false;
+ if(select){const chosenAsset=ASSET_TYPES_BY_MODE[chosen].includes(select.value)?select.value:getDefaultAssetTypeForMode(chosen);select.value=chosenAsset;state.selectedAssetType=chosenAsset;}
+ if(chosen==='editorial'){byId('rasterColorSelect').value='colorpop';byId('rasterAuthenticitySelect').value='editorial';}
+ else if(chosen==='advertising'){byId('rasterAuthenticitySelect').value='polished';}else if(chosen==='photo'){byId('rasterAuthenticitySelect').value='candid';}
+ }else{const svg=byId('svgFriendlyCheckbox');if(svg)svg.checked=state.vectorSvgPreference!==false;
+ state.svgFriendly=state.vectorSvgPreference!==false;if(select){if(!ASSET_TYPES_BY_MODE.vector.includes(select.value))select.value='Vector Illustration';state.selectedAssetType=select.value;}}
+ const ratio=studioModeRatios[raster?'raster':'vector'];const ratioSelect=byId('ideaStudioSizeSelect');
+ if(ratioSelect){ratioSelect.value=ratio;handleIdeaSizeChange(ratio);}syncModeResolution(chosen);updateRatioHint();
+}
 function applyRasterScenePreset(name){const p=RASTER_PRESETS[name];
 if(!p)return;handleOutputModeChange(p.mode);const el=byId('simplePromptInput');if(el){el.value=p.prompt;el.dispatchEvent(new Event('input',
 {bubbles:true}));}for(const[key,value]of Object.entries(p)){const id={people:'rasterPeopleSelect',shot:'rasterShotSelect',lighting:'rasterLightingSelect',
@@ -569,10 +622,10 @@ addedCount++;}});setTimeout(()=>{const persisted=persistSavedIdeas();if(!persist
 btnEl.innerHTML=` Save All`;}return;}updateBadges();state.discoveredIdeas=[];renderDiscoveredIdeas();if(addedCount>0){showToast(`Saved ${addedCount} idea(s) to Library. Discovered cards cleared.`,
 "success");}else{showToast("All ideas were already in Library. Discovered cards cleared.","info");}if(btnEl){btnEl.disabled=false;
 btnEl.innerHTML=` Save All`;}switchTab('saved_ideas');},300);}
-function isRasterMedium(type){return/photograph|3d illustration/i.test(type);
-}
-function mediumStyle(type,style){if(/photograph/i.test(type)&&/vector|logo|sticker|badge|line art|3d|clay|paper cut|hand drawn/i.test(style))return'Commercial photographic composition';
-if(/3d illustration/i.test(type)&&/flat vector|line art|minimalist logo/i.test(style))return'Dimensional illustration';return style;
+function isRasterMedium(type){return/photograph|3d|render/i.test(String(type||''));}
+function mediumStyle(type,style){const t=String(type||''),s=String(style||'');
+if(/photograph/i.test(t)&&/vector|logo|sticker|badge|line art|3d|clay|paper cut|hand drawn|engraving|risograph/i.test(s))return'Natural Commercial Photography';
+if(/3d|render/i.test(t)&&/flat vector|line art|minimalist logo|engraving|woodcut/i.test(s))return'Stylized 3D Illustration';return style;
 }
 function paletteBrief(palette,type){const use=isRasterMedium(type)?'distribute colors across the subject, materials, lighting and setting':'assign dominant, supporting, accent and background colors to distinguish adjacent shapes';
 return'Palette: '+palette+'. '+use+'. Keep the subject legible at thumbnail size and preserve space for the intended placement.';
@@ -580,10 +633,21 @@ return'Palette: '+palette+'. '+use+'. Keep the subject legible at thumbnail size
 function updateRatioHint(){const size=byId('ideaStudioSizeSelect').value;const w=Number(byId('ideaCustomWidthInput').value);
 const h=Number(byId('ideaCustomHeightInput').value);const hint=byId('stockRatioHint');hint.textContent=size==='custom'&&!(w>=64&&w<=4096&&h>=64&&h<=4096)?'Isi dimensi 64–4096 px.':'Rasio '+generationRatio(size==='custom'?w/h:size)+' · Meminta '+state.imageResolution+' (~'+({'1K':'1',
 '2K':'4','4K':'17'})[state.imageResolution]+' MP). Ukuran aktual ditampilkan setelah generate.';}
-function assetGuidance(type){if(/photograph/i.test(type))return'Photographic lighting, natural materials, credible perspective and believable detail.';
-if(/3d illustration/i.test(type))return'Use dimensional forms, consistent materials and coherent lighting.';if(/seamless/i.test(type))return'Design a repeating tile with matching opposite edges and uninterrupted motifs.';
-if(/banner|background/i.test(type))return'Fill the frame and reserve uncluttered copy space for the buyer.';if(/icon/i.test(type))return'Use legible silhouettes, a consistent grid, stroke weight and optical spacing.';
-return'Use clear forms and a composition suited to the intended placement.';}
+function assetGuidance(type){const t=String(type||'');
+if(/food photography/i.test(t))return'Keep ingredient texture credible, food styling accurate and lighting appetizing but natural.';
+if(/product photography/i.test(t))return'Use accurate product proportions, clean material rendering and deliberate studio reflections.';
+if(/portrait photography/i.test(t))return'Use natural expression, believable anatomy, realistic skin texture and meaningful environmental context.';
+if(/architecture photography|travel photography/i.test(t))return'Use believable perspective, accurate structures and appropriate natural lighting.';
+if(/photograph/i.test(t))return'Use photographic lighting, credible materials, purposeful scene depth and believable details.';
+if(/3d|render/i.test(t))return'Use dimensional forms, realistic scale, consistent materials and physically coherent lighting.';
+if(/seamless pattern/i.test(t))return'Design a repeatable motif tile with perfectly matching opposite edges and no seams.';
+if(/background|texture/i.test(t))return'Create a full-frame design with controlled visual rhythm and intentional copy space.';
+if(/icon|infographic|diagram|map|wayfinding/i.test(t))return'Use readable silhouettes, a consistent grid and clearly understandable symbols.';
+if(/sticker|clipart|character|mascot/i.test(t))return'Use distinct readable silhouettes, consistent contour logic and clearly differentiated items.';
+if(/badge|emblem|logo/i.test(t))return'Build a scalable original mark with meaningful generic symbols and clean outlines.';
+if(/isolated object/i.test(t))return'Place a single legible subject with sufficient margins for reuse.';
+if(/packaging/i.test(t))return'Produce print-ready graphics with safe margins and space for separate labels.';
+return'Use clear forms and a composition suited to the intended buyer and placement.';}
 function generationRatio(request){const ratios=['1:1','2:3','3:2','4:3','3:4','4:5','5:4','9:16','16:9','21:9'];function fraction(value){const[w,
 h=1]=String(value).split(':').map(Number);return w/h;}const target=fraction(request);if(!(target>0&&Number.isFinite(target)))return'1:1';
 return ratios.reduce((best,r)=>Math.abs(Math.log(fraction(r)/target))<Math.abs(Math.log(fraction(best)/target))?r:best);}
