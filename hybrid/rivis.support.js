@@ -1491,6 +1491,14 @@ async function test(){
  if(missing.length){status('Folder terhubung. Tab spreadsheet belum lengkap: '+missing.join(', '),'warning');return;}
  status('Koneksi berhasil: '+f.name+' · '+s.properties.title+' · 6 tab tersedia.','success');
 }
+function getCloudOriginDiagnostics(){
+ const own=window.location.origin;
+ let parent='Tidak dapat dibaca (cross-origin iframe)';
+ try{parent=window.top.location.origin||parent;}catch(_){}
+ let referrer='Tidak tersedia';
+ try{if(document.referrer)referrer=new URL(document.referrer).origin;}catch(_){}
+ return {own,parent,referrer};
+}
 function render(){
  if($('tabSectionCloudLibrary'))return;
  const nav=$('navTabMetaGenTop');
@@ -1499,18 +1507,24 @@ function render(){
  sec.innerHTML='<div class="flex justify-between items-center gap-3"><div><h2 class="text-sm font-black text-white">RIVIS CLOUD LIBRARY</h2><p class="text-xs text-slate-400">Google Drive + Google Sheets · Cloud Foundation</p></div><span id="rvCloudStatusBadge" class="rounded-full px-3 py-1 text-[10px] font-black">Setup Needed</span></div>'+
  '<div class="rv-cloud-card space-y-3"><h3 class="text-xs font-black text-white">Google Cloud Configuration</h3><p class="text-xs text-slate-400">Masukkan OAuth Client ID, Google API Key, dan Project Number. Jangan masukkan Client Secret atau private key.</p>'+
  '<div class="rv-cloud-grid"><label>OAuth Client ID<input id="rvCloudClientId" placeholder="xxxx.apps.googleusercontent.com"></label><label>Google API Key<input id="rvCloudApiKey" placeholder="AIza..."></label><label>Project Number / Picker App ID<input id="rvCloudAppId" placeholder="123456789012"></label></div>'+
- '<div class="text-xs text-slate-300">Authorized JavaScript Origin: <code id="rvCloudOrigin"></code> <button id="rvCloudCopyOrigin" type="button">Copy Origin</button></div><button id="rvCloudConnect" type="button" class="rv-primary">Connect Google</button></div>'+
+ '<div class="rv-cloud-card space-y-2"><h4 class="text-xs font-bold text-white">OAuth Origin Diagnostics</h4><div class="text-xs text-slate-300">Origin JavaScript (gunakan untuk OAuth): <code id="rvCloudOrigin"></code></div><div class="text-xs text-slate-300">Top page origin: <code id="rvCloudTopOrigin"></code></div><div class="text-xs text-slate-300">Referrer origin: <code id="rvCloudReferrerOrigin"></code></div><div class="flex flex-wrap gap-2"><button id="rvCloudCopyOrigin" type="button">Copy OAuth Origin</button><button id="rvCloudCopyTopOrigin" type="button">Copy Top Origin</button></div><p class="text-[10px] text-slate-500">Daftarkan Origin JavaScript (gunakan untuk OAuth) secara persis pada Authorized JavaScript Origins. Jangan daftarkan URL dengan path atau query.</p></div><button id="rvCloudConnect" type="button" class="rv-primary">Connect Google</button></div>'+
  '<div id="rvCloudActions" class="rv-cloud-card space-y-3" hidden><h3 class="text-xs font-black text-white">Select Cloud Storage</h3><div class="rv-cloud-grid"><label>Folder ID<input id="rvCloudFolderId"></label><div><div id="rvCloudFolderPicked" class="text-xs text-slate-400">Belum dipilih</div><button id="rvCloudPickFolder" type="button">Choose Drive Folder</button></div><label>Spreadsheet ID<input id="rvCloudSpreadsheetId"></label><div><div id="rvCloudSheetPicked" class="text-xs text-slate-400">Belum dipilih</div><button id="rvCloudPickSheet" type="button">Choose Spreadsheet</button></div></div><button id="rvCloudTest" type="button" class="rv-primary">Test Connection</button><button id="rvCloudDisconnect" type="button">Disconnect</button></div>'+
  '<div class="rv-cloud-card"><div id="rvCloudStatusMessage" role="status" aria-live="polite">Belum tersambung.</div><p class="text-[10px] text-slate-500 mt-2">Access token hanya berada di memori browser dan tidak disimpan ke localStorage. Sesi perlu disambungkan kembali setelah halaman dimuat ulang.</p></div>';
  const style=document.createElement('style');style.textContent='#tabSectionCloudLibrary{padding:12px;background:rgba(15,23,42,.76);border:1px solid #334155;border-radius:16px}#tabSectionCloudLibrary .rv-cloud-card{padding:14px;border:1px solid #334155;border-radius:12px;background:#02061788}#tabSectionCloudLibrary label{display:grid;gap:5px;color:#cbd5e1;font-size:11px;font-weight:700}#tabSectionCloudLibrary input{width:100%;min-width:0;background:#020617;color:white;border:1px solid #475569;border-radius:8px;padding:9px;font-size:12px}#tabSectionCloudLibrary button{padding:9px 12px;border-radius:8px;background:#1e293b;color:white;font-size:11px;font-weight:800}#tabSectionCloudLibrary .rv-primary{background:#0369a1}#tabSectionCloudLibrary .rv-cloud-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}#tabSectionCloudLibrary [hidden]{display:none!important}';document.head.appendChild(style);
  const after=$('tabSectionMetaGen')||$('tabSectionSavedIdeas');if(after)after.insertAdjacentElement('afterend',sec);
- const c=cfg();$('rvCloudClientId').value=c.clientId;$('rvCloudApiKey').value=c.apiKey;$('rvCloudAppId').value=c.appId;$('rvCloudFolderId').value=c.folderId;$('rvCloudSpreadsheetId').value=c.spreadsheetId;$('rvCloudOrigin').textContent=window.location.origin;
+ const c=cfg();$('rvCloudClientId').value=c.clientId;$('rvCloudApiKey').value=c.apiKey;$('rvCloudAppId').value=c.appId;$('rvCloudFolderId').value=c.folderId;$('rvCloudSpreadsheetId').value=c.spreadsheetId;const originInfo=getCloudOriginDiagnostics();$('rvCloudOrigin').textContent=originInfo.own;$('rvCloudTopOrigin').textContent=originInfo.parent;$('rvCloudReferrerOrigin').textContent=originInfo.referrer;
  $('rvCloudFolderPicked').textContent=c.folderPicked?'Dipilih sebelumnya':'Belum dipilih';$('rvCloudSheetPicked').textContent=c.sheetPicked?'Dipilih sebelumnya':'Belum dipilih';
  $('rvCloudConnect').addEventListener('click',async()=>{try{if(!window.google?.accounts?.oauth2){status('Google library sedang dimuat. Tunggu sebentar lalu klik Connect kembali.','warning');await libraries();return;}await connect();$('rvCloudActions').hidden=false;status('Google terotorisasi. Pilih folder dan spreadsheet melalui Picker.','success');}catch(e){status(e.message,'error');}});
  $('rvCloudPickFolder').addEventListener('click',()=>{try{pick('folder');}catch(e){status(e.message,'error');}});
  $('rvCloudPickSheet').addEventListener('click',()=>{try{pick('sheet');}catch(e){status(e.message,'error');}});
  $('rvCloudTest').addEventListener('click',async()=>{try{await test();}catch(e){status(e.message,'error');}});
  $('rvCloudDisconnect').addEventListener('click',()=>{token=null;expires=0;$('rvCloudActions').hidden=true;status('Sesi Google diputus.','warning');});
+ $('rvCloudCopyTopOrigin').addEventListener('click',async()=>{
+  const value=getCloudOriginDiagnostics().parent;
+  if(value.startsWith('Tidak dapat')){status('Top origin tidak dapat dibaca dari iframe. Gunakan Origin JavaScript yang ditampilkan.','warning');return;}
+  try{await navigator.clipboard.writeText(value);status('Top origin disalin: '+value,'success');}
+  catch(_){const code=$('rvCloudTopOrigin');const range=document.createRange();range.selectNodeContents(code);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);status('Top origin dipilih. Tekan Ctrl+C untuk menyalin: '+value,'warning');}
+ });
  $('rvCloudCopyOrigin').addEventListener('click',async()=>{
   const origin=window.location.origin;
   let copied=false;
