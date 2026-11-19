@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.89. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
+/* RIVIS GitHub Support — v3.4.90. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -685,23 +685,32 @@ async function copyIdeaPrompt(ideaId,
 btnEl){const idea=state.discoveredIdeas.find(i=>i.ideaId===ideaId)||state.savedIdeas.find(i=>i.ideaId===ideaId);if(idea){const ok=await safeCopyToClipboard(idea.finalGenerationPrompt);
 if(ok){showToast("Prompt copied!","success");if(btnEl){const origHTML=btnEl.innerHTML;btnEl.innerHTML=` <span>Copied!</span>`;
 setTimeout(()=>{btnEl.innerHTML=origHTML;},1500);}}}}
-function saveSimplePromptIdea(btnEl){
+async function saveSimplePromptIdea(btnEl){
  const input=byId('simplePromptInput'),prompt=String(input?.value||'').trim();
  if(!prompt){showToast('Isi SIMPLE PROMPT terlebih dahulu.','error');input?.focus();return false;}
- const normalized=prompt.toLowerCase().replace(/\s+/g,' ').trim();
- const duplicate=state.savedIdeas.find(item=>String(item.simplePrompt||item.finalGenerationPrompt||'').toLowerCase().replace(/\s+/g,' ').trim()===normalized);
- if(duplicate){showToast('Prompt ini sudah tersimpan di Library: '+(duplicate.conceptName||duplicate.ideaId),'info');return false;}
  const label=value=>typeof value==='string'?value:(value?.label||value?.name||value?.title||value?.id||'');
  const title=prompt.split(/[.!?\n]/)[0].trim().slice(0,68)||'Saved Prompt Idea';
- const now=new Date().toISOString(),ideaId='draft_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
+ const now=new Date().toISOString(),ideaId='prompt_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
  const idea={ideaId,shortCode:ideaId.slice(-4),conceptName:title,productionType:state.productionType||'single',categoryId:state.selectedCategory?.id||'custom',categoryName:label(state.selectedCategory)||'Custom',subcategory:state.selectedSubcategory||'',mainSubject:prompt.slice(0,700),simplePrompt:prompt,visualPrompt:prompt,finalGenerationPrompt:prompt,outputMode:getOutputMode(),aspectRatio:state.ideaStudioSizeId||'1:1',creativeDirection:label(state.selectedStyle),commercialUseCase:label(state.selectedPurpose),targetBuyer:state.selectedPurpose?.targetBuyer||state.selectedPurpose?.buyer||'',designNeed:state.selectedPurpose?.designNeed||'',suggestedAssetType:label(state.selectedAssetType),suggestedComposition:label(state.selectedComposition),suggestedColorPalette:label(state.selectedPalette),colorPaletteHex:Array.isArray(state.selectedPalette?.hex)?state.selectedPalette.hex.slice():[],status:'Draft',createdAt:now,updatedAt:now,generatedImageUrl:null,generatedImagePreviewUrl:null,metadata:null,referenceImageUrl:state.refImageUrl||null,referenceMode:state.refMode||''};
- try{ensureConceptBlueprint(idea);}catch(error){console.warn('Draft blueprint initialization:',error);}
- state.savedIdeas.unshift(idea);
- if(!persistSavedIdeas()){state.savedIdeas=state.savedIdeas.filter(item=>item.ideaId!==ideaId);showToast('Gagal menyimpan ide ke Library lokal.','error');return false;}
- updateBadges();renderSavedIdeasGrid();refreshStorageStatus();showToast('Ide berhasil disimpan ke Library: '+title,'success');
- if(btnEl){const old=btnEl.textContent;btnEl.textContent='Saved';btnEl.disabled=true;setTimeout(()=>{btnEl.textContent=old;btnEl.disabled=false;},1400);}
- return true;
+ try{ensureConceptBlueprint(idea);}catch(error){console.warn('Prompt idea blueprint initialization:',error);}
+ const referenceSource=state.refImageFile instanceof Blob?state.refImageFile:(state.refImageUrl||null);
+ const oldText=btnEl?.textContent||'Save Idea';
+ if(btnEl){btnEl.disabled=true;btnEl.textContent='Saving...';}
+ try{
+  if(typeof window.RIVIS_SAVE_IDEA_TO_CLOUD!=='function')throw new Error('Cloud Gallery belum siap. Muat ulang RIVIS lalu coba kembali.');
+  const saved=await window.RIVIS_SAVE_IDEA_TO_CLOUD(idea,referenceSource);
+  if(saved===false)return false;
+  showToast('Idea berhasil disimpan ke Cloud Gallery: '+title,'success');
+  if(btnEl){btnEl.textContent='Saved to Cloud';setTimeout(()=>{if(btnEl.isConnected){btnEl.textContent=oldText;btnEl.disabled=false;}},1400);}
+  return true;
+ }catch(error){
+  showToast('Gagal menyimpan ide ke Cloud Gallery: '+String(error?.message||error).slice(0,220),'error');
+  return false;
+ }finally{
+  if(btnEl&&btnEl.textContent==='Saving...'){btnEl.textContent=oldText;btnEl.disabled=false;}
+ }
 }
+
 function saveIdeaToLibrary(ideaId,btnEl){const idea=state.discoveredIdeas.find(i=>i.ideaId===ideaId);
 if(idea&&!state.savedIdeas.some(i=>i.ideaId===idea.ideaId)){const saved=JSON.parse(JSON.stringify(idea));if(state.refImageUrl&&!saved.referenceImageUrl)saved.referenceImageUrl=state.refImageUrl;saved.referenceMode=state.refMode;state.savedIdeas.unshift(saved);persistSavedIdeas();
 updateBadges();showToast(`Idea "${escapeHtml(idea.conceptName)}" saved to Library!`,"success");if(btnEl){btnEl.innerHTML=` Saved`;
@@ -1464,6 +1473,34 @@ window.RIVIS_LIBRARY_BRIDGE=Object.freeze({
   persistSavedIdeas();updateBadges();renderSavedIdeasGrid();refreshStorageStatus();
   return JSON.parse(JSON.stringify(copy));
  },
+ exploreIdea:idea=>{
+  if(!idea||typeof idea!=='object')throw new Error('Data ide tidak valid.');
+  const prompt=String(idea.simplePrompt||idea.finalGenerationPrompt||idea.visualPrompt||'');
+  const input=byId('simplePromptInput');
+  if(input){input.value=prompt;input.dispatchEvent(new Event('input',{bubbles:true}));}
+  state.refImageUrl=idea.referenceImageUrl||idea.refImageUrl||null;
+  state.refImageFile=null;state.referenceFingerprint=null;state.referenceAnalysis=null;
+  const mode=String(idea.referenceMode||'');
+  if(mode&&REFERENCE_MODES.some(x=>x.id===mode))state.refMode=mode;
+  const modeSelect=byId('refModeSelect');if(modeSelect)modeSelect.value=state.refMode;
+  const preview=byId('refPreviewImg'),name=byId('refFileName');
+  const empty=byId('refUploadEmptyState'),active=byId('refUploadActiveState'),analyze=byId('analyzeRefAiBtn');
+  if(state.refImageUrl){
+   if(preview)preview.src=state.refImageUrl;
+   if(name)name.textContent='Cloud reference image';
+   empty?.classList.add('hidden');active?.classList.remove('hidden');
+   analyze?.classList.remove('hidden');analyze?.classList.add('flex');
+  }else{
+   if(preview)preview.removeAttribute('src');
+   empty?.classList.remove('hidden');active?.classList.add('hidden');
+   analyze?.classList.add('hidden');analyze?.classList.remove('flex');
+   const fileInput=byId('refFileInput');if(fileInput)fileInput.value='';
+  }
+  const instruction=byId('refModInstructionInput');if(instruction)instruction.value=idea.refModInstruction||'';
+  if(idea.outputMode&&typeof handleOutputModeChange==='function')handleOutputModeChange(idea.outputMode);
+  switchTab('idea_studio');
+  return true;
+ },
  openLibrary:()=>switchTab('saved_ideas')
 });
 
@@ -1526,7 +1563,16 @@ window.addEventListener('message',event=>{
 
 const cfg=()=>{try{return Object.assign({},DEFAULT,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){return Object.assign({},DEFAULT);}};
 const save=o=>{const c=Object.assign(cfg(),o);try{localStorage.setItem(KEY,JSON.stringify(c));}catch(e){}return c;};
-function status(t,type){const e=$('rvCloudStatusMessage'),b=$('rvCloudStatusBadge');if(e)e.textContent=t;if(b){const connected=type==='success',signedIn=!connected&&gatewayConnected;b.textContent=connected?'CLOUD CONNECTED':signedIn?'GOOGLE SIGNED IN':type==='error'?'CONNECTION ERROR':'CLOUD NOT CONNECTED';b.style.color=connected?'#6ee7b7':type==='error'?'#fecaca':signedIn?'#93c5fd':'#fde68a';b.dataset.state=connected?'connected':type==='error'?'error':signedIn?'auth':'disconnected';}}
+function status(t,type){
+ const e=$('rvCloudStatusMessage'),b=$('rvCloudStatusBadge');if(e)e.textContent=t;
+ if(b){
+  const connected=gatewayVerified||type==='success',signedIn=!connected&&gatewayConnected;
+  b.textContent=connected?'CLOUD CONNECTED':signedIn?'GOOGLE SIGNED IN':type==='error'?'CONNECTION ERROR':'CLOUD NOT CONNECTED';
+  b.style.color=connected?'#6ee7b7':type==='error'?'#fecaca':signedIn?'#93c5fd':'#fde68a';
+  b.dataset.state=connected?'connected':type==='error'?'error':signedIn?'auth':'disconnected';
+ }
+}
+
 function fields(){return save({clientId:$('rvCloudClientId')?.value.trim()||'',apiKey:$('rvCloudApiKey')?.value.trim()||'',appId:$('rvCloudAppId')?.value.trim()||'',folderId:$('rvCloudFolderId')?.value.trim()||'',spreadsheetId:$('rvCloudSpreadsheetId')?.value.trim()||''});}
 function script(id,url,ready){if(ready())return Promise.resolve();return new Promise((ok,no)=>{let s=$(id);if(!s){s=document.createElement('script');s.id=id;s.src=url;s.async=true;s.onload=ok;s.onerror=()=>no(new Error('Tidak dapat memuat '+url));document.head.appendChild(s);}else{s.addEventListener('load',ok,{once:true});s.addEventListener('error',()=>no(new Error('Tidak dapat memuat '+url)),{once:true});}});}
 async function libraries(){if(loadPromise)return loadPromise;loadPromise=(async()=>{await Promise.all([script('rvGis','https://accounts.google.com/gsi/client',()=>!!window.google?.accounts?.oauth2),script('rvGapi','https://apis.google.com/js/api.js',()=>!!window.gapi)]);await new Promise((ok,no)=>window.gapi.load('picker',{callback:ok,onerror:()=>no(new Error('Google Picker gagal dimuat.'))}));})();return loadPromise;}
@@ -1586,11 +1632,10 @@ function render(){
  }
  const sec=document.createElement('section');sec.id='tabSectionCloudLibrary';sec.className='tab-section hidden space-y-3';
  sec.innerHTML=
- '<div class="flex justify-between items-center gap-3"><div><h2 class="text-sm font-black text-white">RIVIS CLOUD GALLERY</h2><p class="text-xs text-slate-400">Browse, preview, and load your saved ideas from Google Drive.</p></div><span id="rvCloudStatusBadge" class="rounded-full px-3 py-1 text-[10px] font-black">CLOUD NOT CONNECTED</span></div>'+
- '<div class="rv-cloud-card flex flex-wrap items-center justify-between gap-3"><div class="min-w-0"><h3 class="text-xs font-black text-white">Cloud Connection</h3><p class="text-xs text-slate-400 mt-1">Connect Google once. RIVIS automatically uses its configured Drive folder and spreadsheet.</p><p id="rvCloudStatusMessage" class="text-[11px] text-slate-300 mt-2" role="status" aria-live="polite">Cloud belum tersambung.</p></div><button id="rvCloudOpenGateway" type="button" class="rv-primary shrink-0">Connect Google</button></div>'+
- '<div class="rv-cloud-card space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="text-xs font-black text-white">Cloud Gallery</h3><p class="text-xs text-slate-400 mt-1">Saved ideas, collections, series, prompts, and generated images.</p></div><button id="rvCloudRefreshGallery" type="button" class="rv-primary">↻ Refresh Gallery</button></div><div id="rvCloudGalleryGrid" class="rv-cloud-gallery-grid"><div class="rv-cloud-empty">Connect Google to view your Cloud Gallery.</div></div><p id="rvCloudSyncStatus" class="text-xs text-slate-400" aria-live="polite">Cloud Gallery siap setelah koneksi Google diverifikasi.</p></div>';
+ '<div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-sm font-black text-white">RIVIS CLOUD GALLERY</h2><p class="text-xs text-slate-400 mt-1">Cloud cards, prompt ideas, and reference collections.</p></div><div class="flex flex-wrap items-center gap-2"><button id="rvCloudOpenGateway" type="button" class="rv-primary shrink-0">Reconnect Google</button><span id="rvCloudStatusBadge" class="rounded-full px-3 py-2 text-[10px] font-black border border-slate-700" role="status" aria-live="polite">CLOUD NOT CONNECTED</span></div></div>'+
+ '<div class="rv-cloud-card space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="text-xs font-black text-white">Cloud Gallery</h3><p class="text-xs text-slate-400 mt-1">Saved cards and prompt ideas, with or without reference images.</p></div><button id="rvCloudRefreshGallery" type="button" class="rv-primary">↻ Refresh Gallery</button></div><div id="rvCloudGalleryGrid" class="rv-cloud-gallery-grid"><div class="rv-cloud-empty">Reconnect Google to view your Cloud Gallery.</div></div><p id="rvCloudSyncStatus" class="text-xs text-slate-400" aria-live="polite">Cloud Gallery siap setelah koneksi Google diverifikasi.</p></div>';
  const style=document.createElement('style');
- style.textContent='#tabSectionCloudLibrary{padding:12px;background:rgba(15,23,42,.76);border:1px solid #334155;border-radius:16px}#tabSectionCloudLibrary .rv-cloud-card{padding:14px;border:1px solid #334155;border-radius:12px;background:#02061788}#tabSectionCloudLibrary button{padding:9px 12px;border-radius:8px;background:#1e293b;color:white;font-size:11px;font-weight:800}#tabSectionCloudLibrary .rv-primary{background:#0369a1}#tabSectionCloudLibrary [hidden]{display:none!important}.rv-cloud-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px}.rv-cloud-gallery-card{min-width:0;overflow:hidden;border:1px solid #334155;border-radius:12px;background:#0b1220;display:flex;flex-direction:column}.rv-cloud-gallery-preview{height:170px;background:linear-gradient(135deg,#111827,#1e293b);display:grid;place-items:center;overflow:hidden}.rv-cloud-gallery-preview img{width:100%;height:100%;object-fit:contain;background:#020617}.rv-cloud-gallery-body{padding:11px;display:flex;flex-direction:column;gap:7px;flex:1}.rv-cloud-gallery-body h4{font-size:12px;line-height:1.4;font-weight:800;color:#f8fafc}.rv-cloud-gallery-meta{font-size:10px;color:#94a3b8}.rv-cloud-gallery-load{margin-top:auto;background:#075985!important;color:#e0f2fe!important}.rv-cloud-empty{grid-column:1/-1;padding:32px 14px;text-align:center;border:1px dashed #475569;border-radius:12px;color:#94a3b8;font-size:11px}';
+ style.textContent='#tabSectionCloudLibrary{padding:12px;background:rgba(15,23,42,.76);border:1px solid #334155;border-radius:16px}#tabSectionCloudLibrary .rv-cloud-card{padding:14px;border:1px solid #334155;border-radius:12px;background:#02061788}#tabSectionCloudLibrary button{padding:9px 12px;border-radius:8px;background:#1e293b;color:white;font-size:11px;font-weight:800}#tabSectionCloudLibrary .rv-primary{background:#0369a1}#tabSectionCloudLibrary [hidden]{display:none!important}.rv-cloud-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px}.rv-cloud-gallery-card{min-width:0;overflow:hidden;border:1px solid #334155;border-radius:12px;background:#0b1220;display:flex;flex-direction:column}.rv-cloud-gallery-preview{height:170px;background:linear-gradient(135deg,#111827,#1e293b);display:grid;place-items:center;overflow:hidden}.rv-cloud-gallery-preview img{width:100%;height:100%;object-fit:contain;background:#020617}.rv-cloud-gallery-body{padding:11px;display:flex;flex-direction:column;gap:7px;flex:1}.rv-cloud-gallery-prompt{font-size:10px;line-height:1.5;color:#cbd5e1;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.rv-cloud-prompt-preview{height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#c4b5fd;background:radial-gradient(circle at 50% 35%,#312e8166,transparent 60%),#020617}.rv-cloud-prompt-preview span{font-size:28px}.rv-cloud-prompt-preview strong{font-size:10px;letter-spacing:.12em}.rv-cloud-prompt-preview small{font-size:9px;color:#64748b}.rv-cloud-gallery-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:auto}.rv-cloud-gallery-actions button{min-width:0;margin-top:0!important;padding:8px 5px!important;font-size:10px!important}.rv-cloud-gallery-explore{background:#312e81!important;color:#ede9fe!important}.rv-cloud-gallery-load{background:#075985!important;color:#e0f2fe!important}.rv-cloud-gallery-body h4{font-size:12px;line-height:1.4;font-weight:800;color:#f8fafc}.rv-cloud-gallery-meta{font-size:10px;color:#94a3b8}.rv-cloud-gallery-load{margin-top:auto;background:#075985!important;color:#e0f2fe!important}.rv-cloud-empty{grid-column:1/-1;padding:32px 14px;text-align:center;border:1px dashed #475569;border-radius:12px;color:#94a3b8;font-size:11px}';
  document.head.appendChild(style);
  const after=$('tabSectionMetaGen')||$('tabSectionSavedIdeas');if(after)after.insertAdjacentElement('afterend',sec);
  $('rvCloudOpenGateway').addEventListener('click',openCloudGateway);
@@ -1602,9 +1647,10 @@ function updateCloudControls(){
  const enabled=!!gatewayVerified;
  const refresh=$('rvCloudRefreshGallery');if(refresh)refresh.disabled=!enabled;
  const badge=$('rvCloudStatusBadge');
- if(badge){badge.textContent=enabled?'CLOUD CONNECTED':gatewayConnected?'GOOGLE SIGNED IN':'CLOUD NOT CONNECTED';badge.dataset.state=enabled?'connected':gatewayConnected?'auth':'disconnected';}
- const connect=$('rvCloudOpenGateway');if(connect)connect.textContent=enabled?'Reconnect Google':'Connect Google';
+ if(badge){badge.textContent=enabled?'CLOUD CONNECTED':gatewayConnected?'GOOGLE SIGNED IN':'CLOUD NOT CONNECTED';badge.dataset.state=enabled?'connected':gatewayConnected?'auth':'disconnected';badge.style.color=enabled?'#6ee7b7':gatewayConnected?'#93c5fd':'#fde68a';}
+ const connect=$('rvCloudOpenGateway');if(connect)connect.textContent='Reconnect Google';
 }
+
 function cloudSyncStatus(message){const el=$('rvCloudSyncStatus');if(el)el.textContent=String(message||'');}
 function cloudEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function cloudSafeIdea(idea){
@@ -1631,12 +1677,35 @@ function sendCloudCommand(command,payload){
 async function sourceImageBlob(source){
  if(source instanceof Blob)return source;
  if(typeof source!=='string'||!source)throw new Error('Sumber gambar tidak tersedia.');
- const response=await fetch(source,{mode:'cors'});
- if(!response.ok)throw new Error('Tidak dapat membaca gambar ('+response.status+').');
+ if(/^data:image\//i.test(source)){
+  const comma=source.indexOf(',');
+  if(comma<0)throw new Error('Data URL gambar tidak lengkap.');
+  const header=source.slice(0,comma),mime=header.match(/^data:([^;,]+)/i)?.[1]||'image/png';
+  let bytes;
+  try{
+   if(/;base64/i.test(header)){
+    const binary=atob(source.slice(comma+1).replace(/\s/g,''));
+    bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+   }else bytes=new TextEncoder().encode(decodeURIComponent(source.slice(comma+1)));
+  }catch(error){throw new Error('Data gambar tidak dapat didekode: '+String(error?.message||error));}
+  const blob=new Blob([bytes],{type:mime});
+  if(!blob.size||!blob.type.startsWith('image/'))throw new Error('Data URL tidak berisi gambar yang valid.');
+  return blob;
+ }
+ let response;
+ try{response=await fetch(source,{mode:'cors',credentials:'omit',cache:'no-store'});}
+ catch(error){
+  if(/^blob:/i.test(source))throw new Error('URL gambar lokal sudah tidak tersedia. Unggah ulang gambar referensi.');
+  throw new Error('Browser tidak dapat membaca URL gambar eksternal (kemungkinan diblokir CORS). Gunakan file gambar yang diunggah ke RIVIS.');
+ }
+ if(!response.ok)throw new Error('Tidak dapat membaca gambar (HTTP '+response.status+').');
  const blob=await response.blob();
  if(!blob.type.startsWith('image/'))throw new Error('Asset bukan file gambar.');
+ if(!blob.size)throw new Error('File gambar kosong.');
  return blob;
 }
+
 async function cloudImageFingerprint(blob){
  try{const digest=await crypto.subtle.digest('SHA-256',await blob.arrayBuffer());return Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,'0')).join('');}
  catch(_){return blob.type+':'+blob.size;}
@@ -1645,27 +1714,34 @@ function safeAssetId(){return 'as_'+Date.now().toString(36)+'_'+Math.random().to
 function imageExtension(mime){return mime==='image/jpeg'?'jpg':mime==='image/webp'?'webp':mime==='image/gif'?'gif':'png';}
 async function uploadCloudImage(idea,source,assetType,sceneId,fileName,existingRef,dimensions={}){
  if(!source)return existingRef||null;
- const blob=await sourceImageBlob(source),fingerprint=await cloudImageFingerprint(blob);
+ let blob;
+ try{blob=await sourceImageBlob(source);}catch(error){throw new Error('Gagal menyiapkan '+assetType+' image: '+String(error?.message||error));}
+ const fingerprint=await cloudImageFingerprint(blob);
  if(existingRef?.driveFileId&&existingRef?.fingerprint===fingerprint)return existingRef;
  if(blob.size>100*1024*1024)throw new Error('Gambar melebihi batas aman 100 MB per file.');
  const assetId=safeAssetId(),mimeType=blob.type||'image/png';
  const name=fileName?( /\.(png|jpe?g|webp|gif)$/i.test(fileName)?fileName:fileName+'.'+imageExtension(mimeType)):assetId+'.'+imageExtension(mimeType);
- const result=await sendCloudCommand('upload',{
-  ideaId:idea.ideaId,assetId,sceneId:sceneId||'',assetType,fileName:name,mimeType,size:blob.size,blob,
-  width:Number(dimensions.width||idea.generatedImageWidth)||undefined,
-  height:Number(dimensions.height||idea.generatedImageHeight)||undefined,
-  megapixels:Number(dimensions.megapixels||idea.megapixels)||undefined,version:1
- });
+ let result;
+ try{
+  result=await sendCloudCommand('upload',{
+   ideaId:idea.ideaId,assetId,sceneId:sceneId||'',assetType,fileName:name,mimeType,size:blob.size,blob,
+   width:Number(dimensions.width||idea.generatedImageWidth)||undefined,
+   height:Number(dimensions.height||idea.generatedImageHeight)||undefined,
+   megapixels:Number(dimensions.megapixels||idea.megapixels)||undefined,version:1
+  });
+ }catch(error){throw new Error('Cloud Gateway gagal mengunggah '+name+': '+String(error?.message||error));}
  const asset=result.asset||result;
  return {...asset,fingerprint,sceneId:sceneId||'',assetType};
 }
-async function saveIdeaToCloud(sourceIdea){
+
+async function saveIdeaToCloud(sourceIdea,referenceSourceOverride=null){
+ const referenceSource=referenceSourceOverride||sourceIdea.referenceImageBlob||sourceIdea.referenceImageFile||sourceIdea.referenceImageUrl||sourceIdea.refImageUrl||sourceIdea.referenceImageDataUrl||null;
  const idea=JSON.parse(JSON.stringify(sourceIdea)),old=idea.cloudAssetRefs||{};
+ delete idea.referenceImageBlob;delete idea.referenceImageFile;
  const refs={cover:old.cover||null,reference:old.reference||null,scenes:[]};
  const base=(idea.conceptName||idea.ideaId||'rivis').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50)||'rivis';
  if(idea.generatedImageUrl)refs.cover=await uploadCloudImage(idea,idea.generatedImageUrl,'generated','',base+'-cover',old.cover,{width:idea.generatedImageWidth,height:idea.generatedImageHeight,megapixels:idea.megapixels});
- const refSource=idea.referenceImageUrl||idea.refImageUrl||idea.referenceImageDataUrl;
- if(refSource)refs.reference=await uploadCloudImage(idea,refSource,'reference','',base+'-reference',old.reference);
+ if(referenceSource)refs.reference=await uploadCloudImage(idea,referenceSource,'reference','',base+'-reference',old.reference);
  if(Array.isArray(idea.seriesScenes)){
   for(let i=0;i<idea.seriesScenes.length;i++){
    const scene=idea.seriesScenes[i];scene.sceneId=scene.sceneId||idea.ideaId+'_scene_'+(i+1);
@@ -1682,6 +1758,7 @@ async function saveIdeaToCloud(sourceIdea){
  const safe=cloudSafeIdea(idea);
  return await sendCloudCommand('save',{idea:safe,prompts:idea.cloudPrompts||idea.prompts||[],assets:idea.cloudAssets||[],groups:idea.cloudGroups||[],groupItems:idea.cloudGroupItems||[],generationLogs:idea.cloudGenerationLogs||[]});
 }
+
 async function downloadCloudAsset(fileId){
  const parts=[];let start=0,total=0,mimeType='image/png',done=false;
  while(!done){
@@ -1696,9 +1773,13 @@ async function downloadCloudAsset(fileId){
  const blob=new Blob(parts,{type:mimeType});
  return await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Gagal membangun ulang gambar dari Drive.'));reader.readAsDataURL(blob);});
 }
-async function restoreCloudIdeaAssets(idea,assets){
- const latest=new Map();
- for(const asset of assets||[]){if(!asset?.driveFileId)continue;const key=String(asset.assetType||'generated')+':'+String(asset.sceneId||'');latest.set(key,asset);}
+async function restoreCloudIdeaAssets(idea,assets,options={}){
+ const latest=new Map(),onlyReference=options.onlyReference===true;
+ for(const asset of assets||[]){
+  if(!asset?.driveFileId)continue;
+  if(onlyReference&&asset.assetType!=='reference')continue;
+  const key=String(asset.assetType||'generated')+':'+String(asset.sceneId||'');latest.set(key,asset);
+ }
  for(const asset of latest.values()){
   const url=await downloadCloudAsset(asset.driveFileId);
   if(asset.assetType==='reference'){idea.referenceImageUrl=url;idea.refImageUrl=url;continue;}
@@ -1710,25 +1791,34 @@ async function restoreCloudIdeaAssets(idea,assets){
   }
  }
 }
+
 function cloudCoverAsset(idea){
  const assets=Array.isArray(idea.cloudAssets)?idea.cloudAssets:[];
  const generated=assets.filter(a=>a.assetType==='generated'&&String(a.isActive).toLowerCase()!=='false');
  const cover=generated.filter(a=>!a.sceneId).at(-1)||generated.at(-1);
  return cover||idea.cloudAssetRefs?.cover||null;
 }
+function cloudReferenceAsset(idea){
+ const assets=Array.isArray(idea.cloudAssets)?idea.cloudAssets:[];
+ return assets.filter(a=>a.assetType==='reference').at(-1)||idea.cloudAssetRefs?.reference||null;
+}
 function renderCloudGallery(ideas){
  const grid=$('rvCloudGalleryGrid');if(!grid)return;
- if(!Array.isArray(ideas)||!ideas.length){grid.innerHTML='<div class="rv-cloud-empty">Belum ada card di Cloud Gallery. Simpan card dari Library menggunakan tombol Save to Cloud.</div>';return;}
+ if(!Array.isArray(ideas)||!ideas.length){grid.innerHTML='<div class="rv-cloud-empty">Belum ada item di Cloud Gallery. Simpan card dari Library atau gunakan Save Idea di Idea Studio.</div>';return;}
  grid.innerHTML=ideas.map(idea=>{
-  const asset=cloudCoverAsset(idea),fileId=asset?.driveFileId||'';
-  const type=idea.productionType==='series'?'Series':idea.productionType==='collection'?'Collection Set':'Single Asset';
+  const asset=cloudCoverAsset(idea),reference=cloudReferenceAsset(idea),displayAsset=asset||reference,fileId=displayAsset?.driveFileId||'';
+  const prompt=String(idea.simplePrompt||idea.finalGenerationPrompt||idea.visualPrompt||'').trim();
+  const isPromptIdea=!asset&&Boolean(prompt);
+  const type=isPromptIdea?(reference?'Prompt + Reference':'Prompt Idea'):idea.productionType==='series'?'Series':idea.productionType==='collection'?'Collection Set':'Single Asset';
   const score=idea.commercialValueScore??idea.opportunityScore??idea.score;
   const title=cloudEscape(idea.conceptName||idea.title||'Untitled Idea'),id=cloudEscape(idea.ideaId);
-  const preview=fileId?'<img loading="lazy" decoding="async" alt="" data-cloud-thumb-id="'+cloudEscape(fileId)+'" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=">':'<div class="text-[10px] text-slate-500">NO PREVIEW</div>';
-  return '<article class="rv-cloud-gallery-card" data-cloud-gallery-id="'+id+'"><div class="rv-cloud-gallery-preview">'+preview+'</div><div class="rv-cloud-gallery-body"><h4>'+title+'</h4><div class="rv-cloud-gallery-meta">'+type+' · '+(score!==undefined?('Score '+cloudEscape(score)):'Score —')+'</div><div class="rv-cloud-gallery-meta">'+cloudEscape(idea.updatedAt||idea.createdAt||'Cloud saved')+'</div><button type="button" class="rv-cloud-gallery-load" onclick="RIVIS_LOAD_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Load to Library</button></div></article>';
+  const preview=fileId?'<img loading="lazy" decoding="async" alt="" data-cloud-thumb-id="'+cloudEscape(fileId)+'" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=">':'<div class="rv-cloud-prompt-preview"><span>✦</span><strong>PROMPT IDEA</strong><small>No generated image</small></div>';
+  const promptText=prompt?'<p class="rv-cloud-gallery-prompt">'+cloudEscape(prompt.slice(0,220))+(prompt.length>220?'…':'')+'</p>':'';
+  return '<article class="rv-cloud-gallery-card" data-cloud-gallery-id="'+id+'"><div class="rv-cloud-gallery-preview">'+preview+'</div><div class="rv-cloud-gallery-body"><h4>'+title+'</h4><div class="rv-cloud-gallery-meta">'+type+' · '+(score!==undefined?('Score '+cloudEscape(score)):'Score —')+'</div><div class="rv-cloud-gallery-meta">'+cloudEscape(idea.updatedAt||idea.createdAt||'Cloud saved')+'</div>'+promptText+'<div class="rv-cloud-gallery-actions"><button type="button" class="rv-cloud-gallery-explore" onclick="RIVIS_EXPLORE_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Explore Idea</button><button type="button" class="rv-cloud-gallery-load" onclick="RIVIS_LOAD_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Load to Library</button></div></div></article>';
  }).join('');
  loadCloudGalleryThumbnails();
 }
+
 async function loadCloudGalleryThumbnails(){
  const grid=$('rvCloudGalleryGrid');if(!grid||!gatewayVerified)return;
  const images=Array.from(grid.querySelectorAll('[data-cloud-thumb-id]'));
@@ -1748,21 +1838,33 @@ async function refreshCloudGallery(){
  catch(error){cloudSyncStatus('Gagal memuat Cloud Gallery: '+error.message);}
  finally{if(button){button.disabled=false;button.textContent=old;}}
 }
-async function loadCloudGalleryIdea(ideaId,button){
+async function loadCloudGalleryIdea(ideaId,button,mode='library'){
  if(!gatewayVerified){cloudSyncStatus('Hubungkan Google terlebih dahulu.');return;}
- const old=button?.textContent||'Load to Library';if(button){button.disabled=true;button.textContent='Loading...';}
+ const explore=mode==='explore',old=button?.textContent||(explore?'Explore Idea':'Load to Library');
+ if(button){button.disabled=true;button.textContent=explore?'Loading Idea...':'Loading...';}
  try{
-  cloudSyncStatus('Mengambil card dan gambar dari Cloud...');
+  cloudSyncStatus(explore?'Memuat prompt dan referensi ke Idea Studio...':'Mengambil card dan gambar dari Cloud...');
   const result=await sendCloudCommand('load',{ideaId}),idea=result.idea;
   if(!idea)throw new Error('Data ide tidak ditemukan.');
   idea.cloudPrompts=result.prompts||[];idea.cloudAssets=result.assets||[];
-  idea.cloudGroups=result.groups||[];idea.cloudGroupItems=result.groupItems||[];idea.cloudGenerationLogs=result.generationLogs||[];
-  await restoreCloudIdeaAssets(idea,result.assets||[]);
+  idea.cloudGroups=result.groups||[];idea.cloudGroupItems=result.groupItems||[];
+  idea.cloudGenerationLogs=result.generationLogs||[];
+  await restoreCloudIdeaAssets(idea,result.assets||[],{onlyReference:explore});
   const lib=window.RIVIS_LIBRARY_BRIDGE;if(!lib)throw new Error('Library lokal belum siap.');
-  lib.upsertIdea(idea);lib.openLibrary();cloudSyncStatus('Berhasil dimuat ke Library lokal: '+(idea.conceptName||idea.ideaId));
- }catch(error){cloudSyncStatus('Gagal memuat card: '+error.message);}
+  if(explore){
+   if(typeof lib.exploreIdea!=='function')throw new Error('Fitur Explore Idea belum tersedia pada runtime ini.');
+   lib.exploreIdea(idea);
+   cloudSyncStatus('Prompt berhasil dimuat ke Idea Studio: '+(idea.conceptName||idea.ideaId));
+   showToast('Idea siap dieksplorasi ulang: '+(idea.conceptName||idea.ideaId),'success');
+  }else{
+   lib.upsertIdea(idea);lib.openLibrary();
+   cloudSyncStatus('Berhasil dimuat ke Library lokal: '+(idea.conceptName||idea.ideaId));
+   showToast('Card berhasil dimuat ke Library.','success');
+  }
+ }catch(error){cloudSyncStatus('Gagal memuat item: '+error.message);showToast('Gagal memuat item Cloud: '+error.message,'error');}
  finally{if(button){button.disabled=false;button.textContent=old;}}
 }
+
 async function saveCardToCloud(ideaId,button){
  if(!gatewayVerified){cloudSyncStatus('Klik Connect Google terlebih dahulu.');showToast('Hubungkan Google melalui Cloud Gallery sebelum menyimpan ke cloud.','error');return;}
  const idea=window.RIVIS_LIBRARY_BRIDGE?.getIdea(ideaId);if(!idea){cloudSyncStatus('Card lokal tidak ditemukan.');showToast('Card lokal tidak ditemukan.','error');return;}
@@ -1783,7 +1885,21 @@ async function saveAllToCloud(button){
 }
 window.RIVIS_SAVE_CARD_TO_CLOUD=saveCardToCloud;
 window.RIVIS_SAVE_ALL_TO_CLOUD=saveAllToCloud;
-window.RIVIS_LOAD_CLOUD_IDEA=loadCloudGalleryIdea;
+window.RIVIS_LOAD_CLOUD_IDEA=(ideaId,button)=>loadCloudGalleryIdea(ideaId,button,'library');
+window.RIVIS_EXPLORE_CLOUD_IDEA=(ideaId,button)=>loadCloudGalleryIdea(ideaId,button,'explore');
+window.RIVIS_SAVE_IDEA_TO_CLOUD=async(idea,referenceSource)=>{
+ if(!gatewayVerified){cloudSyncStatus('Klik Reconnect Google terlebih dahulu.');showToast('Hubungkan Google melalui Cloud Gallery sebelum menyimpan ide.','error');return false;}
+ cloudSyncStatus('Menyimpan prompt idea ke Cloud Gallery...');
+ try{
+  await saveIdeaToCloud(idea,referenceSource);
+  cloudSyncStatus('Prompt idea berhasil disimpan ke Cloud Gallery: '+(idea.conceptName||idea.ideaId));
+  await refreshCloudGallery();
+  return true;
+ }catch(error){
+  cloudSyncStatus('Gagal menyimpan prompt idea: '+String(error?.message||error));
+  throw error;
+ }
+};
 window.RIVIS_CLOUD_INIT=()=>{render();updateCloudControls();status(gatewayVerified?'CLOUD CONNECTED · Google Drive & Sheets siap digunakan.':'CLOUD NOT CONNECTED · Klik Connect Google untuk mulai.',gatewayVerified?'success':'warning');if(gatewayVerified)refreshCloudGallery();};
 window.RIVIS_CLOUD_STATUS=()=>({connected:gatewayConnected,verified:gatewayVerified,gatewayUrl:GATEWAY_ORIGIN+'/rivis-cloud/'});
 window.addEventListener('focus',()=>{if(gatewayPopup&&gatewayPopup.closed){gatewayPopup=null;gatewayConnected=false;gatewayVerified=false;updateCloudControls();status('CLOUD NOT CONNECTED · Jendela Gateway sudah ditutup. Hubungkan kembali untuk sinkronisasi.','info');}});
