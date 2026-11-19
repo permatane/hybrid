@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.88. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
+/* RIVIS GitHub Support — v3.4.89. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1764,21 +1764,21 @@ async function loadCloudGalleryIdea(ideaId,button){
  finally{if(button){button.disabled=false;button.textContent=old;}}
 }
 async function saveCardToCloud(ideaId,button){
- if(!gatewayVerified){cloudSyncStatus('Klik Connect Google terlebih dahulu.');return;}
- const idea=window.RIVIS_LIBRARY_BRIDGE?.getIdea(ideaId);if(!idea){cloudSyncStatus('Card lokal tidak ditemukan.');return;}
+ if(!gatewayVerified){cloudSyncStatus('Klik Connect Google terlebih dahulu.');showToast('Hubungkan Google melalui Cloud Gallery sebelum menyimpan ke cloud.','error');return;}
+ const idea=window.RIVIS_LIBRARY_BRIDGE?.getIdea(ideaId);if(!idea){cloudSyncStatus('Card lokal tidak ditemukan.');showToast('Card lokal tidak ditemukan.','error');return;}
  const old=button?.textContent||'Save to Cloud';if(button){button.disabled=true;button.textContent='Saving...';}
- try{await saveIdeaToCloud(idea);cloudSyncStatus('Berhasil disimpan ke Cloud Gallery: '+(idea.conceptName||idea.ideaId));await refreshCloudGallery();}
- catch(error){cloudSyncStatus('Gagal menyimpan '+(idea.conceptName||idea.ideaId)+': '+error.message);}
+ try{await saveIdeaToCloud(idea);cloudSyncStatus('Berhasil disimpan ke Cloud Gallery: '+(idea.conceptName||idea.ideaId));showToast('Berhasil disimpan ke Cloud: '+(idea.conceptName||idea.ideaId),'success');await refreshCloudGallery();}
+ catch(error){cloudSyncStatus('Gagal menyimpan '+(idea.conceptName||idea.ideaId)+': '+error.message);showToast('Gagal menyimpan ke Cloud: '+error.message,'error');}
  finally{if(button){button.disabled=false;button.textContent=old;}}
 }
 async function saveAllToCloud(button){
- if(!gatewayVerified){cloudSyncStatus('Klik Connect Google terlebih dahulu.');return;}
- const ideas=window.RIVIS_LIBRARY_BRIDGE?.getIdeas()||[];if(!ideas.length){cloudSyncStatus('Library lokal masih kosong.');return;}
+ if(!gatewayVerified){cloudSyncStatus('Klik Connect Google terlebih dahulu.');showToast('Hubungkan Google melalui Cloud Gallery sebelum menyimpan semua card.','error');return;}
+ const ideas=window.RIVIS_LIBRARY_BRIDGE?.getIdeas()||[];if(!ideas.length){cloudSyncStatus('Library lokal masih kosong.');showToast('Library lokal masih kosong.','info');return;}
  const old=button?.textContent||'Save All to Cloud';if(button){button.disabled=true;button.textContent='Saving 0/'+ideas.length;}
  let saved=0;
  try{for(const idea of ideas){cloudSyncStatus('Menyimpan '+(saved+1)+'/'+ideas.length+' · '+(idea.conceptName||idea.ideaId));await saveIdeaToCloud(idea);saved++;if(button)button.textContent='Saving '+saved+'/'+ideas.length;}
-  cloudSyncStatus(saved+' card berhasil disimpan ke Cloud Gallery.');await refreshCloudGallery();
- }catch(error){cloudSyncStatus(saved+' dari '+ideas.length+' card tersimpan. Error: '+error.message);}
+  cloudSyncStatus(saved+' card berhasil disimpan ke Cloud Gallery.');showToast(saved+' card berhasil disimpan ke Cloud Gallery.','success');await refreshCloudGallery();
+ }catch(error){cloudSyncStatus(saved+' dari '+ideas.length+' card tersimpan. Error: '+error.message);showToast(saved+' card tersimpan. Error: '+error.message,'error');}
  finally{if(button){button.disabled=false;button.textContent=old;}}
 }
 window.RIVIS_SAVE_CARD_TO_CLOUD=saveCardToCloud;
