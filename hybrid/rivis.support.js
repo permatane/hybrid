@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.90. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
+/* RIVIS GitHub Support — v3.4.91. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -691,7 +691,8 @@ async function saveSimplePromptIdea(btnEl){
  const label=value=>typeof value==='string'?value:(value?.label||value?.name||value?.title||value?.id||'');
  const title=prompt.split(/[.!?\n]/)[0].trim().slice(0,68)||'Saved Prompt Idea';
  const now=new Date().toISOString(),ideaId='prompt_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
- const idea={ideaId,shortCode:ideaId.slice(-4),conceptName:title,productionType:state.productionType||'single',categoryId:state.selectedCategory?.id||'custom',categoryName:label(state.selectedCategory)||'Custom',subcategory:state.selectedSubcategory||'',mainSubject:prompt.slice(0,700),simplePrompt:prompt,visualPrompt:prompt,finalGenerationPrompt:prompt,outputMode:getOutputMode(),aspectRatio:state.ideaStudioSizeId||'1:1',creativeDirection:label(state.selectedStyle),commercialUseCase:label(state.selectedPurpose),targetBuyer:state.selectedPurpose?.targetBuyer||state.selectedPurpose?.buyer||'',designNeed:state.selectedPurpose?.designNeed||'',suggestedAssetType:label(state.selectedAssetType),suggestedComposition:label(state.selectedComposition),suggestedColorPalette:label(state.selectedPalette),colorPaletteHex:Array.isArray(state.selectedPalette?.hex)?state.selectedPalette.hex.slice():[],status:'Draft',createdAt:now,updatedAt:now,generatedImageUrl:null,generatedImagePreviewUrl:null,metadata:null,referenceImageUrl:state.refImageUrl||null,referenceMode:state.refMode||''};
+ const promptId=ideaId+'_p1';
+ const idea={ideaId,shortCode:ideaId.slice(-4),conceptName:title,productionType:state.productionType||'single',dataType:'prompt',activePromptId:promptId,categoryId:state.selectedCategory?.id||'custom',categoryName:label(state.selectedCategory)||'Custom',subcategory:state.selectedSubcategory||'',mainSubject:prompt.slice(0,700),simplePrompt:prompt,visualPrompt:prompt,finalGenerationPrompt:prompt,outputMode:getOutputMode(),aspectRatio:state.ideaStudioSizeId||'1:1',creativeDirection:label(state.selectedStyle),commercialUseCase:label(state.selectedPurpose),targetBuyer:state.selectedPurpose?.targetBuyer||state.selectedPurpose?.buyer||'',designNeed:state.selectedPurpose?.designNeed||'',suggestedAssetType:label(state.selectedAssetType),suggestedComposition:label(state.selectedComposition),suggestedColorPalette:label(state.selectedPalette),colorPaletteHex:Array.isArray(state.selectedPalette?.hex)?state.selectedPalette.hex.slice():[],status:'Draft',createdAt:now,updatedAt:now,generatedImageUrl:null,generatedImagePreviewUrl:null,metadata:null,referenceImageUrl:state.refImageUrl||null,referenceMode:state.refMode||'',prompts:[{promptId,ideaId,promptType:'simple',version:1,simplePrompt:prompt,visualPrompt:prompt,finalPrompt:prompt,referenceAssetId:'',activeVersion:true,createdAt:now,updatedAt:now,notes:'Saved from Idea Studio'}]};
  try{ensureConceptBlueprint(idea);}catch(error){console.warn('Prompt idea blueprint initialization:',error);}
  const referenceSource=state.refImageFile instanceof Blob?state.refImageFile:(state.refImageUrl||null);
  const oldText=btnEl?.textContent||'Save Idea';
@@ -1755,8 +1756,26 @@ async function saveIdeaToCloud(sourceIdea,referenceSourceOverride=null){
  idea.cloudAssetRefs=refs;
  idea.cloudAssets=[refs.cover,refs.reference,...refs.scenes].filter(Boolean);
  idea.coverAssetId=refs.cover?.assetId||idea.coverAssetId||'';
+ const sourcePrompts=Array.isArray(idea.cloudPrompts)?idea.cloudPrompts:(Array.isArray(idea.prompts)?idea.prompts:[]);
+ const promptText=String(idea.simplePrompt||idea.finalGenerationPrompt||idea.visualPrompt||'').trim();
+ const promptRows=sourcePrompts.length?sourcePrompts.map((p,index)=>({
+  ...p,promptId:p.promptId||idea.ideaId+'_p'+(index+1),ideaId:idea.ideaId,
+  promptType:p.promptType||'simple',version:Number(p.version)||1,
+  simplePrompt:p.simplePrompt||promptText,visualPrompt:p.visualPrompt||idea.visualPrompt||promptText,
+  finalPrompt:p.finalPrompt||idea.finalGenerationPrompt||promptText,
+  referenceAssetId:refs.reference?.assetId||p.referenceAssetId||'',
+  activeVersion:p.activeVersion??true,createdAt:p.createdAt||idea.createdAt||new Date().toISOString(),
+  updatedAt:idea.updatedAt||new Date().toISOString()
+ })):promptText?[{
+  promptId:idea.activePromptId||idea.ideaId+'_p1',ideaId:idea.ideaId,promptType:'simple',version:1,
+  simplePrompt:promptText,visualPrompt:idea.visualPrompt||promptText,
+  finalPrompt:idea.finalGenerationPrompt||promptText,referenceAssetId:refs.reference?.assetId||'',
+  activeVersion:true,createdAt:idea.createdAt||new Date().toISOString(),
+  updatedAt:idea.updatedAt||new Date().toISOString(),notes:'Saved from RIVIS'
+ }]:[];
+ if(promptRows.length){idea.activePromptId=idea.activePromptId||promptRows[0].promptId;idea.prompts=promptRows;}
  const safe=cloudSafeIdea(idea);
- return await sendCloudCommand('save',{idea:safe,prompts:idea.cloudPrompts||idea.prompts||[],assets:idea.cloudAssets||[],groups:idea.cloudGroups||[],groupItems:idea.cloudGroupItems||[],generationLogs:idea.cloudGenerationLogs||[]});
+ return await sendCloudCommand('save',{idea:safe,prompts:promptRows,assets:idea.cloudAssets||[],groups:idea.cloudGroups||[],groupItems:idea.cloudGroupItems||[],generationLogs:idea.cloudGenerationLogs||[]});
 }
 
 async function downloadCloudAsset(fileId){
@@ -1807,8 +1826,10 @@ function renderCloudGallery(ideas){
  if(!Array.isArray(ideas)||!ideas.length){grid.innerHTML='<div class="rv-cloud-empty">Belum ada item di Cloud Gallery. Simpan card dari Library atau gunakan Save Idea di Idea Studio.</div>';return;}
  grid.innerHTML=ideas.map(idea=>{
   const asset=cloudCoverAsset(idea),reference=cloudReferenceAsset(idea),displayAsset=asset||reference,fileId=displayAsset?.driveFileId||'';
-  const prompt=String(idea.simplePrompt||idea.finalGenerationPrompt||idea.visualPrompt||'').trim();
-  const isPromptIdea=!asset&&Boolean(prompt);
+  const promptRows=Array.isArray(idea.prompts)?idea.prompts:(Array.isArray(idea.cloudPrompts)?idea.cloudPrompts:[]);
+  const activePrompt=promptRows.find(p=>String(p.promptId||'')===String(idea.activePromptId||''))||promptRows.find(p=>['true','1','yes'].includes(String(p.activeVersion).toLowerCase()))||promptRows.at(-1)||{};
+  const prompt=String(idea.simplePrompt||idea.finalGenerationPrompt||idea.visualPrompt||activePrompt.simplePrompt||activePrompt.finalPrompt||activePrompt.visualPrompt||'').trim();
+  const isPromptIdea=String(idea.dataType||'').toLowerCase()==='prompt'||(!asset&&Boolean(prompt));
   const type=isPromptIdea?(reference?'Prompt + Reference':'Prompt Idea'):idea.productionType==='series'?'Series':idea.productionType==='collection'?'Collection Set':'Single Asset';
   const score=idea.commercialValueScore??idea.opportunityScore??idea.score;
   const title=cloudEscape(idea.conceptName||idea.title||'Untitled Idea'),id=cloudEscape(idea.ideaId);
@@ -1846,7 +1867,16 @@ async function loadCloudGalleryIdea(ideaId,button,mode='library'){
   cloudSyncStatus(explore?'Memuat prompt dan referensi ke Idea Studio...':'Mengambil card dan gambar dari Cloud...');
   const result=await sendCloudCommand('load',{ideaId}),idea=result.idea;
   if(!idea)throw new Error('Data ide tidak ditemukan.');
-  idea.cloudPrompts=result.prompts||[];idea.cloudAssets=result.assets||[];
+  const promptRows=result.prompts||[];
+  idea.cloudPrompts=promptRows;idea.prompts=promptRows;
+  const activePrompt=promptRows.find(p=>String(p.promptId||'')===String(idea.activePromptId||''))||promptRows.find(p=>['true','1','yes'].includes(String(p.activeVersion).toLowerCase()))||promptRows.at(-1);
+  if(activePrompt){
+   idea.simplePrompt=idea.simplePrompt||activePrompt.simplePrompt||activePrompt.finalPrompt||activePrompt.visualPrompt||'';
+   idea.visualPrompt=idea.visualPrompt||activePrompt.visualPrompt||activePrompt.simplePrompt||'';
+   idea.finalGenerationPrompt=idea.finalGenerationPrompt||activePrompt.finalPrompt||activePrompt.visualPrompt||activePrompt.simplePrompt||'';
+   idea.activePromptId=idea.activePromptId||activePrompt.promptId||'';
+  }
+  idea.cloudAssets=result.assets||[];
   idea.cloudGroups=result.groups||[];idea.cloudGroupItems=result.groupItems||[];
   idea.cloudGenerationLogs=result.generationLogs||[];
   await restoreCloudIdeaAssets(idea,result.assets||[],{onlyReference:explore});
