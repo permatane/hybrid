@@ -48,8 +48,8 @@ Buka **Site configuration → Environment variables** pada site `vectorichqc2026
 | `GOOGLE_CLIENT_ID` | OAuth Client ID Anda | OAuth Web Application |
 | `GOOGLE_CLIENT_SECRET` | OAuth Client Secret Anda | Rahasia, hanya di Netlify |
 | `RIVIS_SESSION_SECRET` | 32 byte random dalam format Base64 | Enkripsi sesi AES-256-GCM |
-| `RIVIS_SPREADSHEET_ID` | `1Yp5kXgU8pp_a7PxtjDQascoWQHrk_O2NlhNoo7Pc4e0` | RIVIS Cloud Index |
-| `RIVIS_DRIVE_FOLDER_ID` | `1GpCjf2La23kJgA0KM6HH_2PjKIQJ5fjN` | Folder utama Cloud Gallery |
+| `RIVIS_SPREADSHEET_ID` | `set via Netlify environment variable RIVIS_SPREADSHEET_ID` | RIVIS Cloud Index |
+| `RIVIS_DRIVE_FOLDER_ID` | `set via Netlify environment variable RIVIS_DRIVE_FOLDER_ID` | Folder utama Cloud Gallery |
 
 `GOOGLE_PICKER_API_KEY` dan `GOOGLE_PROJECT_NUMBER` tidak lagi dibutuhkan oleh Gateway 1.3.4 karena pemilihan folder dan spreadsheet dilakukan otomatis melalui ID yang sudah dikonfigurasi di Netlify.
 
