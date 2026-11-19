@@ -6,7 +6,10 @@ on:
     paths:
       - 'netlify/**'
       - 'public/**'
+      - 'hybrid/**'
       - 'tests/**'
+      - 'README_DEPLOY.md'
+      - 'README_AUTO_DEPLOY.md'
       - 'netlify.toml'
       - 'package.json'
       - '.github/workflows/gateway-tests.yml'
@@ -14,7 +17,10 @@ on:
     paths:
       - 'netlify/**'
       - 'public/**'
+      - 'hybrid/**'
       - 'tests/**'
+      - 'README_DEPLOY.md'
+      - 'README_AUTO_DEPLOY.md'
       - 'netlify.toml'
       - 'package.json'
 
