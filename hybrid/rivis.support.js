@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.91. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
+/* RIVIS GitHub Support — v3.4.92. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1535,6 +1535,13 @@ window.addEventListener('message',event=>{
  if(event.origin!==GATEWAY_ORIGIN || event.source!==gatewayPopup || !gatewayChannel)return;
  const d=event.data;
  if(!d || d.channel!==gatewayChannel)return;
+ if(d.type==='RIVIS_CLOUD_PROGRESS'){
+  const pending=cloudPending.get(d.requestId);
+  if(!pending)return;
+  pending.renew?.();
+  if(d.message)cloudSyncStatus(String(d.message));
+  return;
+ }
  if(d.type==='RIVIS_CLOUD_RESULT'){
   const pending=cloudPending.get(d.requestId);if(!pending)return;cloudPending.delete(d.requestId);
   if(d.ok)pending.resolve(d.result);else pending.reject(new Error(d.error||'Cloud operation failed'));
@@ -1666,15 +1673,23 @@ function cloudSafeIdea(idea){
 }
 function sendCloudCommand(command,payload){
  return new Promise((resolve,reject)=>{
-  if(!gatewayPopup||gatewayPopup.closed||!gatewayChannel){reject(new Error('Klik Connect Google dan biarkan jendela Gateway tetap terbuka.'));return;}
+  if(!gatewayPopup||gatewayPopup.closed||!gatewayChannel){reject(new Error('Klik Reconnect Google dan biarkan jendela Gateway tetap terbuka.'));return;}
   const requestId='req_'+Math.random().toString(36).slice(2)+Date.now().toString(36);
-  const timeout=command==='upload'?180000:90000;
-  const timer=setTimeout(()=>{cloudPending.delete(requestId);reject(new Error('Gateway tidak merespons dalam '+Math.round(timeout/1000)+' detik. Periksa koneksi dan coba kembali.'));},timeout);
-  cloudPending.set(requestId,{resolve:value=>{clearTimeout(timer);resolve(value);},reject:error=>{clearTimeout(timer);reject(error);}});
+  const inactivityMs=command==='upload'?70000:90000;
+  const absoluteMs=command==='upload'?15*60*1000:2*60*1000;
+  let inactivityTimer=null,absoluteTimer=null;
+  const cleanup=()=>{clearTimeout(inactivityTimer);clearTimeout(absoluteTimer);cloudPending.delete(requestId);};
+  const renew=()=>{clearTimeout(inactivityTimer);inactivityTimer=setTimeout(()=>{
+   cleanup();reject(new Error('Gateway tidak melaporkan progres selama '+Math.round(inactivityMs/1000)+' detik. Periksa popup Netlify dan koneksi.'));
+  },inactivityMs);};
+  absoluteTimer=setTimeout(()=>{cleanup();reject(new Error('Batas waktu total operasi Cloud tercapai. Coba kembali saat koneksi stabil.'));},absoluteMs);
+  cloudPending.set(requestId,{renew,resolve:value=>{cleanup();resolve(value);},reject:error=>{cleanup();reject(error);}});
+  renew();
   try{gatewayPopup.postMessage({type:'RIVIS_CLOUD_COMMAND',channel:gatewayChannel,requestId,command,payload:payload||{}},GATEWAY_ORIGIN);}
-  catch(error){clearTimeout(timer);cloudPending.delete(requestId);reject(error);}
+  catch(error){cleanup();reject(error);}
  });
 }
+
 async function sourceImageBlob(source){
  if(source instanceof Blob)return source;
  if(typeof source!=='string'||!source)throw new Error('Sumber gambar tidak tersedia.');
@@ -1720,7 +1735,13 @@ async function uploadCloudImage(idea,source,assetType,sceneId,fileName,existingR
  const fingerprint=await cloudImageFingerprint(blob);
  if(existingRef?.driveFileId&&existingRef?.fingerprint===fingerprint)return existingRef;
  if(blob.size>100*1024*1024)throw new Error('Gambar melebihi batas aman 100 MB per file.');
- const assetId=safeAssetId(),mimeType=blob.type||'image/png';
+ let assetId=safeAssetId();
+ try{
+  const key=String(idea.ideaId||'')+'|'+String(assetType||'')+'|'+String(sceneId||'')+'|'+fingerprint;
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key));
+  assetId='as_'+Array.from(new Uint8Array(digest)).slice(0,16).map(x=>x.toString(16).padStart(2,'0')).join('');
+ }catch(_){}
+ const mimeType=blob.type||'image/png';
  const name=fileName?( /\.(png|jpe?g|webp|gif)$/i.test(fileName)?fileName:fileName+'.'+imageExtension(mimeType)):assetId+'.'+imageExtension(mimeType);
  let result;
  try{
