@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.92. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
+/* RIVIS GitHub Support — v3.4.93. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1521,6 +1521,8 @@ let token=null,expires=0,loadPromise=null;
 const cloudPending=new Map();
 const GATEWAY_ORIGIN='https://vectorichqc2026.netlify.app';
 let gatewayPopup=null,gatewayChannel='',gatewayConnected=false,gatewayVerified=false;
+let cloudGalleryItems=[],cloudGalleryPage=1;
+const CLOUD_GALLERY_PAGE_SIZE=20;
 function openCloudGateway(){
  const bytes=new Uint8Array(24);
  if(!window.crypto?.getRandomValues){status('Browser tidak mendukung secure random generator.','error');return;}
@@ -1641,9 +1643,9 @@ function render(){
  const sec=document.createElement('section');sec.id='tabSectionCloudLibrary';sec.className='tab-section hidden space-y-3';
  sec.innerHTML=
  '<div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-sm font-black text-white">RIVIS CLOUD GALLERY</h2><p class="text-xs text-slate-400 mt-1">Cloud cards, prompt ideas, and reference collections.</p></div><div class="flex flex-wrap items-center gap-2"><button id="rvCloudOpenGateway" type="button" class="rv-primary shrink-0">Reconnect Google</button><span id="rvCloudStatusBadge" class="rounded-full px-3 py-2 text-[10px] font-black border border-slate-700" role="status" aria-live="polite">CLOUD NOT CONNECTED</span></div></div>'+
- '<div class="rv-cloud-card space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="text-xs font-black text-white">Cloud Gallery</h3><p class="text-xs text-slate-400 mt-1">Saved cards and prompt ideas, with or without reference images.</p></div><button id="rvCloudRefreshGallery" type="button" class="rv-primary">↻ Refresh Gallery</button></div><div id="rvCloudGalleryGrid" class="rv-cloud-gallery-grid"><div class="rv-cloud-empty">Reconnect Google to view your Cloud Gallery.</div></div><p id="rvCloudSyncStatus" class="text-xs text-slate-400" aria-live="polite">Cloud Gallery siap setelah koneksi Google diverifikasi.</p></div>';
+ '<div class="rv-cloud-card space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="text-xs font-black text-white">Cloud Gallery</h3><p class="text-xs text-slate-400 mt-1">Saved cards and prompt ideas, with or without reference images.</p></div><button id="rvCloudRefreshGallery" type="button" class="rv-primary">↻ Refresh Gallery</button></div><div id="rvCloudGalleryGrid" class="rv-cloud-gallery-grid"><div class="rv-cloud-empty">Reconnect Google to view your Cloud Gallery.</div></div><div id="rvCloudGalleryPagination" class="rv-cloud-gallery-pagination" aria-label="Cloud Gallery pagination" hidden></div><p id="rvCloudSyncStatus" class="text-xs text-slate-400" aria-live="polite">Cloud Gallery siap setelah koneksi Google diverifikasi.</p></div>';
  const style=document.createElement('style');
- style.textContent='#tabSectionCloudLibrary{padding:12px;background:rgba(15,23,42,.76);border:1px solid #334155;border-radius:16px}#tabSectionCloudLibrary .rv-cloud-card{padding:14px;border:1px solid #334155;border-radius:12px;background:#02061788}#tabSectionCloudLibrary button{padding:9px 12px;border-radius:8px;background:#1e293b;color:white;font-size:11px;font-weight:800}#tabSectionCloudLibrary .rv-primary{background:#0369a1}#tabSectionCloudLibrary [hidden]{display:none!important}.rv-cloud-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px}.rv-cloud-gallery-card{min-width:0;overflow:hidden;border:1px solid #334155;border-radius:12px;background:#0b1220;display:flex;flex-direction:column}.rv-cloud-gallery-preview{height:170px;background:linear-gradient(135deg,#111827,#1e293b);display:grid;place-items:center;overflow:hidden}.rv-cloud-gallery-preview img{width:100%;height:100%;object-fit:contain;background:#020617}.rv-cloud-gallery-body{padding:11px;display:flex;flex-direction:column;gap:7px;flex:1}.rv-cloud-gallery-prompt{font-size:10px;line-height:1.5;color:#cbd5e1;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.rv-cloud-prompt-preview{height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#c4b5fd;background:radial-gradient(circle at 50% 35%,#312e8166,transparent 60%),#020617}.rv-cloud-prompt-preview span{font-size:28px}.rv-cloud-prompt-preview strong{font-size:10px;letter-spacing:.12em}.rv-cloud-prompt-preview small{font-size:9px;color:#64748b}.rv-cloud-gallery-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:auto}.rv-cloud-gallery-actions button{min-width:0;margin-top:0!important;padding:8px 5px!important;font-size:10px!important}.rv-cloud-gallery-explore{background:#312e81!important;color:#ede9fe!important}.rv-cloud-gallery-load{background:#075985!important;color:#e0f2fe!important}.rv-cloud-gallery-body h4{font-size:12px;line-height:1.4;font-weight:800;color:#f8fafc}.rv-cloud-gallery-meta{font-size:10px;color:#94a3b8}.rv-cloud-gallery-load{margin-top:auto;background:#075985!important;color:#e0f2fe!important}.rv-cloud-empty{grid-column:1/-1;padding:32px 14px;text-align:center;border:1px dashed #475569;border-radius:12px;color:#94a3b8;font-size:11px}';
+ style.textContent='#tabSectionCloudLibrary{padding:12px;background:rgba(15,23,42,.76);border:1px solid #334155;border-radius:16px}#tabSectionCloudLibrary .rv-cloud-card{padding:14px;border:1px solid #334155;border-radius:12px;background:#02061788}#tabSectionCloudLibrary button{padding:9px 12px;border-radius:8px;background:#1e293b;color:white;font-size:11px;font-weight:800}#tabSectionCloudLibrary .rv-primary{background:#0369a1}#tabSectionCloudLibrary [hidden]{display:none!important}.rv-cloud-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px}.rv-cloud-gallery-card{min-width:0;overflow:hidden;border:1px solid #334155;border-radius:12px;background:#0b1220;display:flex;flex-direction:column}.rv-cloud-gallery-preview{height:170px;background:linear-gradient(135deg,#111827,#1e293b);display:grid;place-items:center;overflow:hidden}.rv-cloud-gallery-preview img{width:100%;height:100%;object-fit:contain;background:#020617}.rv-cloud-gallery-body{padding:11px;display:flex;flex-direction:column;gap:7px;flex:1}.rv-cloud-gallery-prompt{font-size:10px;line-height:1.5;color:#cbd5e1;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.rv-cloud-prompt-preview{height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#c4b5fd;background:radial-gradient(circle at 50% 35%,#312e8166,transparent 60%),#020617}.rv-cloud-prompt-preview span{font-size:28px}.rv-cloud-prompt-preview strong{font-size:10px;letter-spacing:.12em}.rv-cloud-prompt-preview small{font-size:9px;color:#64748b}.rv-cloud-gallery-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:auto}.rv-cloud-gallery-actions button{min-width:0;margin-top:0!important;padding:8px 5px!important;font-size:10px!important}.rv-cloud-gallery-explore{background:#312e81!important;color:#ede9fe!important}.rv-cloud-gallery-load{background:#075985!important;color:#e0f2fe!important}.rv-cloud-gallery-body h4{font-size:12px;line-height:1.4;font-weight:800;color:#f8fafc}.rv-cloud-gallery-meta{font-size:10px;color:#94a3b8}.rv-cloud-gallery-load{margin-top:auto;background:#075985!important;color:#e0f2fe!important}.rv-cloud-gallery-pagination{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;padding:7px 0 2px}.rv-cloud-page-info{font-size:10px;color:#94a3b8;margin-right:6px}.rv-cloud-page-btn{min-width:32px;height:30px;padding:0 9px!important;border:1px solid #334155!important;border-radius:7px!important;background:#0f172a!important;color:#cbd5e1!important;font-size:11px!important;font-weight:800}.rv-cloud-page-btn:hover:not(:disabled){background:#1e3a5f!important;border-color:#0ea5e9!important}.rv-cloud-page-btn.is-active{background:#075985!important;border-color:#0ea5e9!important;color:#fff!important}.rv-cloud-page-btn:disabled{opacity:.35;cursor:not-allowed}.rv-cloud-page-ellipsis{padding:0 3px;color:#64748b;font-size:11px}.rv-cloud-empty{grid-column:1/-1;padding:32px 14px;text-align:center;border:1px dashed #475569;border-radius:12px;color:#94a3b8;font-size:11px}';
  document.head.appendChild(style);
  const after=$('tabSectionMetaGen')||$('tabSectionSavedIdeas');if(after)after.insertAdjacentElement('afterend',sec);
  $('rvCloudOpenGateway').addEventListener('click',openCloudGateway);
@@ -1691,7 +1693,10 @@ function sendCloudCommand(command,payload){
 }
 
 async function sourceImageBlob(source){
- if(source instanceof Blob)return source;
+ if(source instanceof Blob){
+  const inferred=source.type||(/\.svg$/i.test(String(source.name||''))?'image/svg+xml':'');
+  return inferred&&inferred!==source.type?source.slice(0,source.size,inferred):source;
+ }
  if(typeof source!=='string'||!source)throw new Error('Sumber gambar tidak tersedia.');
  if(/^data:image\//i.test(source)){
   const comma=source.indexOf(',');
@@ -1716,7 +1721,9 @@ async function sourceImageBlob(source){
   throw new Error('Browser tidak dapat membaca URL gambar eksternal (kemungkinan diblokir CORS). Gunakan file gambar yang diunggah ke RIVIS.');
  }
  if(!response.ok)throw new Error('Tidak dapat membaca gambar (HTTP '+response.status+').');
- const blob=await response.blob();
+ let blob=await response.blob();
+ const inferred=blob.type||(/\.svg(?:[?#].*)?$/i.test(source)?'image/svg+xml':'');
+ if(inferred&&inferred!==blob.type)blob=blob.slice(0,blob.size,inferred);
  if(!blob.type.startsWith('image/'))throw new Error('Asset bukan file gambar.');
  if(!blob.size)throw new Error('File gambar kosong.');
  return blob;
@@ -1727,7 +1734,7 @@ async function cloudImageFingerprint(blob){
  catch(_){return blob.type+':'+blob.size;}
 }
 function safeAssetId(){return 'as_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9);}
-function imageExtension(mime){return mime==='image/jpeg'?'jpg':mime==='image/webp'?'webp':mime==='image/gif'?'gif':'png';}
+function imageExtension(mime){return mime==='image/svg+xml'?'svg':mime==='image/jpeg'?'jpg':mime==='image/webp'?'webp':mime==='image/gif'?'gif':'png';}
 async function uploadCloudImage(idea,source,assetType,sceneId,fileName,existingRef,dimensions={}){
  if(!source)return existingRef||null;
  let blob;
@@ -1742,7 +1749,8 @@ async function uploadCloudImage(idea,source,assetType,sceneId,fileName,existingR
   assetId='as_'+Array.from(new Uint8Array(digest)).slice(0,16).map(x=>x.toString(16).padStart(2,'0')).join('');
  }catch(_){}
  const mimeType=blob.type||'image/png';
- const name=fileName?( /\.(png|jpe?g|webp|gif)$/i.test(fileName)?fileName:fileName+'.'+imageExtension(mimeType)):assetId+'.'+imageExtension(mimeType);
+ if(mimeType==='image/svg+xml'&&assetType!=='reference')throw new Error('File SVG hanya didukung sebagai gambar referensi, bukan gambar hasil generate.');
+ const name=fileName?( /\.(png|jpe?g|webp|gif|svg)$/i.test(fileName)?fileName:fileName+'.'+imageExtension(mimeType)):assetId+'.'+imageExtension(mimeType);
  let result;
  try{
   result=await sendCloudCommand('upload',{
@@ -1842,10 +1850,19 @@ function cloudReferenceAsset(idea){
  const assets=Array.isArray(idea.cloudAssets)?idea.cloudAssets:[];
  return assets.filter(a=>a.assetType==='reference').at(-1)||idea.cloudAssetRefs?.reference||null;
 }
-function renderCloudGallery(ideas){
- const grid=$('rvCloudGalleryGrid');if(!grid)return;
- if(!Array.isArray(ideas)||!ideas.length){grid.innerHTML='<div class="rv-cloud-empty">Belum ada item di Cloud Gallery. Simpan card dari Library atau gunakan Save Idea di Idea Studio.</div>';return;}
- grid.innerHTML=ideas.map(idea=>{
+function renderCloudGallery(ideas,page=1){
+ cloudGalleryItems=Array.isArray(ideas)?ideas:[];
+ const grid=$('rvCloudGalleryGrid'),pager=$('rvCloudGalleryPagination');if(!grid)return;
+ const total=cloudGalleryItems.length,totalPages=Math.max(1,Math.ceil(total/CLOUD_GALLERY_PAGE_SIZE));
+ cloudGalleryPage=Math.max(1,Math.min(totalPages,Number(page)||1));
+ if(!total){
+  grid.innerHTML='<div class="rv-cloud-empty">Belum ada item di Cloud Gallery. Simpan card dari Library atau gunakan Save Idea di Idea Studio.</div>';
+  if(pager){pager.hidden=true;pager.innerHTML='';}
+  return;
+ }
+ const start=(cloudGalleryPage-1)*CLOUD_GALLERY_PAGE_SIZE,end=Math.min(total,start+CLOUD_GALLERY_PAGE_SIZE);
+ const pageItems=cloudGalleryItems.slice(start,end);
+ grid.innerHTML=pageItems.map(idea=>{
   const asset=cloudCoverAsset(idea),reference=cloudReferenceAsset(idea),displayAsset=asset||reference,fileId=displayAsset?.driveFileId||'';
   const promptRows=Array.isArray(idea.prompts)?idea.prompts:(Array.isArray(idea.cloudPrompts)?idea.cloudPrompts:[]);
   const activePrompt=promptRows.find(p=>String(p.promptId||'')===String(idea.activePromptId||''))||promptRows.find(p=>['true','1','yes'].includes(String(p.activeVersion).toLowerCase()))||promptRows.at(-1)||{};
@@ -1858,6 +1875,24 @@ function renderCloudGallery(ideas){
   const promptText=prompt?'<p class="rv-cloud-gallery-prompt">'+cloudEscape(prompt.slice(0,220))+(prompt.length>220?'…':'')+'</p>':'';
   return '<article class="rv-cloud-gallery-card" data-cloud-gallery-id="'+id+'"><div class="rv-cloud-gallery-preview">'+preview+'</div><div class="rv-cloud-gallery-body"><h4>'+title+'</h4><div class="rv-cloud-gallery-meta">'+type+' · '+(score!==undefined?('Score '+cloudEscape(score)):'Score —')+'</div><div class="rv-cloud-gallery-meta">'+cloudEscape(idea.updatedAt||idea.createdAt||'Cloud saved')+'</div>'+promptText+'<div class="rv-cloud-gallery-actions"><button type="button" class="rv-cloud-gallery-explore" onclick="RIVIS_EXPLORE_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Explore Idea</button><button type="button" class="rv-cloud-gallery-load" onclick="RIVIS_LOAD_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Load to Library</button></div></div></article>';
  }).join('');
+ if(pager){
+  const button=(label,target,disabled=false,active=false)=>'<button type="button" class="rv-cloud-page-btn'+(active?' is-active':'')+'" data-cloud-page="'+target+'"'+(disabled?' disabled':'')+(active?' aria-current="page"':'')+'>'+label+'</button>';
+  let pageTokens=[];
+  if(totalPages<=7){for(let n=1;n<=totalPages;n++)pageTokens.push(n);}
+  else{
+   const candidates=[1,cloudGalleryPage-1,cloudGalleryPage,cloudGalleryPage+1,totalPages].filter(n=>n>=1&&n<=totalPages);
+   let last=0;
+   for(const n of [...new Set(candidates)].sort((x,y)=>x-y)){if(n-last>1)pageTokens.push('…');pageTokens.push(n);last=n;}
+  }
+  const numbers=pageTokens.map(n=>n==='…'?'<span class="rv-cloud-page-ellipsis">…</span>':button(String(n),n,false,n===cloudGalleryPage)).join('');
+  pager.hidden=totalPages<=1;
+  pager.innerHTML='<span class="rv-cloud-page-info">'+(start+1)+'–'+end+' dari '+total+' item</span>'+button('‹',cloudGalleryPage-1,cloudGalleryPage===1)+numbers+button('›',cloudGalleryPage+1,cloudGalleryPage===totalPages);
+  pager.onclick=event=>{
+   const target=event.target?.closest?.('[data-cloud-page]');if(!target||target.disabled)return;
+   const next=Number(target.dataset.cloudPage);
+   if(Number.isInteger(next)&&next>=1&&next<=totalPages&&next!==cloudGalleryPage)renderCloudGallery(cloudGalleryItems,next);
+  };
+ }
  loadCloudGalleryThumbnails();
 }
 
