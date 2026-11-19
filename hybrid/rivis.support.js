@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.93. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
+/* RIVIS GitHub Support — v3.4.94. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1694,7 +1694,7 @@ function sendCloudCommand(command,payload){
 
 async function sourceImageBlob(source){
  if(source instanceof Blob){
-  const inferred=source.type||(/\.svg$/i.test(String(source.name||''))?'image/svg+xml':'');
+  const inferred=/\.svg$/i.test(String(source.name||''))?'image/svg+xml':source.type;
   return inferred&&inferred!==source.type?source.slice(0,source.size,inferred):source;
  }
  if(typeof source!=='string'||!source)throw new Error('Sumber gambar tidak tersedia.');
@@ -1722,7 +1722,7 @@ async function sourceImageBlob(source){
  }
  if(!response.ok)throw new Error('Tidak dapat membaca gambar (HTTP '+response.status+').');
  let blob=await response.blob();
- const inferred=blob.type||(/\.svg(?:[?#].*)?$/i.test(source)?'image/svg+xml':'');
+ const inferred=/\.svg(?:[?#].*)?$/i.test(source)?'image/svg+xml':blob.type;
  if(inferred&&inferred!==blob.type)blob=blob.slice(0,blob.size,inferred);
  if(!blob.type.startsWith('image/'))throw new Error('Asset bukan file gambar.');
  if(!blob.size)throw new Error('File gambar kosong.');
