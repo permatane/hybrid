@@ -105,7 +105,7 @@ function parseIdeaRow(r){const note=jsonObject(r[20]);return {...note,ideaId:r[0
 async function listIdeas(event){
  const [data,assetRows]=await Promise.all([rows(event,'IDEAS'),rows(event,'ASSETS')]);
  const assets=assetRows.slice(1).filter(r=>r[0]&&r[1]).map(r=>({assetId:r[0],ideaId:r[1],sceneId:r[2]||'',assetType:r[3]||'reference',driveFileId:r[4]||'',fileName:r[5]||'',mimeType:r[6]||'',format:r[7]||'',width:r[8]||'',height:r[9]||'',megapixels:r[10]||'',fileSizeBytes:r[11]||'',version:r[12]||1,isActive:r[13]??'true',createdAt:r[14]||'',sourceAssetId:r[15]||''}));
- return data.slice(1).filter(r=>r[0]).map(row=>{
+ return data.slice(1).filter(r=>r[0]&&!['deleted','archived'].includes(String(r[13]||'').trim().toLowerCase())).map(row=>{
   const idea=parseIdeaRow(row),linked=assets.filter(a=>String(a.ideaId)===String(idea.ideaId));
   idea.cloudAssets=linked;
   const cover=linked.find(a=>a.assetType==='generated'&&!a.sceneId&&String(a.isActive).toLowerCase()!=='false')||linked.find(a=>a.assetType==='generated'&&String(a.isActive).toLowerCase()!=='false');
@@ -116,7 +116,7 @@ async function listIdeas(event){
 async function loadIdea(event,ideaId){
  const tabs=await Promise.all(['IDEAS','PROMPTS','ASSETS','GROUPS','GROUP ITEMS','GENERATION LOG'].map(t=>rows(event,t)));
  const [ideas,prompts,assets,groups,items,logs]=tabs;
- const r=ideas.slice(1).find(x=>String(x[0])===ideaId);if(!r)return null;
+ const r=ideas.slice(1).find(x=>String(x[0])===ideaId);if(!r||['deleted','archived'].includes(String(r[13]||'').trim().toLowerCase()))return null;
  const byIdea=x=>x.slice(1).filter(y=>String(y[1])===ideaId);
  return {idea:parseIdeaRow(r),prompts:byIdea(prompts).map(x=>({...jsonObject(x[11]),promptId:x[0],ideaId:x[1],promptType:x[2],version:x[3],simplePrompt:x[4],visualPrompt:x[5],finalPrompt:x[6],referenceAssetId:x[7],activeVersion:x[8]})),assets:byIdea(assets).map(x=>({assetId:x[0],ideaId:x[1],sceneId:x[2],assetType:x[3],driveFileId:x[4],fileName:x[5],mimeType:x[6],format:x[7],width:x[8],height:x[9],megapixels:x[10],fileSizeBytes:x[11],version:x[12],isActive:x[13],createdAt:x[14],sourceAssetId:x[15]})),groups:byIdea(groups).map(x=>({groupId:x[0],ideaId:x[1],groupType:x[2],groupTitle:x[3],seriesBible:x[4],continuityLock:x[5],visualStyle:x[6],colorPalette:x[7],characterDescription:x[8],location:x[9],sceneCount:x[10],createdAt:x[11],updatedAt:x[12]})),groupItems:items.slice(1).filter(x=>String(x[2])===ideaId).map(x=>({itemId:x[0],groupId:x[1],ideaId:x[2],sequence:x[3],sceneId:x[4],sceneTitle:x[5],sceneAction:x[6],promptId:x[7],activeAssetId:x[8],generationStatus:x[9],createdAt:x[10],updatedAt:x[11]})),generationLogs:byIdea(logs).map(x=>({runId:x[0],ideaId:x[1],sceneId:x[2],promptId:x[3],promptVersion:x[4],aiProvider:x[5],model:x[6],resolution:x[7],aspectRatio:x[8],generationDate:x[9],status:x[10],outputAssetId:x[11],errorMessage:x[12]}))};
 }
@@ -162,6 +162,20 @@ exports.handler=async(event)=>{
    for(const x of groupItems){const row=itemRow(x,ideaId,x.groupId);result.groupItems+=await upsert(event,'GROUP ITEMS',row[0],row)==='created'?1:0;}
    for(const x of (Array.isArray(body.generationLogs)?body.generationLogs:[])){const row=logRow(x,ideaId);result.generationLogs+=await upsert(event,'GENERATION LOG',row[0],row)==='created'?1:0;}
    return h.json(200,{ok:true,ideaId,result},headers);
+  }
+  if(body.action==='delete'){
+   const ideaId=text(body.ideaId,128);
+   if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))return h.json(400,{error:'Invalid ideaId'},headers);
+   const data=await rows(event,'IDEAS');
+   const index=data.findIndex((row,i)=>i>0&&String(row[0])===ideaId);
+   if(index<=0)return h.json(404,{error:'Idea not found'},headers);
+   const idea=parseIdeaRow(data[index]);
+   if(String(idea.status||'').toLowerCase()==='deleted')return h.json(200,{ok:true,ideaId,status:'Deleted',alreadyDeleted:true},headers);
+   idea.status='Deleted';idea.updatedAt=now();
+   const write=await values(event,'IDEAS','PUT',ideaRow(idea),index+1);
+   if(write.error)throw new Error(write.error);
+   if(!write.response.ok)throw googleFailure('Cloud Gallery delete failed',write);
+   return h.json(200,{ok:true,ideaId,status:'Deleted',retainedDriveAssets:true},headers);
   }
   if(body.action==='archive'){
    const ideaId=text(body.ideaId,128);const existing=await loadIdea(event,ideaId);if(!existing)return h.json(404,{error:'Idea not found'},headers);

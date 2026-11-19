@@ -268,8 +268,8 @@
         const fileId = String(d.payload?.fileId || '');
         if (!/^[A-Za-z0-9_-]{8,128}$/.test(fileId)) throw new Error('Drive file ID tidak valid.');
         result = await request('cloud-thumbnail?fileId=' + encodeURIComponent(fileId));
-      } else if (d.command === 'archive') {
-        result = await request('cloud-data', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'archive', ideaId:d.payload?.ideaId})});
+      } else if (d.command === 'archive' || d.command === 'delete') {
+        result = await request('cloud-data', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:d.command, ideaId:d.payload?.ideaId})});
       } else throw new Error('Perintah Cloud Gallery tidak dikenal.');
       reply(true, result, null);
     } catch (error) {

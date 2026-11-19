@@ -637,3 +637,50 @@ test('RIVIS source bridge accepts numeric chunk IDs and rejects invalid IDs and 
  assert.match((await ask('3',0,1024*1024+1)).error,/tidak valid/i,'Oversize chunk must fail');
  assert.match((await ask('4',0,blob.size+1)).error,/tidak valid/i,'Out-of-bounds chunk must fail');
 });
+
+
+test('Cloud Gallery delete hides records in list, retains Drive files, and prevents loading deleted card',async()=>{
+ setEnv();
+ const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000});
+ const ideaId='idea_delete_test';
+ const idea=Array(expectedHeaders.IDEAS.length).fill('');
+ idea[0]=ideaId;idea[2]='Delete Fixture';idea[13]='Saved';idea[14]='2026-11-19T00:00:00.000Z';idea[20]=JSON.stringify({ideaId,conceptName:'Delete Fixture',status:'Saved'});
+ const asset=Array(expectedHeaders.ASSETS.length).fill('');asset[0]='as_demo';asset[1]=ideaId;asset[4]='driveFile123';
+ const orig=global.fetch;let updateCount=0;
+ global.fetch=async(url,opt={})=>{
+  const method=opt.method||'GET',uri=String(url),decoded=decodeURIComponent(uri.split('/values/')[1]||'');
+  const tab=decoded.includes("'IDEAS'!")?'IDEAS':decoded.includes("'ASSETS'!")?'ASSETS':null;
+  if(method==='GET'&&tab)return{ok:true,status:200,text:async()=>JSON.stringify({values:tab==='IDEAS'?[expectedHeaders.IDEAS,idea]:[expectedHeaders.ASSETS,asset]})};
+  if(method==='PUT'&&tab==='IDEAS'){
+   const row=JSON.parse(opt.body).values[0];assert.equal(row[0],ideaId);assert.equal(row[13],'Deleted');Object.assign(idea,row);
+   for(let i=0;i<row.length;i++)idea[i]=row[i];
+   updateCount++;return{ok:true,status:200,text:async()=>JSON.stringify({updatedRows:1})};
+  }
+  throw Error('Unexpected mock '+method+' '+uri);
+ };
+ const headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
+ try{
+  const deleting=await cloudData({httpMethod:'POST',headers,body:JSON.stringify({action:'delete',ideaId})});
+  assert.equal(deleting.statusCode,200,deleting.body);
+  assert.equal(JSON.parse(deleting.body).retainedDriveAssets,true);
+  assert.equal(updateCount,1);
+  const listed=await cloudData({httpMethod:'GET',headers,queryStringParameters:{action:'list'}});
+  assert.equal(listed.statusCode,200,listed.body);
+  assert.deepEqual(JSON.parse(listed.body).ideas,[],'Deleted item must be removed from Gallery');
+  const loaded=await cloudData({httpMethod:'GET',headers,queryStringParameters:{action:'load',ideaId}});
+  assert.equal(loaded.statusCode,404,'Deleted card must not load');
+  assert.equal(asset[4],'driveFile123','Drive file IDs must remain unchanged');
+ }finally{global.fetch=orig;process.env={...oldEnv};}
+});
+
+test('RIVIS Cloud Gallery UI and Save All progress support one-row mobile actions and safe remove',()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const gatewaySource=fs.readFileSync(path.join(root,'public/rivis-cloud/gateway.js'),'utf8');
+ assert.match(source,/rivis-library-action-row/);
+ assert.match(source,/grid-template-columns:minmax\(0,1\.28fr\)/);
+ assert.match(source,/#saveAllToCloudBtn\.inner-progress/);
+ assert.match(source,/cloudBulkProgress\.onProgress\(d\)/);
+ assert.match(source,/window\.RIVIS_DELETE_CLOUD_IDEA=deleteCloudGalleryIdea/);
+ assert.match(source,/dataset\.confirmDelete/);
+ assert.match(gatewaySource,/d\.command === 'archive' \|\| d\.command === 'delete'/);
+});
