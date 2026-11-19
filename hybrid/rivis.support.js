@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.96. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
+/* RIVIS GitHub Support — v3.4.97. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1537,6 +1537,25 @@ window.addEventListener('message',event=>{
  if(event.origin!==GATEWAY_ORIGIN || event.source!==gatewayPopup || !gatewayChannel)return;
  const d=event.data;
  if(!d || d.channel!==gatewayChannel)return;
+ if(d.type==='RIVIS_CLOUD_BLOB_REQUEST'){
+  const pending=cloudPending.get(d.requestId);
+  if(!pending?.blob)return;
+  pending.renew?.();
+  const start=Number(d.start),end=Number(d.end),chunkId=String(d.chunkId||'');
+  const reply=(error,buffer)=>{
+   if(!cloudPending.has(d.requestId)||gatewayPopup?.closed)return;
+   const response={type:'RIVIS_CLOUD_BLOB_RESPONSE',channel:gatewayChannel,requestId:d.requestId,chunkId,start,end,error:error||null};
+   if(buffer){
+    response.buffer=buffer;
+    try{gatewayPopup.postMessage(response,GATEWAY_ORIGIN,[buffer]);return;}catch(_){gatewayPopup.postMessage(response,GATEWAY_ORIGIN);}
+   }else gatewayPopup.postMessage(response,GATEWAY_ORIGIN);
+  };
+  if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start||end>pending.blob.size||end-start>1024*1024||!/^\\d{1,10}$/.test(chunkId)){
+   reply('Rentang potongan gambar tidak valid.',null);return;
+  }
+  pending.blob.slice(start,end).arrayBuffer().then(buffer=>reply(null,buffer)).catch(error=>reply(String(error?.message||error),null));
+  return;
+ }
  if(d.type==='RIVIS_CLOUD_PROGRESS'){
   const pending=cloudPending.get(d.requestId);
   if(!pending)return;
@@ -1677,17 +1696,24 @@ function sendCloudCommand(command,payload){
  return new Promise((resolve,reject)=>{
   if(!gatewayPopup||gatewayPopup.closed||!gatewayChannel){reject(new Error('Klik Reconnect Google dan biarkan jendela Gateway tetap terbuka.'));return;}
   const requestId='req_'+Math.random().toString(36).slice(2)+Date.now().toString(36);
+  const uploadBlob=command==='upload'&&payload?.blob instanceof Blob?payload.blob:null;
+  const outgoing=uploadBlob?{...payload,blob:undefined,streamedBlob:true,size:uploadBlob.size,mimeType:payload.mimeType||uploadBlob.type}:payload||{};
   const inactivityMs=command==='upload'?70000:90000;
   const absoluteMs=command==='upload'?15*60*1000:2*60*1000;
-  let inactivityTimer=null,absoluteTimer=null;
-  const cleanup=()=>{clearTimeout(inactivityTimer);clearTimeout(absoluteTimer);cloudPending.delete(requestId);};
-  const renew=()=>{clearTimeout(inactivityTimer);inactivityTimer=setTimeout(()=>{
-   cleanup();reject(new Error('Gateway tidak melaporkan progres selama '+Math.round(inactivityMs/1000)+' detik. Periksa popup Netlify dan koneksi.'));
-  },inactivityMs);};
+  let inactivityTimer=null,absoluteTimer=null,initialTimer=null,hasProgress=false;
+  const cleanup=()=>{clearTimeout(inactivityTimer);clearTimeout(absoluteTimer);clearTimeout(initialTimer);cloudPending.delete(requestId);};
+  const renew=()=>{
+   hasProgress=true;clearTimeout(initialTimer);clearTimeout(inactivityTimer);
+   inactivityTimer=setTimeout(()=>{cleanup();reject(new Error('Cloud Gateway berhenti merespons selama '+Math.round(inactivityMs/1000)+' detik. Periksa status popup dan koneksi.'));},inactivityMs);
+  };
   absoluteTimer=setTimeout(()=>{cleanup();reject(new Error('Batas waktu total operasi Cloud tercapai. Coba kembali saat koneksi stabil.'));},absoluteMs);
-  cloudPending.set(requestId,{renew,resolve:value=>{cleanup();resolve(value);},reject:error=>{cleanup();reject(error);}});
-  renew();
-  try{gatewayPopup.postMessage({type:'RIVIS_CLOUD_COMMAND',channel:gatewayChannel,requestId,command,payload:payload||{}},GATEWAY_ORIGIN);}
+  cloudPending.set(requestId,{blob:uploadBlob,renew,resolve:value=>{cleanup();resolve(value);},reject:error=>{cleanup();reject(error);}});
+  if(uploadBlob){
+   initialTimer=setTimeout(()=>{
+    if(!hasProgress){cleanup();reject(new Error('Gateway tidak menerima perintah upload dalam 20 detik. Di Chrome Android, buka ulang popup Google lalu coba 1 card.'));}
+   },20000);
+  }else renew();
+  try{gatewayPopup.postMessage({type:'RIVIS_CLOUD_COMMAND',channel:gatewayChannel,requestId,command,payload:outgoing},GATEWAY_ORIGIN);}
   catch(error){cleanup();reject(error);}
  });
 }
