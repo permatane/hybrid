@@ -1,0 +1,22 @@
+[build]
+  command = "npm test"
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/rivis-cloud/callback"
+  to = "/.netlify/functions/auth-callback"
+  status = 200
+  force = true
+
+[[headers]]
+  for = "/rivis-cloud/*"
+  [headers.values]
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Cache-Control = "no-store"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://apis.google.com https://*.gstatic.com https://docs.google.com 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com; frame-src https://docs.google.com https://accounts.google.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
