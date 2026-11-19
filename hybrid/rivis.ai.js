@@ -1,4 +1,4 @@
-/* RIVIS AI Runtime — v3.4.76. Manual scene direction and isolated scene regeneration. */
+/* RIVIS AI Runtime — v3.4.95. Manual scene direction and isolated scene regeneration. */
 function scanIpRisk(value){const text=String(value||'');const issues=[];for(const match of text.matchAll(IP_RISK_PATTERN)){const before=text.slice(Math.max(0,
 match.index-35),match.index);if(/(?:\b(?:no|without|avoid|exclude|never|not|prohibit|remove|jangan|tanpa|hindari)\b|bukan)[^.!?\n]{0,22}$/i.test(before))continue;
 issues.push(match[0]);}if(/\b(?:in the style of|exact (?:replica|copy)|copy (?:the )?(?:character|logo|brand|product|design)|replicate (?:the )?(?:character|logo|brand)|identical to|looks? exactly like|fan art of)\b/i.test(text)){issues.push('instruksi peniruan');
@@ -473,6 +473,27 @@ byId('analyzeRefAiBtn').classList.add('flex');};reader.onerror=()=>showToast('Fa
 function removeRefImage(){state.refImageFile=null;state.refImageUrl=null;state.referenceFingerprint=null;state.referenceAnalysis=null;byId('refUploadEmptyState').classList.remove('hidden');
 byId('refUploadActiveState').classList.add('hidden');byId('analyzeRefAiBtn').classList.add('hidden');byId('analyzeRefAiBtn').classList.remove('flex');
 byId('refFileInput').value='';byId('refPreviewImg').src='';byId('refSuggestionsBox').classList.add('hidden');}
+async function referenceVisionDataUrl(source){
+ const match=String(source||'').match(/^data:(image\/[a-z0-9.+-]+);base64,([\s\S]+)$/i);
+ if(!match)throw new Error('Format gambar referensi tidak didukung.');
+ if(match[1].toLowerCase()!=='image/svg+xml')return source;
+ const image=new Image();
+ await new Promise((resolve,reject)=>{
+  image.onload=resolve;
+  image.onerror=()=>reject(new Error('File SVG tidak dapat dirender sebagai gambar referensi.'));
+  image.src=source;
+ });
+ const naturalWidth=Number(image.naturalWidth||image.width)||1024;
+ const naturalHeight=Number(image.naturalHeight||image.height)||1024;
+ const scale=Math.min(1,2048/Math.max(naturalWidth,naturalHeight));
+ const canvas=document.createElement('canvas');
+ canvas.width=Math.max(1,Math.round(naturalWidth*scale));
+ canvas.height=Math.max(1,Math.round(naturalHeight*scale));
+ const context=canvas.getContext('2d');
+ if(!context)throw new Error('Browser tidak dapat menyiapkan konversi SVG.');
+ context.drawImage(image,0,0,canvas.width,canvas.height);
+ return canvas.toDataURL('image/png');
+}
 async function handleAnalyzeReferenceImageWithAI(){if(!state.refImageUrl)return;
 const btn=byId('analyzeRefAiBtn');if(!btn)return;state.refMode=byId('refModeSelect')?.value||state.refMode;btn.disabled=true;btn.classList.add('opacity-80','cursor-not-allowed');btn.textContent='Analyzing...';
 const imageAtStart=state.refImageUrl;
@@ -485,7 +506,8 @@ try{
  ALLOWED STYLE: ${JSON.stringify(allowedStyles)}. ALLOWED ASSET TYPES: ${JSON.stringify(allowedAssets)}.
  ALLOWED COMMERCIAL PURPOSE: ${JSON.stringify(COMMERCIAL_PURPOSES)}. ALLOWED PALETTES: ${JSON.stringify(COLOR_PALETTES.filter(c=>c!=='Custom Palette'))}. ALLOWED COMPOSITIONS: ${JSON.stringify(COMPOSITIONS)}.
  Use only exact values from lists; don't invent category IDs or style labels. Output pure JSON, no markdown.`;
- const match=imageAtStart.match(/^data:(image\/[a-z0-9.+-]+);base64,([\s\S]+)$/i);
+ const visionSource=await referenceVisionDataUrl(imageAtStart);
+ const match=visionSource.match(/^data:(image\/[a-z0-9.+-]+);base64,([\s\S]+)$/i);
  if(!match)throw new Error('Format gambar referensi tidak didukung.');
  const payload={contents:[{role:'user',parts:[{text:instructions},{inlineData:{mimeType:match[1],data:match[2]}}]}],generationConfig:{responseMimeType:'application/json'}};
  const res=await callGeminiApi('gemini-3-flash-preview',payload);
