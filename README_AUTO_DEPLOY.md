@@ -27,3 +27,7 @@ Existing Netlify site: **https://vectorichqc2026.netlify.app**.
 - Untuk perubahan Runtime RIVIS (`hybrid/rivis.support.js`, `hybrid/rivis.ai.js`, `hybrid/version.json`), Canvas RIVIS menggunakan Cek Update. Commit di repo yang sama juga dapat memicu rebuild Netlify meskipun Gateway tidak berubah.
 
 **Penting:** Menambahkan repository ke project Netlify yang sudah ada adalah otorisasi satu kali di dashboard Netlify. Tindakan itu belum dapat dilakukan otomatis dari ChatGPT tanpa konektor Netlify.
+
+## Aktivasi koneksi Git (19 November 2026)
+
+Netlify Git repository link sudah dikonfirmasi melalui halaman Continuous deployment dengan `permatane/hybrid`. Commit ini digunakan untuk memicu deployment pertama setelah koneksi. Status deployment harus diverifikasi di dashboard Netlify; keberhasilan commit bukan bukti bahwa website sudah live.
