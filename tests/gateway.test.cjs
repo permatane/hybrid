@@ -649,8 +649,11 @@ test('Cloud Gallery delete hides records in list, retains Drive files, and preve
  const orig=global.fetch;let updateCount=0;
  global.fetch=async(url,opt={})=>{
   const method=opt.method||'GET',uri=String(url),decoded=decodeURIComponent(uri.split('/values/')[1]||'');
-  const tab=decoded.includes("'IDEAS'!")?'IDEAS':decoded.includes("'ASSETS'!")?'ASSETS':null;
-  if(method==='GET'&&tab)return{ok:true,status:200,text:async()=>JSON.stringify({values:tab==='IDEAS'?[expectedHeaders.IDEAS,idea]:[expectedHeaders.ASSETS,asset]})};
+  const tab=Object.keys(expectedHeaders).find(name=>decoded.includes("'"+name+"'!"))||null;
+  if(method==='GET'&&tab){
+   const values=tab==='IDEAS'?[expectedHeaders.IDEAS,idea]:tab==='ASSETS'?[expectedHeaders.ASSETS,asset]:[expectedHeaders[tab]];
+   return{ok:true,status:200,text:async()=>JSON.stringify({values})};
+  }
   if(method==='PUT'&&tab==='IDEAS'){
    const row=JSON.parse(opt.body).values[0];assert.equal(row[0],ideaId);assert.equal(row[13],'Deleted');Object.assign(idea,row);
    for(let i=0;i<row.length;i++)idea[i]=row[i];
