@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.95. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
+/* RIVIS GitHub Support — v3.4.96. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1516,7 +1516,7 @@ window.RIVIS_LIBRARY_BRIDGE=Object.freeze({
 if(window.RIVIS_CLOUD_FOUNDATION_INSTALLED)return;
 window.RIVIS_CLOUD_FOUNDATION_INSTALLED=true;
 const $=id=>document.getElementById(id),KEY='rivis.cloud.foundation.v1';
-const DEFAULT={clientId:'',apiKey:'',appId:'',folderId:'1GpCjf2La23kJgA0KM6HH_2PjKIQJ5fjN',spreadsheetId:'1Yp5kXgU8pp_a7PxtjDQascoWQHrk_O2NlhNoo7Pc4e0',folderPicked:false,sheetPicked:false,oauthGranted:false};
+const DEFAULT={clientId:'',apiKey:'',appId:'',folderId:'',spreadsheetId:'',folderPicked:false,sheetPicked:false,oauthGranted:false};
 let token=null,expires=0,loadPromise=null;
 const cloudPending=new Map();
 const GATEWAY_ORIGIN='https://vectorichqc2026.netlify.app';
