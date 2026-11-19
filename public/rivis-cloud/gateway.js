@@ -13,6 +13,41 @@
   let signedIn = false;
   let verifiedSelection = false;
   let storageInfo = null;
+  // Keep large image bytes in RIVIS; request only the chunk currently being uploaded.
+  const chunkPending = new Map();
+  let chunkSequence = 0;
+  function remoteChunk(requestId, start, end) {
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end <= start || end - start > 1024*1024) {
+      return Promise.reject(new Error('Invalid RIVIS image chunk range'));
+    }
+    return new Promise((resolve,reject)=>{
+      if (!channel || !targetOrigin || !window.opener) { reject(new Error('RIVIS source window disconnected')); return; }
+      const chunkId = String(++chunkSequence);
+      const key = requestId+':'+chunkId;
+      const timer = setTimeout(()=>{
+        chunkPending.delete(key);
+        reject(new Error('RIVIS belum mengirim potongan gambar selama 20000 ms. Pastikan tab RIVIS tetap aktif.'));
+      },20000);
+      chunkPending.set(key,{resolve:buffer=>{clearTimeout(timer);resolve(new Blob([buffer]));},reject:error=>{clearTimeout(timer);reject(error);}});
+      try {
+        window.opener.postMessage({type:'RIVIS_CLOUD_BLOB_REQUEST',channel,requestId,chunkId,start,end},targetOrigin);
+      } catch(error){
+        clearTimeout(timer);chunkPending.delete(key);reject(error);
+      }
+    });
+  }
+  function acceptRemoteChunk(event) {
+    const d=event.data||{},key=String(d.requestId||'')+':'+String(d.chunkId||'');
+    const pending=chunkPending.get(key);
+    if (!pending) return;
+    chunkPending.delete(key);
+    if (d.error) {pending.reject(new Error(String(d.error)));return;}
+    if (!(d.buffer instanceof ArrayBuffer) || d.buffer.byteLength!==Number(d.end)-Number(d.start)) {
+      pending.reject(new Error('RIVIS sent invalid binary chunk'));return;
+    }
+    pending.resolve(d.buffer);
+  }
+
 
   function status(message, state='info') {
     const box = $('connectionStatus');
@@ -60,11 +95,13 @@
     try {
       let response;
       try{
+        const part=await blob.slice(start,end+1);
+        if(!(part instanceof Blob) || part.size!==end-start+1)throw new Error('Data potongan gambar tidak lengkap.');
         response=await fetch(API+'cloud-upload-chunk',{
           method:'PUT',credentials:'same-origin',cache:'no-store',signal:controller.signal,
           headers:{'Content-Type':'application/octet-stream','X-RIVIS-Upload-Url':init.uploadUrl,
             'X-RIVIS-Mime-Type':init.mimeType,'Content-Range':`bytes ${start}-${end}/${blob.size}`},
-          body:blob.slice(start,end+1)
+          body:part
         });
       }catch(error){
         if(error?.name==='AbortError')throw new Error('Upload chunk '+Math.floor(start/1048576+1)+' timeout setelah '+Math.ceil(timeoutMs/1000)+' detik.');
@@ -134,9 +171,14 @@
     const reply = (ok, result, error) => {
       try { event.source.postMessage({type:'RIVIS_CLOUD_RESULT', channel, requestId:d.requestId, ok, result, error}, targetOrigin || '*'); } catch (_) {}
     };
+    let heartbeat=null;
     try {
       if (!signedIn || !verifiedSelection) throw new Error('Hubungkan Google terlebih dahulu.');
       let result;
+      if(d.command==='upload'){
+        // Heartbeats keep the RIVIS caller informed while Netlify / Drive handle a chunk.
+        heartbeat=setInterval(()=>emit('RIVIS_CLOUD_PROGRESS',{requestId:d.requestId,stage:'heartbeat',message:'Cloud Gateway sedang memproses upload...'}),12000);
+      }
       if (d.command === 'save') {
         const payload = d.payload || {};
         if (!payload.idea || typeof payload.idea !== 'object') throw new Error('Data idea tidak ditemukan.');
@@ -149,9 +191,12 @@
         result = await request('cloud-data?action=load&ideaId=' + encodeURIComponent(ideaId));
       } else if (d.command === 'upload') {
         const payload=d.payload||{};
-        if(!(payload.blob instanceof Blob)||!payload.blob.size)throw new Error('Binary image asset tidak ditemukan.');
-        const initPayload={...payload};delete initPayload.blob;
-        const total=payload.blob.size;
+        const streamed=payload.streamedBlob===true;
+        if(!streamed&&(!(payload.blob instanceof Blob)||!payload.blob.size))throw new Error('Binary image asset tidak ditemukan.');
+        const total=streamed?Number(payload.size):payload.blob.size;
+        if(!Number.isSafeInteger(total)||total<1||total>100*1024*1024)throw new Error('Ukuran gambar tidak valid untuk upload.');
+        const uploadBlob=streamed?{size:total,slice:(start,end)=>remoteChunk(d.requestId,start,end)}:payload.blob;
+        const initPayload={...payload};delete initPayload.blob;delete initPayload.streamedBlob;
         progress(d.requestId,'init',0,total,'Menyiapkan sesi upload Google Drive...');
         const init=await request('cloud-upload-init',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(initPayload)},24000);
         let uploaded=init.existingFileId?{id:init.existingFileId,name:init.fileName,mimeType:init.mimeType,size:total}:null;
@@ -163,7 +208,7 @@
           if(Date.now()-started>12*60*1000)throw new Error('Batas waktu total upload 12 menit tercapai. Coba kembali dengan jaringan lebih stabil.');
           const end=Math.min(total,offset+chunkSize)-1;
           let part=null;
-          try{part=await sendBinaryChunk(init,payload.blob,offset,end);}
+          try{part=await sendBinaryChunk(init,uploadBlob,offset,end);}
           catch(error){
             failures++;
             progress(d.requestId,'retry',offset,total,'Koneksi upload terputus. Memeriksa byte yang diterima Drive ('+failures+'/3)...');
@@ -227,10 +272,23 @@
         result = await request('cloud-data', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'archive', ideaId:d.payload?.ideaId})});
       } else throw new Error('Perintah Cloud Gallery tidak dikenal.');
       reply(true, result, null);
-    } catch (error) { reply(false, null, error.message || 'Cloud operation failed'); }
+    } catch (error) {
+      status('Cloud upload gagal · '+String(error?.message||error).slice(0,250),'error');
+      reply(false, null, error.message || 'Cloud operation failed');
+    } finally {
+      if(heartbeat!==null)clearInterval(heartbeat);
+      for(const [key,pending] of chunkPending){
+        if(key.startsWith(d.requestId+':')){chunkPending.delete(key);pending.reject(new Error('Upload request ended'));}
+      }
+    }
   }
   window.addEventListener('message', event => {
     if (!channel || !window.opener || event.source !== window.opener) return;
+    if (event.data?.type === 'RIVIS_CLOUD_BLOB_RESPONSE' && event.data?.channel === channel) {
+      if(event.origin !== 'null' && targetOrigin && targetOrigin !== '*' && event.origin !== targetOrigin)return;
+      acceptRemoteChunk(event);
+      return;
+    }
     if (event.data?.type === 'RIVIS_CLOUD_ACK' && event.data?.channel === channel) {
       if (event.origin !== 'null' && !/^https?:\/\//.test(event.origin)) return;
       targetOrigin = event.origin === 'null' ? '*' : event.origin;

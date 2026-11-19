@@ -1,3 +1,11 @@
+## 19 November 2026 · Gateway 1.3.5 Mobile Upload Bridge
+
+- RIVIS Runtime 3.4.97 sends only upload metadata via `postMessage` and holds the image Blob locally; Netlify Gateway requests image bytes in chunks ≤1 MiB.
+- Gateway now emits heartbeat/status updates during Drive operations and distinguishes bridge inactivity from upload failures.
+- Images remain in Google Drive, ASSETS metadata in Google Sheets; existing SVG reference and Gallery pagination features are unchanged.
+- Deployment: Netlify Git auto deploy from `permatane/hybrid` branch `main`, without changing Environment Variables or disabling secret scanning.
+- 33 automated tests, including a VM integration test for chunked communication.
+
 # RIVIS Cloud Gateway + Vectorich QC v4.02
 
 Paket deploy manual ke situs Netlify yang sudah ada: **https://vectorichqc2026.netlify.app**.

@@ -124,7 +124,7 @@ test('Cloud test flags an offset or mismatched sheet header before enabling Clou
 
 test('Gateway config never exposes OAuth secret and reports automatic storage readiness',async()=>{
   setEnv();const res=await gatewayConfig({httpMethod:'GET'});
-  assert.equal(res.statusCode,200);assert.ok(!res.body.includes('client_secret_test'));assert.equal(JSON.parse(res.body).storageConfigured,true);assert.equal(JSON.parse(res.body).gatewayVersion,'1.3.4');
+  assert.equal(res.statusCode,200);assert.ok(!res.body.includes('client_secret_test'));assert.equal(JSON.parse(res.body).storageConfigured,true);assert.equal(JSON.parse(res.body).gatewayVersion,'1.3.5');
 });
 
 
@@ -501,7 +501,7 @@ test('Browser Gateway upload end-to-end recovers interrupted chunk, advances pro
  const testBlob=new Blob([Buffer.alloc(2*1024*1024+111,7)],{type:'image/jpeg'});
  const fetchMock=async(url,options={})=>{
   const path=String(url).split('/.netlify/functions/')[1]||'';
-  if(path==='gateway-config')return json({gatewayVersion:'1.3.4',storageConfigured:true});
+  if(path==='gateway-config')return json({gatewayVersion:'1.3.5',storageConfigured:true});
   if(path==='session')return json({connected:true});
   if(path==='cloud-test')return json({ok:true,missingTabs:[],schemaErrors:[],folder:{name:'RIVIS'},spreadsheet:{name:'RIVIS Index',tabs:[]}});
   if(path==='cloud-upload-init')return json({...JSON.parse(options.body),ok:true,uploadUrl:'https://www.googleapis.com/upload/drive/v3/files?upload_id=resume_test'});
@@ -528,7 +528,7 @@ test('Browser Gateway upload end-to-end recovers interrupted chunk, advances pro
  const win={opener,addEventListener:(name,fn)=>{listeners[name]=fn;}};
  const sandbox={window:win,location:new URL(origin+'/rivis-cloud/?channel='+channel),document,
   history:{replaceState(){}},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},
-  URL,Blob,AbortController,setTimeout,clearTimeout,console,fetch:fetchMock};
+  URL,Blob,AbortController,setTimeout,clearTimeout,setInterval,clearInterval,console,fetch:fetchMock};
  vm.runInNewContext(source,sandbox,{timeout:3000});
  for(let i=0;i<20;i++)await new Promise(resolve=>setImmediate(resolve));
  assert.ok(listeners.message);
@@ -546,4 +546,62 @@ test('Browser Gateway upload end-to-end recovers interrupted chunk, advances pro
  assert.ok(progress.some(x=>x.stage==='retry'));
  assert.ok(progress.some(x=>x.stage==='resume'));
  assert.ok(progress.some(x=>x.stage==='done'&&x.percent===100));
+});
+
+
+test('Mobile upload: Gateway requests 1 MiB remote Blob chunks rather than receiving entire image via postMessage',async()=>{
+ const vm=require('node:vm');const source=fs.readFileSync(path.join(root,'public/rivis-cloud/gateway.js'),'utf8');
+ const channel='b'.repeat(48), messages=[], listeners={}, storage=new Map(), fetched=[];
+ const origin='https://vectorichqc2026.netlify.app';
+ const testBlob=new Blob([Buffer.alloc(3*1024*1024+11,3)],{type:'image/jpeg'});
+ const json=(data,status=200)=>({ok:status<400,status,text:async()=>JSON.stringify(data)});
+ const elem=()=>({dataset:{},hidden:false,disabled:false,textContent:'',lastElementChild:{textContent:''},addEventListener(){}});
+ const elements=new Map(),doc={getElementById:id=>{if(!elements.has(id))elements.set(id,elem());return elements.get(id);}};
+ let bytesTransferred=0;
+ const opener={postMessage(message){
+   messages.push(message);
+   if(message.type!=='RIVIS_CLOUD_BLOB_REQUEST')return;
+   assert.ok(message.end-message.start<=1024*1024,'window bridge chunk too large');
+   setImmediate(async()=>{
+    const buffer=await testBlob.slice(message.start,message.end).arrayBuffer();
+    bytesTransferred+=buffer.byteLength;
+    listeners.message({source:opener,origin:'null',data:{type:'RIVIS_CLOUD_BLOB_RESPONSE',channel,requestId:message.requestId,chunkId:message.chunkId,start:message.start,end:message.end,buffer}});
+   });
+ }};
+ let accepted=0,requests=0;
+ const fetchMock=async(url,options={})=>{
+   const api=String(url).split('/.netlify/functions/')[1]||'';
+   if(api==='gateway-config')return json({gatewayVersion:'1.3.5',storageConfigured:true});
+   if(api==='session')return json({connected:true});
+   if(api==='cloud-test')return json({ok:true,missingTabs:[],schemaErrors:[],folder:{name:'RIVIS'},spreadsheet:{name:'Index',tabs:[]}});
+   if(api==='cloud-upload-init')return json({...JSON.parse(options.body),uploadUrl:'https://www.googleapis.com/upload/drive/v3/files?upload_id=stream123'});
+   if(api==='cloud-upload-complete')return json({ok:true,asset:{driveFileId:'file_test_stream123',assetId:'as_test_stream123'}});
+   if(api==='cloud-upload-chunk'){
+    const m=options.headers['Content-Range'].match(/^bytes (\d+)-(\d+)\/(\d+)$/);
+    assert.ok(m,'valid Content-Range');
+    const start=+m[1],end=+m[2],total=+m[3];
+    assert.equal(start,accepted);assert.equal(options.body.size,end-start+1);
+    fetched.push(options.body.size);requests++;accepted=end+1;
+    if(accepted===total)return json({ok:true,done:true,nextStart:accepted,file:{id:'file_test_stream123',name:'test.jpg',mimeType:'image/jpeg',size:total}});
+    return json({ok:true,done:false,nextStart:accepted});
+   }
+   throw Error('Unexpected '+api);
+ };
+ const win={opener,addEventListener:(name,fn)=>{listeners[name]=fn;}};
+ const sandbox={window:win,location:new URL(origin+'/rivis-cloud/?channel='+channel),document:doc,history:{replaceState(){}},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},URL,Blob,ArrayBuffer,AbortController,setTimeout,clearTimeout,setInterval,clearInterval,console,fetch:fetchMock};
+ vm.runInNewContext(source,sandbox,{timeout:3000});
+ for(let i=0;i<20;i++)await new Promise(resolve=>setImmediate(resolve));
+ listeners.message({source:opener,origin:'null',data:{type:'RIVIS_CLOUD_ACK',channel}});
+ const uploadPayload={ideaId:'idea_test123',assetId:'as_test_stream123',fileName:'test.jpg',mimeType:'image/jpeg',size:testBlob.size,assetType:'generated',streamedBlob:true};
+ assert.equal('blob' in uploadPayload,false,'Full Blob must not be transferred in command header');
+ listeners.message({source:opener,origin:'null',data:{type:'RIVIS_CLOUD_COMMAND',channel,requestId:'requestStream123',command:'upload',payload:uploadPayload}});
+ for(let i=0;i<80&&!messages.some(m=>m.type==='RIVIS_CLOUD_RESULT');i++)await new Promise(resolve=>setTimeout(resolve,70));
+ const result=messages.find(m=>m.type==='RIVIS_CLOUD_RESULT');
+ assert.ok(result,'Gateway did not complete streamed upload');
+ assert.equal(result.ok,true,JSON.stringify(result));
+ assert.equal(result.result.asset.driveFileId,'file_test_stream123');
+ assert.equal(requests,4);assert.equal(bytesTransferred,testBlob.size);
+ assert.ok(messages.some(m=>m.type==='RIVIS_CLOUD_PROGRESS'&&m.stage==='init'));
+ assert.ok(messages.some(m=>m.type==='RIVIS_CLOUD_PROGRESS'&&m.stage==='done'));
+ assert.ok(messages.filter(m=>m.type==='RIVIS_CLOUD_BLOB_REQUEST').every(m=>m.end-m.start<=1024*1024));
 });
