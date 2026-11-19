@@ -605,3 +605,35 @@ test('Mobile upload: Gateway requests 1 MiB remote Blob chunks rather than recei
  assert.ok(messages.some(m=>m.type==='RIVIS_CLOUD_PROGRESS'&&m.stage==='done'));
  assert.ok(messages.filter(m=>m.type==='RIVIS_CLOUD_BLOB_REQUEST').every(m=>m.end-m.start<=1024*1024));
 });
+
+
+test('RIVIS source bridge accepts numeric chunk IDs and rejects invalid IDs and byte ranges', async () => {
+ const vm=require('node:vm');
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const start=source.indexOf(" if(d.type==='RIVIS_CLOUD_BLOB_REQUEST'){");
+ const end=source.indexOf(" if(d.type==='RIVIS_CLOUD_PROGRESS'){",start);
+ assert.ok(start>=0&&end>start,'Cloud Blob bridge handler missing');
+ const messages=[],blob=new Blob([Buffer.alloc(1024*1024+8,31)],{type:'image/jpeg'});
+ const pending=new Map([['req_ok',{blob,renew(){}}]]);
+ const popup={closed:false,postMessage(message){messages.push(message);}};
+ const handle=vm.runInNewContext('(function(d){'+source.slice(start,end)+'})',{
+  cloudPending:pending,gatewayPopup:popup,gatewayChannel:'test-channel',
+  GATEWAY_ORIGIN:'https://vectorichqc2026.netlify.app'
+ },{timeout:3000});
+ const ask=async(chunkId,start,end)=>{
+  const before=messages.length;
+  handle({type:'RIVIS_CLOUD_BLOB_REQUEST',requestId:'req_ok',chunkId,start,end});
+  for(let n=0;n<12&&messages.length===before;n++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(messages.length,before+1,'Bridge did not reply to requested chunk');
+  return messages.at(-1);
+ };
+ const first=await ask('1',0,1024*1024);
+ assert.equal(first.error,null,'Numeric chunkId must be accepted');
+ assert.equal(first.buffer.byteLength,1024*1024);
+ const last=await ask('2',1024*1024,blob.size);
+ assert.equal(last.error,null,'Last partial chunk must be accepted');
+ assert.equal(last.buffer.byteLength,8);
+ assert.match((await ask('abc',0,64)).error,/tidak valid/i,'Non-numeric ID must fail');
+ assert.match((await ask('3',0,1024*1024+1)).error,/tidak valid/i,'Oversize chunk must fail');
+ assert.match((await ask('4',0,blob.size+1)).error,/tidak valid/i,'Out-of-bounds chunk must fail');
+});

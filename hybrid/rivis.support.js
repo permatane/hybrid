@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.97. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
+/* RIVIS GitHub Support — v3.4.98. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1550,7 +1550,7 @@ window.addEventListener('message',event=>{
     try{gatewayPopup.postMessage(response,GATEWAY_ORIGIN,[buffer]);return;}catch(_){gatewayPopup.postMessage(response,GATEWAY_ORIGIN);}
    }else gatewayPopup.postMessage(response,GATEWAY_ORIGIN);
   };
-  if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start||end>pending.blob.size||end-start>1024*1024||!/^\\d{1,10}$/.test(chunkId)){
+  if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start||end>pending.blob.size||end-start>1024*1024||!/^\d{1,10}$/.test(chunkId)){
    reply('Rentang potongan gambar tidak valid.',null);return;
   }
   pending.blob.slice(start,end).arrayBuffer().then(buffer=>reply(null,buffer)).catch(error=>reply(String(error?.message||error),null));
