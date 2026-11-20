@@ -388,6 +388,8 @@ test('Gateway page exposes resumable upload, chunked download, thumbnails, and n
   assert.match(js,/d\.command === 'thumbnail'/);
   assert.match(js,/cloud-thumbnail\?fileId=/);
   assert.doesNotMatch(html,/id="pickFolder"|id="pickSheet"|id="testBtn"|id="sendBtn"/);
+  assert.match(html,/Drive JSON Database/);
+  assert.doesNotMatch(html,/id="sheetState"|Google Sheets/);
 });
 
 test('Resumable status query returns authoritative accepted byte offset (Google 308)',async()=>{
@@ -461,9 +463,9 @@ test('Browser Gateway upload end-to-end recovers interrupted chunk, advances pro
  const testBlob=new Blob([Buffer.alloc(2*1024*1024+111,7)],{type:'image/jpeg'});
  const fetchMock=async(url,options={})=>{
   const path=String(url).split('/.netlify/functions/')[1]||'';
-  if(path==='gateway-config')return json({gatewayVersion:'1.3.5',storageConfigured:true});
+  if(path==='gateway-config')return json({gatewayVersion:'1.3.8',storageConfigured:true,storageMode:'drive-json'});
   if(path==='session')return json({connected:true});
-  if(path==='cloud-test')return json({ok:true,missingTabs:[],schemaErrors:[],folder:{name:'RIVIS'},spreadsheet:{name:'RIVIS Index',tabs:[]}});
+  if(path==='cloud-test')return json({ok:true,storageMode:'drive-json',legacyMigrationAvailable:false,folder:{name:'RIVIS'}});
   if(path==='cloud-upload-init')return json({...JSON.parse(options.body),ok:true,uploadUrl:'https://www.googleapis.com/upload/drive/v3/files?upload_id=resume_test'});
   if(path==='cloud-upload-complete'){
    calls.index++;assert.equal(JSON.parse(options.body).driveFileId,'file12345');
