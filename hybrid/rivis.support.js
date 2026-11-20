@@ -1521,7 +1521,7 @@ let token=null,expires=0,loadPromise=null;
 const cloudPending=new Map();
 const GATEWAY_ORIGIN='https://vectorichqc2026.netlify.app';
 let gatewayPopup=null,gatewayChannel='',gatewayConnected=false,gatewayVerified=false;
-let cloudGalleryItems=[],cloudGalleryPage=1;
+let cloudGalleryItems=[],cloudGalleryPage=1,cloudGalleryTotal=0;
 let cloudGallerySelectedIds=new Set();
 let cloudBulkProgress=null,cloudGalleryRefreshPromise=null;
 const CLOUD_GALLERY_CACHE_KEY='rivis.cloud.gallery.cache.v1';
@@ -1925,7 +1925,7 @@ function updateCloudGallerySelectionUI(){
  const count=cloudGallerySelectedIds.size;
  const countEl=$('rvCloudSelectionCount'),selectAll=$('rvCloudSelectAll'),clear=$('rvCloudClearSelection'),download=$('rvCloudDownloadSelected'),grid=$('rvCloudGalleryGrid');
  if(countEl)countEl.textContent=count+' card dipilih';
- if(selectAll)selectAll.disabled=!cloudGalleryItems.length||count===cloudGalleryItems.length;
+ if(selectAll)selectAll.disabled=!cloudGalleryTotal||count>=cloudGalleryTotal;
  if(clear)clear.disabled=count===0;
  if(download)download.disabled=count===0||!gatewayVerified;
  if(grid)grid.querySelectorAll('[data-cloud-select-id]').forEach(preview=>{
@@ -1934,9 +1934,18 @@ function updateCloudGallerySelectionUI(){
   preview.closest('.rv-cloud-gallery-card')?.classList.toggle('is-selected',selected);
  });
 }
-function selectAllCloudGalleryCards(){
- cloudGalleryItems.forEach(idea=>{if(idea?.ideaId)cloudGallerySelectedIds.add(String(idea.ideaId));});
- updateCloudGallerySelectionUI();
+async function selectAllCloudGalleryCards(){
+ if(!gatewayVerified){showToast('Hubungkan Google terlebih dahulu.','error');return;}
+ const button=$('rvCloudSelectAll'),old=button?.textContent||'Pilih Semua';
+ if(button){button.disabled=true;button.textContent='Memuat ID...';}
+ try{
+  const result=await sendCloudCommand('list',{idsOnly:true});
+  const ids=Array.isArray(result.ids)?result.ids:[];
+  ids.forEach(id=>{if(id)cloudGallerySelectedIds.add(String(id));});
+  cloudGalleryTotal=Number(result.total)||ids.length;
+  cloudSyncStatus(ids.length+' card tersedia untuk dipilih.');
+ }catch(error){showToast('Gagal mengambil daftar pilihan: '+error.message,'error');}
+ finally{if(button){button.textContent=old;}updateCloudGallerySelectionUI();}
 }
 function clearCloudGallerySelection(){
  cloudGallerySelectedIds.clear();
@@ -1956,21 +1965,37 @@ function cloudGeneratedAssets(idea){
  });
 }
 async function downloadSelectedCloudResultsZip(btnEl){
- const selected=cloudGalleryItems.filter(idea=>cloudGallerySelectedIds.has(String(idea.ideaId)));
- if(!selected.length){showToast('Pilih minimal satu card dari Cloud Gallery.','info');return;}
+ const selectedIds=Array.from(cloudGallerySelectedIds);
+ if(!selectedIds.length){showToast('Pilih minimal satu card dari Cloud Gallery.','info');return;}
+ if(selectedIds.length>30){showToast('Maksimal 30 card per ZIP untuk menjaga kestabilan browser. Pilih maksimal 30 card lalu ulangi.','warning');return;}
  if(!gatewayVerified){showToast('Hubungkan Google terlebih dahulu untuk mengunduh aset Cloud.','error');return;}
  if(typeof JSZip==='undefined'){showToast('JSZip library failed to load.','error');return;}
- const exportable=selected.filter(idea=>{
-  const assets=cloudGeneratedAssets(idea);
-  return idea.productionType==='series'
-   ?assets.some(asset=>Boolean(asset.sceneId))||(Array.isArray(idea.seriesScenes)&&idea.seriesScenes.some(scene=>scene.metadata))
-   :Boolean(cloudCoverAsset(idea)?.driveFileId||idea.metadata);
- });
- if(!exportable.length){showToast('Card terpilih belum memiliki gambar hasil generate atau metadata.','error');return;}
- const skipped=selected.length-exportable.length;
  const btn=btnEl||$('rvCloudDownloadSelected'),old=btn?.textContent||'Download Selected ZIP';
- if(btn){btn.disabled=true;btn.textContent='Preparing...';}
+ if(btn){btn.disabled=true;btn.textContent='Loading cards...';}
  try{
+  const selected=new Array(selectedIds.length);let cursor=0,loadedCount=0;
+  const loadWorker=async()=>{
+   while(true){
+    const index=cursor++;if(index>=selectedIds.length)return;
+    const ideaId=selectedIds[index];
+    const result=await sendCloudCommand('load',{ideaId,mode:'library'});
+    const idea=result?.idea;if(!idea)throw new Error('Data card tidak ditemukan: '+ideaId);
+    idea.cloudAssets=result.assets||[];idea.cloudPrompts=result.prompts||[];
+    idea.cloudGroups=result.groups||[];idea.cloudGroupItems=result.groupItems||[];
+    idea.cloudGenerationLogs=result.generationLogs||[];
+    selected[index]=idea;loadedCount++;
+    if(btn)btn.textContent='Loading cards '+loadedCount+'/'+selectedIds.length+'...';
+   }
+  };
+  await Promise.all(Array.from({length:Math.min(3,selectedIds.length)},loadWorker));
+  const exportable=selected.filter(idea=>{
+   const assets=cloudGeneratedAssets(idea);
+   return idea.productionType==='series'
+    ?assets.some(asset=>Boolean(asset.sceneId))||(Array.isArray(idea.seriesScenes)&&idea.seriesScenes.some(scene=>scene.metadata))
+    :Boolean(cloudCoverAsset(idea)?.driveFileId||idea.metadata);
+  });
+  if(!exportable.length)throw new Error('Card terpilih belum memiliki gambar hasil generate atau metadata.');
+  const skipped=selected.length-exportable.length;
   const zip=new JSZip(),metadataRows=[];
   let completed=0,totalWork=exportable.reduce((sum,idea)=>sum+(idea.productionType==='series'?Math.max(1,(idea.seriesScenes||[]).length):1),0);
   const progress=label=>{if(btn)btn.textContent=label;};
@@ -1979,8 +2004,7 @@ async function downloadSelectedCloudResultsZip(btnEl){
    if(idea.productionType==='series'&&Array.isArray(idea.seriesScenes)){
     const assets=cloudGeneratedAssets(idea).filter(asset=>Boolean(asset.sceneId));
     for(let i=0;i<idea.seriesScenes.length;i++){
-     const scene=idea.seriesScenes[i];
-     const asset=assets.find(item=>String(item.sceneId)===String(scene.sceneId));
+     const scene=idea.seriesScenes[i],asset=assets.find(item=>String(item.sceneId)===String(scene.sceneId));
      let exported=null;
      if(asset?.driveFileId){
       progress('Downloading '+(completed+1)+'/'+totalWork+'...');
@@ -1996,13 +2020,11 @@ async function downloadSelectedCloudResultsZip(btnEl){
       const sceneIdea=seriesSceneAssetIdea(idea,scene,i);
       metadataRows.push(buildAdobeStockCsvRow(sceneIdea,scene.metadata,exported?.filename||''));
      }
-     completed++;
-     progress('Preparing '+Math.min(completed,totalWork)+'/'+totalWork+'...');
+     completed++;progress('Preparing '+Math.min(completed,totalWork)+'/'+totalWork+'...');
     }
     zip.file('series/'+base+'/series_bible.json',JSON.stringify(idea.seriesBible||{},null,2));
    }else{
-    const asset=cloudCoverAsset(idea);
-    let exported=null;
+    const asset=cloudCoverAsset(idea);let exported=null;
     if(asset?.driveFileId){
      progress('Downloading '+(completed+1)+'/'+totalWork+'...');
      const dataUrl=await downloadCloudAsset(asset.driveFileId);
@@ -2013,8 +2035,7 @@ async function downloadSelectedCloudResultsZip(btnEl){
      zip.file(exported.filename,exported.data,{compression:'STORE'});
     }
     if(idea.metadata)metadataRows.push(buildAdobeStockCsvRow(idea,idea.metadata,exported?.filename||''));
-    completed++;
-    progress('Preparing '+Math.min(completed,totalWork)+'/'+totalWork+'...');
+    completed++;progress('Preparing '+Math.min(completed,totalWork)+'/'+totalWork+'...');
    }
   }
   if(metadataRows.length)zip.file('metadata.csv','Filename,Title,Keywords,Category,Releases\r\n'+metadataRows.join('\r\n'));
@@ -2033,14 +2054,12 @@ async function downloadSelectedCloudResultsZip(btnEl){
   updateCloudGallerySelectionUI();
  }
 }
-
-function renderCloudGallery(ideas,page=1){
+function renderCloudGallery(ideas,page=1,totalCount=null){
  cloudGalleryItems=Array.isArray(ideas)?ideas:[];
- const validIds=new Set(cloudGalleryItems.map(idea=>String(idea?.ideaId||'')).filter(Boolean));
- for(const id of cloudGallerySelectedIds)if(!validIds.has(id))cloudGallerySelectedIds.delete(id);
+ cloudGalleryTotal=Number.isFinite(Number(totalCount))&&totalCount!==null?Math.max(0,Number(totalCount)):cloudGalleryItems.length;
  const grid=$('rvCloudGalleryGrid'),pager=$('rvCloudGalleryPagination');if(!grid)return;
  persistCloudGalleryCache();
- const total=cloudGalleryItems.length,totalPages=Math.max(1,Math.ceil(total/CLOUD_GALLERY_PAGE_SIZE));
+ const total=cloudGalleryTotal,totalPages=Math.max(1,Math.ceil(total/CLOUD_GALLERY_PAGE_SIZE));
  cloudGalleryPage=Math.max(1,Math.min(totalPages,Number(page)||1));
  if(!total){
   grid.innerHTML='<div class="rv-cloud-empty">Belum ada item di Cloud Gallery. Simpan card dari Library atau gunakan Save Idea di Idea Studio.</div>';
@@ -2048,8 +2067,8 @@ function renderCloudGallery(ideas,page=1){
   updateCloudGallerySelectionUI();
   return;
  }
- const start=(cloudGalleryPage-1)*CLOUD_GALLERY_PAGE_SIZE,end=Math.min(total,start+CLOUD_GALLERY_PAGE_SIZE);
- const pageItems=cloudGalleryItems.slice(start,end);
+ const start=(cloudGalleryPage-1)*CLOUD_GALLERY_PAGE_SIZE,end=Math.min(total,start+cloudGalleryItems.length);
+ const pageItems=cloudGalleryItems;
  grid.innerHTML=pageItems.map(idea=>{
   const asset=cloudCoverAsset(idea),reference=cloudReferenceAsset(idea),displayAsset=asset||reference,fileId=displayAsset?.driveFileId||'';
   const promptRows=Array.isArray(idea.prompts)?idea.prompts:(Array.isArray(idea.cloudPrompts)?idea.cloudPrompts:[]);
@@ -2079,7 +2098,7 @@ function renderCloudGallery(ideas,page=1){
   pager.onclick=event=>{
    const target=event.target?.closest?.('[data-cloud-page]');if(!target||target.disabled)return;
    const next=Number(target.dataset.cloudPage);
-   if(Number.isInteger(next)&&next>=1&&next<=totalPages&&next!==cloudGalleryPage)renderCloudGallery(cloudGalleryItems,next);
+   if(Number.isInteger(next)&&next>=1&&next<=totalPages&&next!==cloudGalleryPage)refreshCloudGallery(next);
   };
  }
  updateCloudGallerySelectionUI();
@@ -2097,15 +2116,21 @@ async function loadCloudGalleryThumbnails(){
   }));
  }
 }
-async function refreshCloudGallery(){
+async function refreshCloudGallery(page=cloudGalleryPage){
  if(!gatewayVerified){cloudSyncStatus('Hubungkan Google terlebih dahulu untuk membuka Cloud Gallery.');return;}
  if(cloudGalleryRefreshPromise)return cloudGalleryRefreshPromise;
- if(!cloudGalleryItems.length){const cached=readCloudGalleryCache();if(cached.length)renderCloudGallery(cached,cloudGalleryPage);}
+ const requestedPage=Math.max(1,Number(page)||1);
+ if(!cloudGalleryItems.length&&requestedPage===1){const cached=readCloudGalleryCache();if(cached.length)renderCloudGallery(cached,1,cached.length);}
  const task=(async()=>{
   const button=$('rvCloudRefreshGallery'),old=button?.textContent||'Refresh Gallery';
   if(button){button.disabled=true;button.textContent='Loading...';}
-  try{cloudSyncStatus('Mengambil daftar ide dari Cloud...');const result=await sendCloudCommand('list',{});renderCloudGallery(result.ideas||[],cloudGalleryPage);cloudSyncStatus((result.ideas||[]).length+' card ditemukan di Cloud Gallery.');return result;}
-  catch(error){cloudSyncStatus('Gagal memuat Cloud Gallery: '+error.message);throw error;}
+  try{
+   cloudSyncStatus('Mengambil halaman '+requestedPage+' dari Cloud Gallery...');
+   const result=await sendCloudCommand('list',{page:requestedPage,pageSize:CLOUD_GALLERY_PAGE_SIZE});
+   renderCloudGallery(result.ideas||[],Number(result.page)||requestedPage,Number(result.total)||0);
+   cloudSyncStatus((Number(result.total)||0)+' card tersedia · halaman '+(Number(result.page)||requestedPage)+'/'+(Number(result.totalPages)||1)+'.');
+   return result;
+  }catch(error){cloudSyncStatus('Gagal memuat Cloud Gallery: '+error.message);throw error;}
   finally{if(button){button.disabled=false;button.textContent=old;}}
  })();
  cloudGalleryRefreshPromise=task;
@@ -2164,8 +2189,9 @@ async function deleteCloudGalleryIdea(ideaId,button){
   cloudSyncStatus('Menghapus dari Cloud Gallery: '+title);
   const result=await sendCloudCommand('delete',{ideaId});
   if(result?.ok!==true)throw new Error('Gateway tidak mengonfirmasi penghapusan.');
-  renderCloudGallery(cloudGalleryItems.filter(x=>String(x.ideaId)!==String(ideaId)),cloudGalleryPage);
+  cloudGallerySelectedIds.delete(String(ideaId));
   cloudSyncStatus('Item dihapus dari Cloud Gallery: '+title+'. File Drive tetap aman.');
+  await refreshCloudGallery(cloudGalleryPage);
   showToast('Item berhasil dihapus dari Cloud Gallery.','success');
   return true;
  }catch(error){
