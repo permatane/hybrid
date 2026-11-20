@@ -390,6 +390,41 @@ exports.handler=async(event)=>{
    const fileId=await writeIdeaDocument(ctx,doc,existing?.fileId||'',existingLoaded?.etag||'');await updateCatalogEntry(ctx,catalogSummary(doc,fileId),current);
    return h.json(200,{ok:true,storageMode:'drive-json',ideaId,result:{idea:existing?'updated':'created',prompts:prompts.length,assets:assets.length,groups:groups.length,groupItems:groupItems.length,generationLogs:generationLogs.length},fileId},headers);
   }
+  if(body.action==='metadata'){
+   const ideaId=text(body.ideaId,128);if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))return h.json(400,{error:'Invalid ideaId'},headers);
+   const metadata=body.metadata&&typeof body.metadata==='object'&&!Array.isArray(body.metadata)?cleanJsonValue(body.metadata):null;
+   const sceneUpdates=Array.isArray(body.seriesScenes)?body.seriesScenes:[];
+   for(let attempt=0;attempt<4;attempt++){
+    const current=await ensureJsonCatalog(ctx);if(!current)return h.json(409,{error:'Legacy migration is required before metadata sync.',migrationRequired:true},headers);
+    if(current.document.migration?.status==='pending')return h.json(409,{error:'Legacy migration is still in progress.',migrationRequired:true},headers);
+    const entry=current.document.ideas.find(x=>String(x.ideaId)===ideaId);
+    if(!entry||!entry.fileId)return h.json(404,{error:'Idea not found'},headers);
+    const loaded=await driveReadJson(ctx,entry.fileId),doc=loaded.document;
+    if(!doc?.idea||String(doc.idea.ideaId)!==ideaId)return h.json(409,{error:'Drive JSON document does not match its catalog entry.'},headers);
+    if(metadata)doc.idea.metadata=metadata;
+    if(typeof body.metadataOutdated==='boolean')doc.idea.metadataOutdated=body.metadataOutdated;
+    if(sceneUpdates.length){
+     const scenes=Array.isArray(doc.idea.seriesScenes)?doc.idea.seriesScenes:[];
+     for(const update of sceneUpdates){
+      let index=Number.isInteger(Number(update.index))?Number(update.index):-1;
+      if(update.sceneId)index=scenes.findIndex(scene=>String(scene.sceneId||'')===String(update.sceneId));
+      if(index<0||index>=scenes.length)continue;
+      if(update.metadata&&typeof update.metadata==='object'&&!Array.isArray(update.metadata))scenes[index].metadata=cleanJsonValue(update.metadata);
+      if(typeof update.metadataOutdated==='boolean')scenes[index].metadataOutdated=update.metadataOutdated;
+     }
+     doc.idea.seriesScenes=scenes;
+    }
+    doc.idea.updatedAt=now();doc.updatedAt=doc.idea.updatedAt;
+    try{
+     const fileId=await writeIdeaDocument(ctx,doc,entry.fileId,loaded.etag||'');
+     await updateCatalogEntry(ctx,catalogSummary(doc,fileId),current);
+     return h.json(200,{ok:true,storageMode:'drive-json',ideaId,metadataUpdated:Boolean(metadata),scenesUpdated:sceneUpdates.length},headers);
+    }catch(error){
+     if(!String(error.message).includes('DRIVE_JSON_CONFLICT')||attempt===3)throw error;
+     await new Promise(resolve=>setTimeout(resolve,Math.min(700,100*Math.pow(2,attempt))));
+    }
+   }
+  }
   if(body.action==='delete'||body.action==='archive'){
    const ideaId=text(body.ideaId,128);if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))return h.json(400,{error:'Invalid ideaId'},headers);
    const status=body.action==='delete'?'Deleted':'Archived',result=await updateIdeaStatus(ctx,ideaId,status);
