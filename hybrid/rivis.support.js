@@ -1573,7 +1573,9 @@ window.addEventListener('message',event=>{
   return;
  }
  if(d.type==='RIVIS_CLOUD_RESULT'){
-  const pending=cloudPending.get(d.requestId);if(!pending)return;cloudPending.delete(d.requestId);
+  const pending=cloudPending.get(d.requestId);if(!pending)return;
+  cloudBulkProgress?.onComplete?.(d.requestId);
+  cloudPending.delete(d.requestId);
   if(d.ok)pending.resolve(d.result);else pending.reject(new Error(d.error||'Cloud operation failed'));
   return;
  }
