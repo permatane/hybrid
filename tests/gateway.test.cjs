@@ -533,9 +533,9 @@ test('Mobile upload: Gateway requests 1 MiB remote Blob chunks rather than recei
  let accepted=0,requests=0;
  const fetchMock=async(url,options={})=>{
    const api=String(url).split('/.netlify/functions/')[1]||'';
-   if(api==='gateway-config')return json({gatewayVersion:'1.3.5',storageConfigured:true});
+   if(api==='gateway-config')return json({gatewayVersion:'1.3.8',storageConfigured:true,storageMode:'drive-json'});
    if(api==='session')return json({connected:true});
-   if(api==='cloud-test')return json({ok:true,missingTabs:[],schemaErrors:[],folder:{name:'RIVIS'},spreadsheet:{name:'Index',tabs:[]}});
+   if(api==='cloud-test')return json({ok:true,storageMode:'drive-json',legacyMigrationAvailable:false,folder:{name:'RIVIS'}});
    if(api==='cloud-upload-init')return json({...JSON.parse(options.body),uploadUrl:'https://www.googleapis.com/upload/drive/v3/files?upload_id=stream123'});
    if(api==='cloud-upload-complete')return json({ok:true,asset:{driveFileId:'file_test_stream123',assetId:'as_test_stream123'}});
    if(api==='cloud-upload-chunk'){
@@ -601,50 +601,22 @@ test('RIVIS source bridge accepts numeric chunk IDs and rejects invalid IDs and 
 });
 
 
-test('Cloud Gallery delete hides records in list, retains Drive files, and prevents loading deleted card',async()=>{
- setEnv();
- const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000});
- const ideaId='idea_delete_test';
- const idea=Array(expectedHeaders.IDEAS.length).fill('');
- idea[0]=ideaId;idea[2]='Delete Fixture';idea[13]='Saved';idea[14]='2026-11-19T00:00:00.000Z';idea[20]=JSON.stringify({ideaId,conceptName:'Delete Fixture',status:'Saved'});
- const asset=Array(expectedHeaders.ASSETS.length).fill('');asset[0]='as_demo';asset[1]=ideaId;asset[4]='driveFile123';
- const orig=global.fetch;let updateCount=0;
- global.fetch=async(url,opt={})=>{
-  const method=opt.method||'GET',uri=String(url),decoded=decodeURIComponent(uri.split('/values/')[1]||'');
-  const tab=Object.keys(expectedHeaders).find(name=>decoded.includes("'"+name+"'!"))||null;
-  if(uri.includes('/values:batchGet?')){
-   const ranges=new URL(uri).searchParams.getAll('ranges');
-   return{ok:true,status:200,text:async()=>JSON.stringify({valueRanges:ranges.map(range=>{
-    const name=Object.keys(expectedHeaders).find(key=>range.includes("'"+key+"'!"));
-    const values=name==='IDEAS'?[expectedHeaders.IDEAS,idea]:name==='ASSETS'?[expectedHeaders.ASSETS,asset]:[expectedHeaders[name]];
-    return{range,values};
-   })})};
-  }
-  if(method==='GET'&&tab){
-   const values=tab==='IDEAS'?[expectedHeaders.IDEAS,idea]:tab==='ASSETS'?[expectedHeaders.ASSETS,asset]:[expectedHeaders[tab]];
-   return{ok:true,status:200,text:async()=>JSON.stringify({values})};
-  }
-  if(method==='PUT'&&tab==='IDEAS'){
-   const row=JSON.parse(opt.body).values[0];assert.equal(row[0],ideaId);assert.equal(row[13],'Deleted');Object.assign(idea,row);
-   for(let i=0;i<row.length;i++)idea[i]=row[i];
-   updateCount++;return{ok:true,status:200,text:async()=>JSON.stringify({updatedRows:1})};
-  }
-  throw Error('Unexpected mock '+method+' '+uri);
- };
- const headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
+
+test('Cloud Gallery delete hides Drive JSON record while retaining its assets',async()=>{
+ setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
+ const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();global.fetch=mock.fetch;
  try{
-  const deleting=await cloudData({httpMethod:'POST',headers,body:JSON.stringify({action:'delete',ideaId})});
-  assert.equal(deleting.statusCode,200,deleting.body);
-  assert.equal(JSON.parse(deleting.body).retainedDriveAssets,true);
-  assert.equal(updateCount,1);
-  const listed=await cloudData({httpMethod:'GET',headers,queryStringParameters:{action:'list'}});
-  assert.equal(listed.statusCode,200,listed.body);
-  assert.deepEqual(JSON.parse(listed.body).ideas,[],'Deleted item must be removed from Gallery');
-  const loaded=await cloudData({httpMethod:'GET',headers,queryStringParameters:{action:'load',ideaId}});
-  assert.equal(loaded.statusCode,404,'Deleted card must not load');
-  assert.equal(asset[4],'driveFile123','Drive file IDs must remain unchanged');
+  const handler=freshCloudData(),headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
+  await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'save',idea:{ideaId:'idea_delete_test',conceptName:'Delete Fixture'},assets:[{assetId:'as_demo',ideaId:'idea_delete_test',driveFileId:'driveFile123',assetType:'generated'}]})});
+  const deleting=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'delete',ideaId:'idea_delete_test'})});
+  assert.equal(deleting.statusCode,200,deleting.body);assert.equal(JSON.parse(deleting.body).retainedDriveAssets,true);
+  const listed=await handler({httpMethod:'GET',headers,queryStringParameters:{action:'list'}});
+  assert.deepEqual(JSON.parse(listed.body).ideas,[]);
+  const file=[...mock.files.values()].find(x=>x.name==='RIVIS_IDEA_idea_delete_test.json');
+  assert.equal(file.doc.idea.status,'Deleted');assert.equal(file.doc.assets[0].driveFileId,'driveFile123');
  }finally{global.fetch=orig;process.env={...oldEnv};}
 });
+
 
 test('RIVIS Cloud Gallery UI and Save All progress support one-row mobile actions and safe remove',()=>{
  const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
