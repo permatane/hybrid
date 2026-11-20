@@ -2120,7 +2120,7 @@ async function refreshCloudGallery(page=cloudGalleryPage){
  if(!gatewayVerified){cloudSyncStatus('Hubungkan Google terlebih dahulu untuk membuka Cloud Gallery.');return;}
  if(cloudGalleryRefreshPromise)return cloudGalleryRefreshPromise;
  const requestedPage=Math.max(1,Number(page)||1);
- if(!cloudGalleryItems.length&&requestedPage===1){const cached=readCloudGalleryCache();if(cached.length)renderCloudGallery(cached,1,cached.length);}
+ if(!cloudGalleryItems.length&&requestedPage===1){const cached=readCloudGalleryCache();if(cached.length)renderCloudGallery(cached.slice(0,CLOUD_GALLERY_PAGE_SIZE),1,cached.length);}
  const task=(async()=>{
   const button=$('rvCloudRefreshGallery'),old=button?.textContent||'Refresh Gallery';
   if(button){button.disabled=true;button.textContent='Loading...';}
@@ -2205,7 +2205,7 @@ async function saveCardToCloud(ideaId,button){
  if(!gatewayVerified){cloudSyncStatus('Klik Connect Google terlebih dahulu.');showToast('Hubungkan Google melalui Cloud Gallery sebelum menyimpan ke cloud.','error');return;}
  const idea=window.RIVIS_LIBRARY_BRIDGE?.getIdea(ideaId);if(!idea){cloudSyncStatus('Card lokal tidak ditemukan.');showToast('Card lokal tidak ditemukan.','error');return;}
  const old=button?.textContent||'Save to Cloud';if(button){button.disabled=true;button.textContent='Saving...';}
- try{await saveIdeaToCloud(idea);cloudSyncStatus('Berhasil disimpan ke Cloud Gallery: '+(idea.conceptName||idea.ideaId));showToast('Berhasil disimpan ke Cloud: '+(idea.conceptName||idea.ideaId),'success');}
+ try{await saveIdeaToCloud(idea);cloudSyncStatus('Berhasil disimpan ke Cloud Gallery: '+(idea.conceptName||idea.ideaId));showToast('Berhasil disimpan ke Cloud: '+(idea.conceptName||idea.ideaId),'success');try{await refreshCloudGallery(1);}catch(refreshError){cloudSyncStatus('Card tersimpan, tetapi Gallery belum diperbarui: '+refreshError.message);}}
  catch(error){cloudSyncStatus('Gagal menyimpan '+(idea.conceptName||idea.ideaId)+': '+error.message);showToast('Gagal menyimpan ke Cloud: '+error.message,'error');}
  finally{if(button){button.disabled=false;button.textContent=old;}}
 }
@@ -2257,7 +2257,7 @@ async function saveAllToCloud(button){
   // Two cards at a time; each card already limits its own image uploads to two workers.
   await Promise.all(Array.from({length:Math.min(2,total)},worker));
   if(saved){
-   try{await refreshCloudGallery();}
+   try{await refreshCloudGallery(1);}
    catch(error){cloudSyncStatus(saved+' card tersimpan, tetapi daftar gallery belum berhasil diperbarui: '+error.message);}
   }
   if(failures.length){
