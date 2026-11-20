@@ -210,7 +210,7 @@ async function getCatalog(ctx){
  if(catalogFileIdCache){try{return {fileId:catalogFileIdCache,...await driveReadJson(ctx,catalogFileIdCache)};}catch(_){catalogFileIdCache='';}}
  const file=await driveFindJson(ctx,CATALOG_NAME);if(!file)return null;catalogFileIdCache=file.id;return {fileId:file.id,...await driveReadJson(ctx,file.id)};
 }
-function emptyCatalog(){return {schema:'rivis-drive-json',schemaVersion:3,revision:1,createdAt:now(),updatedAt:now(),migration:{status:'complete',offset:0,total:0,source:'new'},ideas:[]};}
+function emptyCatalog(){return {schema:'rivis-drive-json',schemaVersion:4,revision:1,createdAt:now(),updatedAt:now(),migration:{status:'complete',offset:0,total:0,source:'new'},ideas:[]};}
 async function createCatalog(ctx,catalog){const saved=await driveWriteJson(ctx,{name:CATALOG_NAME,document:catalog});catalogFileIdCache=saved.fileId;return saved.fileId;}
 async function saveCatalog(ctx,catalog,fileId,etag=''){catalog.revision=Number(catalog.revision||0)+1;catalog.updatedAt=now();const saved=await driveWriteJson(ctx,{fileId,name:CATALOG_NAME,document:catalog,etag});catalogFileIdCache=saved.fileId;return saved;}
 function assetFromRow(r){return {assetId:r[0],ideaId:r[1],sceneId:r[2]||'',assetType:r[3]||'reference',driveFileId:r[4]||'',fileName:r[5]||'',mimeType:r[6]||'',format:r[7]||'',width:r[8]||'',height:r[9]||'',megapixels:r[10]||'',fileSizeBytes:r[11]||'',version:r[12]||1,isActive:r[13]??'true',createdAt:r[14]||'',sourceAssetId:r[15]||''};}
@@ -227,24 +227,24 @@ async function readLegacySnapshot(ctx){
 }
 function catalogSummary(doc,fileId){
  const idea=doc.idea||{},prompts=Array.isArray(doc.prompts)?doc.prompts:[],assets=Array.isArray(doc.assets)?doc.assets:[],active=prompts.find(p=>String(p.promptId)===String(idea.activePromptId))||prompts.find(p=>['true','1','yes'].includes(String(p.activeVersion).toLowerCase()))||prompts.at(-1)||{};
- const activeAsset=asset=>({assetId:asset.assetId,ideaId:asset.ideaId,sceneId:asset.sceneId||'',assetType:asset.assetType,driveFileId:asset.driveFileId||'',fileName:asset.fileName||'',mimeType:asset.mimeType||'',format:asset.format||'',width:asset.width||'',height:asset.height||'',megapixels:asset.megapixels||'',fileSizeBytes:asset.fileSizeBytes||'',version:asset.version||1,isActive:asset.isActive??'true',createdAt:asset.createdAt||''});
+ const activeAsset=asset=>({assetId:asset.assetId,sceneId:asset.sceneId||'',assetType:asset.assetType,driveFileId:asset.driveFileId||'',fileName:asset.fileName||'',mimeType:asset.mimeType||'',width:asset.width||'',height:asset.height||'',isActive:asset.isActive??'true'});
  const generated=assets.filter(a=>a.assetType==='generated'&&String(a.isActive).toLowerCase()!=='false');
  const cover=generated.filter(a=>!a.sceneId).at(-1)||generated.at(-1)||null;
  const reference=assets.filter(a=>a.assetType==='reference'&&String(a.isActive).toLowerCase()!=='false').at(-1)||null;
  const galleryAssets=[cover,reference].filter(Boolean).map(activeAsset);
- const activePrompt=active.promptId?{promptId:active.promptId,ideaId:active.ideaId,simplePrompt:active.simplePrompt||'',visualPrompt:active.visualPrompt||'',finalPrompt:active.finalPrompt||'',activeVersion:active.activeVersion??true}:null;
- const summary={ideaId:idea.ideaId,fileId,cardCode:idea.cardCode||idea.uniqueCode||idea.ideaId,conceptName:idea.conceptName||idea.title||idea.name||'Untitled Idea',title:idea.title||idea.conceptName||'Untitled Idea',productionType:idea.productionType||'single',dataType:idea.dataType||'',category:idea.category||'',subcategory:idea.subcategory||'',visualStyle:idea.visualStyle||idea.style||'',assetType:idea.assetType||'',colorPalette:idea.colorPalette||'',targetBuyer:idea.targetBuyer||'',designNeed:idea.designNeed||'',commercialValueScore:idea.commercialValueScore??idea.score??null,score:idea.score??idea.commercialValueScore??null,status:idea.status||'Saved',createdAt:idea.createdAt||now(),updatedAt:idea.updatedAt||now(),parentIdeaId:idea.parentIdeaId||'',driveFolderId:idea.driveFolderId||'',coverAssetId:idea.coverAssetId||cover?.assetId||'',activePromptId:idea.activePromptId||active.promptId||'',simplePrompt:idea.simplePrompt||active.simplePrompt||'',visualPrompt:idea.visualPrompt||active.visualPrompt||'',finalGenerationPrompt:idea.finalGenerationPrompt||active.finalPrompt||'',prompts:activePrompt?[activePrompt]:[],cloudAssets:galleryAssets,cloudAssetRefs:{...(cover?{cover:activeAsset(cover)}:{}),...(reference?{reference:activeAsset(reference)}:{})}};
+ const galleryPrompt=String(idea.simplePrompt||active.simplePrompt||active.finalPrompt||active.visualPrompt||idea.finalGenerationPrompt||'').slice(0,221);
+ const summary={ideaId:idea.ideaId,fileId,cardCode:idea.cardCode||idea.uniqueCode||idea.ideaId,conceptName:idea.conceptName||idea.title||idea.name||'Untitled Idea',title:idea.title||idea.conceptName||'Untitled Idea',productionType:idea.productionType||'single',dataType:idea.dataType||'',category:idea.category||'',subcategory:idea.subcategory||'',visualStyle:idea.visualStyle||idea.style||'',assetType:idea.assetType||'',colorPalette:idea.colorPalette||'',targetBuyer:idea.targetBuyer||'',designNeed:idea.designNeed||'',commercialValueScore:idea.commercialValueScore??idea.score??null,score:idea.score??idea.commercialValueScore??null,status:idea.status||'Saved',createdAt:idea.createdAt||now(),updatedAt:idea.updatedAt||now(),parentIdeaId:idea.parentIdeaId||'',driveFolderId:idea.driveFolderId||'',coverAssetId:idea.coverAssetId||cover?.assetId||'',activePromptId:idea.activePromptId||active.promptId||'',simplePrompt:galleryPrompt,visualPrompt:'',finalGenerationPrompt:'',prompts:[],cloudAssets:galleryAssets};
  return summary;
 }
 function cleanJsonValue(value){if(typeof value==='string'&&(value.startsWith('data:image/')||value.startsWith('blob:')))return '';if(Array.isArray(value))return value.map(cleanJsonValue);if(value&&typeof value==='object'){const out={};for(const [key,item] of Object.entries(value)){if(['referenceImageBlob','referenceImageFile','imageBase64'].includes(key))continue;out[key]=cleanJsonValue(item);}return out;}return value;}
-async function writeIdeaDocument(ctx,doc,fileId=''){
+async function writeIdeaDocument(ctx,doc,fileId='',etag=''){
  const safeId=String(doc.idea?.ideaId||'').replace(/[^A-Za-z0-9_-]/g,'_').slice(0,128);if(!safeId)throw new Error('Invalid ideaId for Drive JSON document.');
  const name='RIVIS_IDEA_'+safeId+'.json';let existing=fileId;if(!existing){const found=await driveFindJson(ctx,name);existing=found?.id||'';}
- return (await driveWriteJson(ctx,{fileId:existing||null,name,document:cleanJsonValue(doc)})).fileId;
+ return (await driveWriteJson(ctx,{fileId:existing||null,name,document:cleanJsonValue(doc),etag})).fileId;
 }
 async function initializeCatalog(ctx){
  const current=await getCatalog(ctx);if(current)return current;
- if(h.validFileId(SPREADSHEET_ID())){const docs=await readLegacySnapshot(ctx),catalog={schema:'rivis-drive-json',schemaVersion:2,revision:1,createdAt:now(),updatedAt:now(),migration:{status:docs.length?'pending':'complete',offset:0,total:docs.length,source:'Google Sheets'},ideas:docs.map(doc=>catalogSummary(doc,''))};const fileId=await createCatalog(ctx,catalog);return {fileId,document:catalog,etag:''};}
+ if(h.validFileId(SPREADSHEET_ID())){const docs=await readLegacySnapshot(ctx),catalog={schema:'rivis-drive-json',schemaVersion:4,revision:1,createdAt:now(),updatedAt:now(),migration:{status:docs.length?'pending':'complete',offset:0,total:docs.length,source:'Google Sheets'},ideas:docs.map(doc=>catalogSummary(doc,''))};const fileId=await createCatalog(ctx,catalog);return {fileId,document:catalog,etag:''};}
  const catalog=emptyCatalog(),fileId=await createCatalog(ctx,catalog);return {fileId,document:catalog,etag:''};
 }
 async function migrateLegacyBatch(ctx,limit=8){
@@ -264,19 +264,19 @@ function compactCatalogEntry(entry){
  const cover=generated.filter(a=>!a.sceneId).at(-1)||generated.at(-1)||refs.cover||null;
  const reference=assets.filter(a=>a.assetType==='reference'&&String(a.isActive).toLowerCase()!=='false').at(-1)||refs.reference||null;
  const keep=[cover,reference].filter(Boolean);
+ const assetFields=a=>({assetId:a.assetId,sceneId:a.sceneId||'',assetType:a.assetType,driveFileId:a.driveFileId||'',fileName:a.fileName||'',mimeType:a.mimeType||'',width:a.width||'',height:a.height||'',isActive:a.isActive??'true'});
  const prompts=Array.isArray(entry.prompts)?entry.prompts:[];
  const active=prompts.find(p=>String(p.promptId||'')===String(entry.activePromptId||''))||prompts.at(-1)||null;
- const compactPrompt=active?{promptId:active.promptId,ideaId:active.ideaId,simplePrompt:active.simplePrompt||'',visualPrompt:active.visualPrompt||'',finalPrompt:active.finalPrompt||'',activeVersion:active.activeVersion??true}:null;
- const assetFields=a=>({assetId:a.assetId,ideaId:a.ideaId,sceneId:a.sceneId||'',assetType:a.assetType,driveFileId:a.driveFileId||'',fileName:a.fileName||'',mimeType:a.mimeType||'',format:a.format||'',width:a.width||'',height:a.height||'',megapixels:a.megapixels||'',fileSizeBytes:a.fileSizeBytes||'',version:a.version||1,isActive:a.isActive??'true',createdAt:a.createdAt||''});
- return {...entry,prompts:compactPrompt?[compactPrompt]:[],cloudAssets:keep.map(assetFields),cloudAssetRefs:{...(cover?{cover:assetFields(cover)}:{}),...(reference?{reference:assetFields(reference)}:{})}};
+ const prompt=String(entry.simplePrompt||active?.simplePrompt||active?.finalPrompt||active?.visualPrompt||'').slice(0,221);
+ return {...entry,simplePrompt:prompt,visualPrompt:'',finalGenerationPrompt:'',prompts:[],cloudAssets:keep.map(assetFields)};
 }
 async function compactCatalogIfNeeded(ctx,current){
  let latest=current;
  for(let attempt=0;attempt<5;attempt++){
-  if(Number(latest.document.schemaVersion||0)>=3)return latest;
+  if(Number(latest.document.schemaVersion||0)>=4)return latest;
   const catalog=latest.document;
   catalog.ideas=(Array.isArray(catalog.ideas)?catalog.ideas:[]).map(compactCatalogEntry);
-  catalog.schemaVersion=3;
+  catalog.schemaVersion=4;
   try{const saved=await saveCatalog(ctx,catalog,latest.fileId,latest.etag);return {fileId:latest.fileId,document:catalog,etag:saved.etag};}
   catch(error){if(!String(error.message).includes('DRIVE_JSON_CONFLICT')||attempt===4)throw error;latest=await getCatalog(ctx);if(!latest)throw new Error('Cloud JSON catalog disappeared during compaction.');}
  }
@@ -288,7 +288,7 @@ async function updateCatalogEntry(ctx,summary){
   const current=await initializeCatalog(ctx),catalog=current.document;
   const index=catalog.ideas.findIndex(x=>String(x.ideaId)===String(summary.ideaId));
   if(index>=0)catalog.ideas[index]=summary;else catalog.ideas.push(summary);
-  catalog.schemaVersion=3;
+  catalog.schemaVersion=4;
   try{await saveCatalog(ctx,catalog,current.fileId,current.etag);return;}
   catch(error){
    if(!String(error.message).includes('DRIVE_JSON_CONFLICT')||attempt===6)throw error;
@@ -347,7 +347,7 @@ exports.handler=async(event)=>{
    const idea=jsonObject(body.idea),ideaId=text(idea.ideaId||id('idea'),128);if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))return h.json(400,{error:'Invalid ideaId'},headers);
    const current=await ensureJsonCatalog(ctx);if(!current)return h.json(409,{error:'Legacy migration is required before saving. Keep RIVIS_SPREADSHEET_ID configured and open Cloud Gallery once.',migrationRequired:true},headers);
    if(current.document.migration?.status==='pending')return h.json(409,{error:'Legacy migration is still in progress.',migrationRequired:true},headers);
-   const existing=current.document.ideas.find(x=>String(x.ideaId)===ideaId),existingDoc=existing?.fileId?(await driveReadJson(ctx,existing.fileId)).document:null;
+   const existing=current.document.ideas.find(x=>String(x.ideaId)===ideaId),existingLoaded=existing?.fileId?await driveReadJson(ctx,existing.fileId):null,existingDoc=existingLoaded?.document||null;
    idea.ideaId=ideaId;idea.createdAt=idea.createdAt||existingDoc?.idea?.createdAt||now();idea.updatedAt=now();idea.status=idea.status||'Saved';
    const prompts=Array.isArray(body.prompts)&&body.prompts.length?body.prompts:(Array.isArray(idea.cloudPrompts)?idea.cloudPrompts:(Array.isArray(idea.prompts)?idea.prompts:(existingDoc?.prompts||[])));
    const assets=Array.isArray(body.assets)&&body.assets.length?body.assets:(Array.isArray(idea.cloudAssets)?idea.cloudAssets:(existingDoc?.assets||[]));
@@ -356,7 +356,7 @@ exports.handler=async(event)=>{
    const generationLogs=Array.isArray(body.generationLogs)&&body.generationLogs.length?body.generationLogs:(Array.isArray(idea.cloudGenerationLogs)?idea.cloudGenerationLogs:(existingDoc?.generationLogs||[]));
    idea.cloudAssets=assets;idea.cloudPrompts=prompts;idea.cloudGroups=groups;idea.cloudGroupItems=groupItems;idea.cloudGenerationLogs=generationLogs;
    const doc=cleanJsonValue({schemaVersion:2,idea,prompts,assets,groups,groupItems,generationLogs,updatedAt:idea.updatedAt});
-   const fileId=await writeIdeaDocument(ctx,doc,existing?.fileId||'');await updateCatalogEntry(ctx,catalogSummary(doc,fileId));
+   const fileId=await writeIdeaDocument(ctx,doc,existing?.fileId||'',existingLoaded?.etag||'');await updateCatalogEntry(ctx,catalogSummary(doc,fileId));
    return h.json(200,{ok:true,storageMode:'drive-json',ideaId,result:{idea:existing?'updated':'created',prompts:prompts.length,assets:assets.length,groups:groups.length,groupItems:groupItems.length,generationLogs:generationLogs.length},fileId},headers);
   }
   if(body.action==='delete'||body.action==='archive'){
