@@ -1522,6 +1522,7 @@ const cloudPending=new Map();
 const GATEWAY_ORIGIN='https://vectorichqc2026.netlify.app';
 let gatewayPopup=null,gatewayChannel='',gatewayConnected=false,gatewayVerified=false;
 let cloudGalleryItems=[],cloudGalleryPage=1;
+let cloudGallerySelectedIds=new Set();
 let cloudBulkProgress=null,cloudGalleryRefreshPromise=null;
 const CLOUD_GALLERY_CACHE_KEY='rivis.cloud.gallery.cache.v1';
 function readCloudGalleryCache(){
@@ -1673,13 +1674,22 @@ function render(){
  const sec=document.createElement('section');sec.id='tabSectionCloudLibrary';sec.className='tab-section hidden space-y-3';
  sec.innerHTML=
  '<div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-sm font-black text-white">RIVIS CLOUD GALLERY</h2><p class="text-xs text-slate-400 mt-1">Cloud cards, prompt ideas, and reference collections.</p></div><div class="flex flex-wrap items-center gap-2"><button id="rvCloudOpenGateway" type="button" class="rv-primary shrink-0">Reconnect Google</button><span id="rvCloudStatusBadge" class="rounded-full px-3 py-2 text-[10px] font-black border border-slate-700" role="status" aria-live="polite">CLOUD NOT CONNECTED</span></div></div>'+
- '<div class="rv-cloud-card space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="text-xs font-black text-white">Cloud Gallery</h3><p class="text-xs text-slate-400 mt-1">Saved cards and prompt ideas, with or without reference images.</p></div><button id="rvCloudRefreshGallery" type="button" class="rv-primary">↻ Refresh Gallery</button></div><div id="rvCloudGalleryGrid" class="rv-cloud-gallery-grid"><div class="rv-cloud-empty">Reconnect Google to view your Cloud Gallery.</div></div><div id="rvCloudGalleryPagination" class="rv-cloud-gallery-pagination" aria-label="Cloud Gallery pagination" hidden></div><p id="rvCloudSyncStatus" class="text-xs text-slate-400" aria-live="polite">Cloud Gallery siap setelah koneksi Google diverifikasi.</p></div>';
+ '<div class="rv-cloud-card space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="text-xs font-black text-white">Cloud Gallery</h3><p class="text-xs text-slate-400 mt-1">Saved cards and prompt ideas, with or without reference images.</p></div><button id="rvCloudRefreshGallery" type="button" class="rv-primary">↻ Refresh Gallery</button></div><div class="rv-cloud-selection-toolbar"><div class="rv-cloud-selection-count" id="rvCloudSelectionCount" aria-live="polite">0 card dipilih</div><div class="rv-cloud-selection-actions"><button id="rvCloudSelectAll" type="button">Pilih Semua</button><button id="rvCloudClearSelection" type="button" disabled>Batalkan Pilihan</button><button id="rvCloudDownloadSelected" type="button" class="rv-cloud-download-selected" disabled>Download Selected ZIP</button></div></div><div id="rvCloudGalleryGrid" class="rv-cloud-gallery-grid"><div class="rv-cloud-empty">Reconnect Google to view your Cloud Gallery.</div></div><div id="rvCloudGalleryPagination" class="rv-cloud-gallery-pagination" aria-label="Cloud Gallery pagination" hidden></div><p id="rvCloudSyncStatus" class="text-xs text-slate-400" aria-live="polite">Cloud Gallery siap setelah koneksi Google diverifikasi.</p></div>';
  const style=document.createElement('style');
- style.textContent='#tabSectionCloudLibrary{padding:12px;background:rgba(15,23,42,.76);border:1px solid #334155;border-radius:16px}#tabSectionCloudLibrary .rv-cloud-card{padding:14px;border:1px solid #334155;border-radius:12px;background:#02061788}#tabSectionCloudLibrary button{padding:9px 12px;border-radius:8px;background:#1e293b;color:white;font-size:11px;font-weight:800}#tabSectionCloudLibrary .rv-primary{background:#0369a1}#tabSectionCloudLibrary [hidden]{display:none!important}.rv-cloud-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px}.rv-cloud-gallery-card{min-width:0;overflow:hidden;border:1px solid #334155;border-radius:12px;background:#0b1220;display:flex;flex-direction:column}.rv-cloud-gallery-preview{height:170px;background:linear-gradient(135deg,#111827,#1e293b);display:grid;place-items:center;overflow:hidden}.rv-cloud-gallery-preview img{width:100%;height:100%;object-fit:contain;background:#020617}.rv-cloud-gallery-body{padding:11px;display:flex;flex-direction:column;gap:7px;flex:1}.rv-cloud-gallery-prompt{font-size:10px;line-height:1.5;color:#cbd5e1;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.rv-cloud-prompt-preview{height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#c4b5fd;background:radial-gradient(circle at 50% 35%,#312e8166,transparent 60%),#020617}.rv-cloud-prompt-preview span{font-size:28px}.rv-cloud-prompt-preview strong{font-size:10px;letter-spacing:.12em}.rv-cloud-prompt-preview small{font-size:9px;color:#64748b}.rv-cloud-gallery-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 42px;gap:4px;margin-top:auto}.rv-cloud-gallery-actions button{min-width:0;margin-top:0!important;padding:8px 5px!important;font-size:10px!important}.rv-cloud-gallery-explore{background:#312e81!important;color:#ede9fe!important}.rv-cloud-gallery-load{background:#075985!important;color:#e0f2fe!important}.rv-cloud-gallery-delete{background:#3f1720!important;color:#fecaca!important;border:1px solid #7f1d1d!important}.rv-cloud-gallery-delete:hover{background:#7f1d1d!important}.rv-cloud-gallery-body h4{font-size:12px;line-height:1.4;font-weight:800;color:#f8fafc}.rv-cloud-gallery-meta{font-size:10px;color:#94a3b8}.rv-cloud-gallery-load{margin-top:auto;background:#075985!important;color:#e0f2fe!important}.rv-cloud-gallery-pagination{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;padding:7px 0 2px}.rv-cloud-page-info{font-size:10px;color:#94a3b8;margin-right:6px}.rv-cloud-page-btn{min-width:32px;height:30px;padding:0 9px!important;border:1px solid #334155!important;border-radius:7px!important;background:#0f172a!important;color:#cbd5e1!important;font-size:11px!important;font-weight:800}.rv-cloud-page-btn:hover:not(:disabled){background:#1e3a5f!important;border-color:#0ea5e9!important}.rv-cloud-page-btn.is-active{background:#075985!important;border-color:#0ea5e9!important;color:#fff!important}.rv-cloud-page-btn:disabled{opacity:.35;cursor:not-allowed}.rv-cloud-page-ellipsis{padding:0 3px;color:#64748b;font-size:11px}.rv-cloud-empty{grid-column:1/-1;padding:32px 14px;text-align:center;border:1px dashed #475569;border-radius:12px;color:#94a3b8;font-size:11px}';
+ style.textContent='#tabSectionCloudLibrary{padding:12px;background:rgba(15,23,42,.76);border:1px solid #334155;border-radius:16px}#tabSectionCloudLibrary .rv-cloud-card{padding:14px;border:1px solid #334155;border-radius:12px;background:#02061788}#tabSectionCloudLibrary button{padding:9px 12px;border-radius:8px;background:#1e293b;color:white;font-size:11px;font-weight:800}#tabSectionCloudLibrary .rv-primary{background:#0369a1}#tabSectionCloudLibrary [hidden]{display:none!important}.rv-cloud-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px}.rv-cloud-gallery-card{min-width:0;overflow:hidden;border:1px solid #334155;border-radius:12px;background:#0b1220;display:flex;flex-direction:column}.rv-cloud-gallery-preview{height:170px;background:linear-gradient(135deg,#111827,#1e293b);display:grid;place-items:center;overflow:hidden}.rv-cloud-gallery-preview img{width:100%;height:100%;object-fit:contain;background:#020617}.rv-cloud-gallery-body{padding:11px;display:flex;flex-direction:column;gap:7px;flex:1}.rv-cloud-gallery-prompt{font-size:10px;line-height:1.5;color:#cbd5e1;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.rv-cloud-prompt-preview{height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#c4b5fd;background:radial-gradient(circle at 50% 35%,#312e8166,transparent 60%),#020617}.rv-cloud-prompt-preview span{font-size:28px}.rv-cloud-prompt-preview strong{font-size:10px;letter-spacing:.12em}.rv-cloud-prompt-preview small{font-size:9px;color:#64748b}.rv-cloud-gallery-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 42px;gap:4px;margin-top:auto}.rv-cloud-gallery-actions button{min-width:0;margin-top:0!important;padding:8px 5px!important;font-size:10px!important}.rv-cloud-gallery-explore{background:#312e81!important;color:#ede9fe!important}.rv-cloud-gallery-load{background:#075985!important;color:#e0f2fe!important}.rv-cloud-gallery-delete{background:#3f1720!important;color:#fecaca!important;border:1px solid #7f1d1d!important}.rv-cloud-gallery-delete:hover{background:#7f1d1d!important}.rv-cloud-gallery-body h4{font-size:12px;line-height:1.4;font-weight:800;color:#f8fafc}.rv-cloud-gallery-meta{font-size:10px;color:#94a3b8}.rv-cloud-gallery-load{margin-top:auto;background:#075985!important;color:#e0f2fe!important}.rv-cloud-gallery-pagination{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;padding:7px 0 2px}.rv-cloud-page-info{font-size:10px;color:#94a3b8;margin-right:6px}.rv-cloud-page-btn{min-width:32px;height:30px;padding:0 9px!important;border:1px solid #334155!important;border-radius:7px!important;background:#0f172a!important;color:#cbd5e1!important;font-size:11px!important;font-weight:800}.rv-cloud-page-btn:hover:not(:disabled){background:#1e3a5f!important;border-color:#0ea5e9!important}.rv-cloud-page-btn.is-active{background:#075985!important;border-color:#0ea5e9!important;color:#fff!important}.rv-cloud-page-btn:disabled{opacity:.35;cursor:not-allowed}.rv-cloud-page-ellipsis{padding:0 3px;color:#64748b;font-size:11px}.rv-cloud-empty{grid-column:1/-1;padding:32px 14px;text-align:center;border:1px dashed #475569;border-radius:12px;color:#94a3b8;font-size:11px}.rv-cloud-selection-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 10px;border:1px solid #334155;border-radius:10px;background:#0b1220}.rv-cloud-selection-count{font-size:11px;font-weight:800;color:#cbd5e1}.rv-cloud-selection-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.rv-cloud-selection-actions button{padding:7px 10px!important;font-size:10px!important}.rv-cloud-selection-actions button:disabled{opacity:.38;cursor:not-allowed}.rv-cloud-selection-actions .rv-cloud-download-selected{background:#047857!important;color:#ecfdf5!important}.rv-cloud-select-label{display:flex;align-items:center;gap:7px;width:max-content;max-width:100%;padding:5px 8px;border:1px solid #334155;border-radius:7px;background:#111827;color:#cbd5e1;font-size:10px;font-weight:800;cursor:pointer}.rv-cloud-select-label input{width:14px;height:14px;accent-color:#06b6d4;cursor:pointer}.rv-cloud-gallery-card.is-selected{border-color:#06b6d4;box-shadow:0 0 0 1px #0891b2,0 8px 24px #0891b21c}.rv-cloud-gallery-card.is-selected .rv-cloud-select-label{border-color:#0891b2;background:#083344;color:#cffafe}';
  document.head.appendChild(style);
  const after=$('tabSectionMetaGen')||$('tabSectionSavedIdeas');if(after)after.insertAdjacentElement('afterend',sec);
  $('rvCloudOpenGateway').addEventListener('click',openCloudGateway);
  $('rvCloudRefreshGallery').addEventListener('click',refreshCloudGallery);
+ $('rvCloudSelectAll').addEventListener('click',selectAllCloudGalleryCards);
+ $('rvCloudClearSelection').addEventListener('click',clearCloudGallerySelection);
+ $('rvCloudDownloadSelected').addEventListener('click',()=>downloadSelectedCloudResultsZip($('rvCloudDownloadSelected')));
+ $('rvCloudGalleryGrid').addEventListener('change',event=>{
+  const input=event.target?.closest?.('[data-cloud-select-id]');if(!input)return;
+  const id=String(input.dataset.cloudSelectId||'');if(!id)return;
+  if(input.checked)cloudGallerySelectedIds.add(id);else cloudGallerySelectedIds.delete(id);
+  updateCloudGallerySelectionUI();
+ });
  renderCloudGallery([]);
 }
 
@@ -1902,8 +1912,123 @@ function cloudReferenceAsset(idea){
  const assets=Array.isArray(idea.cloudAssets)?idea.cloudAssets:[];
  return assets.filter(a=>a.assetType==='reference').at(-1)||idea.cloudAssetRefs?.reference||null;
 }
+function updateCloudGallerySelectionUI(){
+ const count=cloudGallerySelectedIds.size;
+ const countEl=$('rvCloudSelectionCount'),selectAll=$('rvCloudSelectAll'),clear=$('rvCloudClearSelection'),download=$('rvCloudDownloadSelected'),grid=$('rvCloudGalleryGrid');
+ if(countEl)countEl.textContent=count+' card dipilih';
+ if(selectAll)selectAll.disabled=!cloudGalleryItems.length||count===cloudGalleryItems.length;
+ if(clear)clear.disabled=count===0;
+ if(download)download.disabled=count===0||!gatewayVerified;
+ if(grid)grid.querySelectorAll('[data-cloud-select-id]').forEach(input=>{
+  const selected=cloudGallerySelectedIds.has(String(input.dataset.cloudSelectId||''));
+  input.checked=selected;
+  input.closest('.rv-cloud-gallery-card')?.classList.toggle('is-selected',selected);
+ });
+}
+function selectAllCloudGalleryCards(){
+ cloudGalleryItems.forEach(idea=>{if(idea?.ideaId)cloudGallerySelectedIds.add(String(idea.ideaId));});
+ updateCloudGallerySelectionUI();
+}
+function clearCloudGallerySelection(){
+ cloudGallerySelectedIds.clear();
+ updateCloudGallerySelectionUI();
+}
+function cloudGeneratedAssets(idea){
+ const all=[...(Array.isArray(idea?.cloudAssets)?idea.cloudAssets:[])];
+ const refs=idea?.cloudAssetRefs||{};
+ if(refs.cover)all.push(refs.cover);
+ if(Array.isArray(refs.scenes))all.push(...refs.scenes);
+ const seen=new Set();
+ return all.filter(asset=>{
+  if(!asset?.driveFileId||asset.assetType!=='generated'||String(asset.isActive).toLowerCase()==='false')return false;
+  const key=String(asset.driveFileId);
+  if(seen.has(key))return false;
+  seen.add(key);return true;
+ });
+}
+async function downloadSelectedCloudResultsZip(btnEl){
+ const selected=cloudGalleryItems.filter(idea=>cloudGallerySelectedIds.has(String(idea.ideaId)));
+ if(!selected.length){showToast('Pilih minimal satu card dari Cloud Gallery.','info');return;}
+ if(!gatewayVerified){showToast('Hubungkan Google terlebih dahulu untuk mengunduh aset Cloud.','error');return;}
+ if(typeof JSZip==='undefined'){showToast('JSZip library failed to load.','error');return;}
+ const exportable=selected.filter(idea=>{
+  const assets=cloudGeneratedAssets(idea);
+  return idea.productionType==='series'
+   ?assets.some(asset=>Boolean(asset.sceneId))||(Array.isArray(idea.seriesScenes)&&idea.seriesScenes.some(scene=>scene.metadata))
+   :Boolean(cloudCoverAsset(idea)?.driveFileId||idea.metadata);
+ });
+ if(!exportable.length){showToast('Card terpilih belum memiliki gambar hasil generate atau metadata.','error');return;}
+ const skipped=selected.length-exportable.length;
+ const btn=btnEl||$('rvCloudDownloadSelected'),old=btn?.textContent||'Download Selected ZIP';
+ if(btn){btn.disabled=true;btn.textContent='Preparing...';}
+ try{
+  const zip=new JSZip(),metadataRows=[];
+  let completed=0,totalWork=exportable.reduce((sum,idea)=>sum+(idea.productionType==='series'?Math.max(1,(idea.seriesScenes||[]).length):1),0);
+  const progress=label=>{if(btn)btn.textContent=label;};
+  for(const idea of exportable){
+   const base=getCardBaseFilename(idea);
+   if(idea.productionType==='series'&&Array.isArray(idea.seriesScenes)){
+    const assets=cloudGeneratedAssets(idea).filter(asset=>Boolean(asset.sceneId));
+    for(let i=0;i<idea.seriesScenes.length;i++){
+     const scene=idea.seriesScenes[i];
+     const asset=assets.find(item=>String(item.sceneId)===String(scene.sceneId));
+     let exported=null;
+     if(asset?.driveFileId){
+      progress('Downloading '+(completed+1)+'/'+totalWork+'...');
+      const dataUrl=await downloadCloudAsset(asset.driveFileId);
+      const sceneIdea=seriesSceneAssetIdea(idea,scene,i);
+      sceneIdea.generatedImageUrl=dataUrl;
+      sceneIdea.generatedImageWidth=Number(asset.width)||sceneIdea.generatedImageWidth||0;
+      sceneIdea.generatedImageHeight=Number(asset.height)||sceneIdea.generatedImageHeight||0;
+      exported=await getExportedAsset(sceneIdea);
+      zip.file('series/'+base+'/'+exported.filename,exported.data,{compression:'STORE'});
+     }
+     if(scene.metadata){
+      const sceneIdea=seriesSceneAssetIdea(idea,scene,i);
+      metadataRows.push(buildAdobeStockCsvRow(sceneIdea,scene.metadata,exported?.filename||''));
+     }
+     completed++;
+     progress('Preparing '+Math.min(completed,totalWork)+'/'+totalWork+'...');
+    }
+    zip.file('series/'+base+'/series_bible.json',JSON.stringify(idea.seriesBible||{},null,2));
+   }else{
+    const asset=cloudCoverAsset(idea);
+    let exported=null;
+    if(asset?.driveFileId){
+     progress('Downloading '+(completed+1)+'/'+totalWork+'...');
+     const dataUrl=await downloadCloudAsset(asset.driveFileId);
+     const exportIdea={...idea,generatedImageUrl:dataUrl,
+      generatedImageWidth:Number(asset.width)||idea.generatedImageWidth||0,
+      generatedImageHeight:Number(asset.height)||idea.generatedImageHeight||0};
+     exported=await getExportedAsset(exportIdea);
+     zip.file(exported.filename,exported.data,{compression:'STORE'});
+    }
+    if(idea.metadata)metadataRows.push(buildAdobeStockCsvRow(idea,idea.metadata,exported?.filename||''));
+    completed++;
+    progress('Preparing '+Math.min(completed,totalWork)+'/'+totalWork+'...');
+   }
+  }
+  if(metadataRows.length)zip.file('metadata.csv','Filename,Title,Keywords,Category,Releases\r\n'+metadataRows.join('\r\n'));
+  progress('Packaging ZIP...');
+  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}},meta=>{
+   if(btn)btn.textContent='Packaging '+Math.round(meta.percent)+'%...';
+  });
+  const filename=getResultZipFilename(exportable[0],exportable.length);
+  const ok=await executeDownloadManager({data:blob,filename,mimeType:'application/zip'});
+  if(ok)showToast('ZIP Cloud Gallery berhasil dibuat: '+exportable.length+' card'+(skipped?' · '+skipped+' card tanpa hasil dilewati':''),'success');
+ }catch(error){
+  console.error('Cloud Gallery selected ZIP error:',error);
+  showToast('Gagal membuat ZIP Cloud Gallery: '+String(error?.message||error),'error');
+ }finally{
+  if(btn){btn.disabled=false;btn.textContent=old;}
+  updateCloudGallerySelectionUI();
+ }
+}
+
 function renderCloudGallery(ideas,page=1){
  cloudGalleryItems=Array.isArray(ideas)?ideas:[];
+ const validIds=new Set(cloudGalleryItems.map(idea=>String(idea?.ideaId||'')).filter(Boolean));
+ for(const id of cloudGallerySelectedIds)if(!validIds.has(id))cloudGallerySelectedIds.delete(id);
  const grid=$('rvCloudGalleryGrid'),pager=$('rvCloudGalleryPagination');if(!grid)return;
  persistCloudGalleryCache();
  const total=cloudGalleryItems.length,totalPages=Math.max(1,Math.ceil(total/CLOUD_GALLERY_PAGE_SIZE));
@@ -1911,6 +2036,7 @@ function renderCloudGallery(ideas,page=1){
  if(!total){
   grid.innerHTML='<div class="rv-cloud-empty">Belum ada item di Cloud Gallery. Simpan card dari Library atau gunakan Save Idea di Idea Studio.</div>';
   if(pager){pager.hidden=true;pager.innerHTML='';}
+  updateCloudGallerySelectionUI();
   return;
  }
  const start=(cloudGalleryPage-1)*CLOUD_GALLERY_PAGE_SIZE,end=Math.min(total,start+CLOUD_GALLERY_PAGE_SIZE);
@@ -1926,7 +2052,8 @@ function renderCloudGallery(ideas,page=1){
   const title=cloudEscape(idea.conceptName||idea.title||'Untitled Idea'),id=cloudEscape(idea.ideaId);
   const preview=fileId?'<img loading="lazy" decoding="async" alt="" data-cloud-thumb-id="'+cloudEscape(fileId)+'" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=">':'<div class="rv-cloud-prompt-preview"><span>✦</span><strong>PROMPT IDEA</strong><small>No generated image</small></div>';
   const promptText=prompt?'<p class="rv-cloud-gallery-prompt">'+cloudEscape(prompt.slice(0,220))+(prompt.length>220?'…':'')+'</p>':'';
-  return '<article class="rv-cloud-gallery-card" data-cloud-gallery-id="'+id+'"><div class="rv-cloud-gallery-preview">'+preview+'</div><div class="rv-cloud-gallery-body"><h4>'+title+'</h4><div class="rv-cloud-gallery-meta">'+type+' · '+(score!==undefined?('Score '+cloudEscape(score)):'Score —')+'</div><div class="rv-cloud-gallery-meta">'+cloudEscape(idea.updatedAt||idea.createdAt||'Cloud saved')+'</div>'+promptText+'<div class="rv-cloud-gallery-actions"><button type="button" class="rv-cloud-gallery-explore" onclick="RIVIS_EXPLORE_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Explore Idea</button><button type="button" class="rv-cloud-gallery-load" onclick="RIVIS_LOAD_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Load to Library</button><button type="button" class="rv-cloud-gallery-delete" onclick="RIVIS_DELETE_CLOUD_IDEA(&quot;'+id+'&quot;,this)" title="Hapus dari Cloud Gallery; file Drive tetap tersimpan" aria-label="Hapus item Cloud Gallery">Hapus</button></div></div></article>';
+  const selected=cloudGallerySelectedIds.has(String(idea.ideaId));
+  return '<article class="rv-cloud-gallery-card'+(selected?' is-selected':'')+'" data-cloud-gallery-id="'+id+'"><div class="rv-cloud-gallery-preview">'+preview+'</div><div class="rv-cloud-gallery-body"><label class="rv-cloud-select-label"><input type="checkbox" data-cloud-select-id="'+id+'"'+(selected?' checked':'')+'><span>Pilih card</span></label><h4>'+title+'</h4><div class="rv-cloud-gallery-meta">'+type+' · '+(score!==undefined?('Score '+cloudEscape(score)):'Score —')+'</div><div class="rv-cloud-gallery-meta">'+cloudEscape(idea.updatedAt||idea.createdAt||'Cloud saved')+'</div>'+promptText+'<div class="rv-cloud-gallery-actions"><button type="button" class="rv-cloud-gallery-explore" onclick="RIVIS_EXPLORE_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Explore Idea</button><button type="button" class="rv-cloud-gallery-load" onclick="RIVIS_LOAD_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Load to Library</button><button type="button" class="rv-cloud-gallery-delete" onclick="RIVIS_DELETE_CLOUD_IDEA(&quot;'+id+'&quot;,this)" title="Hapus dari Cloud Gallery; file Drive tetap tersimpan" aria-label="Hapus item Cloud Gallery">Hapus</button></div></div></article>';
  }).join('');
  if(pager){
   const button=(label,target,disabled=false,active=false)=>'<button type="button" class="rv-cloud-page-btn'+(active?' is-active':'')+'" data-cloud-page="'+target+'"'+(disabled?' disabled':'')+(active?' aria-current="page"':'')+'>'+label+'</button>';
@@ -1946,6 +2073,7 @@ function renderCloudGallery(ideas,page=1){
    if(Number.isInteger(next)&&next>=1&&next<=totalPages&&next!==cloudGalleryPage)renderCloudGallery(cloudGalleryItems,next);
   };
  }
+ updateCloudGallerySelectionUI();
  loadCloudGalleryThumbnails();
 }
 
