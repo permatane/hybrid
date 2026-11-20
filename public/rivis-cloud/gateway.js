@@ -160,17 +160,23 @@
     } catch (error) { status(error.message, 'error'); }
   }
 
-  async function ensureCloudMigration(requestId){
-    let result=await request('cloud-data?action=list');let batches=0;
-    while(result.migrationRequired){
+  async function ensureCloudMigration(requestId,listOptions=null){
+    let state=await request('cloud-data?action=state');let batches=0;
+    while(state.migrationRequired){
       if(++batches>500)throw new Error('Migrasi Cloud lama melewati batas batch pengaman. Silakan ulangi dari Cloud Gallery.');
-      const migrated=await request('cloud-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'migrate',limit:8})},90000),state=migrated.migration||{};
-      progress(requestId,'migration',Number(state.offset)||0,Number(state.total)||0,'Migrasi data lama ke Drive JSON: '+(Number(state.offset)||0)+' / '+(Number(state.total)||0));
-      if(state.done)break;
-      if(!state.migrated&&Number(state.total)>0)throw new Error('Migrasi tidak menghasilkan kemajuan. Periksa akses Spreadsheet lama dan folder Drive.');
-      result={migrationRequired:true};
+      const migrated=await request('cloud-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'migrate',limit:8})},90000),migration=migrated.migration||{};
+      progress(requestId,'migration',Number(migration.offset)||0,Number(migration.total)||0,'Migrasi data lama ke Drive JSON: '+(Number(migration.offset)||0)+' / '+(Number(migration.total)||0));
+      if(!migration.done&&!migration.migrated&&Number(migration.total)>0)throw new Error('Migrasi tidak menghasilkan kemajuan. Periksa akses Spreadsheet lama dan folder Drive.');
+      state=await request('cloud-data?action=state');
     }
-    return result.migrationRequired?request('cloud-data?action=list'):result;
+    if(!listOptions)return state;
+    const params=new URLSearchParams();
+    if(listOptions.idsOnly===true)params.set('idsOnly','1');
+    else{
+      params.set('page',String(Math.max(1,Number(listOptions.page)||1)));
+      params.set('pageSize',String(Math.max(1,Math.min(100,Number(listOptions.pageSize)||20))));
+    }
+    return request('cloud-data?action=list&'+params.toString());
   }
   async function handleCanvasCommand(event) {
     const d = event.data || {};
@@ -193,7 +199,7 @@
         await ensureCloudMigration(d.requestId);
         result = await request('cloud-data', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'save', idea:payload.idea, prompts:payload.prompts||[], assets:payload.assets||[], groups:payload.groups||[], groupItems:payload.groupItems||[], generationLogs:payload.generationLogs||[]})});
       } else if (d.command === 'list') {
-        result = await ensureCloudMigration(d.requestId);
+        result = await ensureCloudMigration(d.requestId,d.payload||{});
       } else if (d.command === 'load') {
         const ideaId = String(d.payload?.ideaId || '');
         if (!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId)) throw new Error('Idea ID tidak valid.');
