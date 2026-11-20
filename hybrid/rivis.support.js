@@ -2005,13 +2005,22 @@ async function downloadSelectedCloudResultsZip(btnEl){
     idea.cloudGenerationLogs=result.generationLogs||[];
     const localIdea=window.RIVIS_LIBRARY_BRIDGE?.getIdea?.(ideaId)||null;
     if(localIdea){
-     if(localIdea.metadata){idea.metadata=localIdea.metadata;metadataRecovered++;}
+     if(localIdea.metadata&&!localIdea.metadataOutdated){idea.metadata=localIdea.metadata;idea.metadataOutdated=false;metadataRecovered++;}
      if(Array.isArray(localIdea.seriesScenes)){
-      const localScenes=new Map(localIdea.seriesScenes.map((scene,i)=>[String(scene.sceneId||i),scene]));
-      idea.seriesScenes=(Array.isArray(idea.seriesScenes)?idea.seriesScenes:[]).map((scene,i)=>{
-       const localScene=localScenes.get(String(scene.sceneId||i));
-       return localScene?.metadata?{...scene,metadata:localScene.metadata,metadataOutdated:Boolean(localScene.metadataOutdated)}:scene;
+      const remoteScenes=Array.isArray(idea.seriesScenes)?idea.seriesScenes:[];
+      const remoteById=new Map(remoteScenes.map((scene,i)=>[String(scene.sceneId||i),scene]));
+      const localById=new Map(localIdea.seriesScenes.map((scene,i)=>[String(scene.sceneId||i),scene]));
+      const sceneIds=Array.from(new Set([...remoteById.keys(),...localById.keys()]));
+      idea.seriesScenes=sceneIds.map((sceneId,i)=>{
+       const localScene=localById.get(sceneId)||{},remoteScene=remoteById.get(sceneId)||{};
+       const current={...localScene,...remoteScene};
+       const localMetadataReady=Boolean(localScene.metadata)&&!localScene.metadataOutdated&&!localIdea.metadataOutdated;
+       current.metadata=localMetadataReady?localScene.metadata:(remoteScene.metadata||null);
+       current.metadataOutdated=localMetadataReady?false:Boolean(localScene.metadataOutdated||localIdea.metadataOutdated||remoteScene.metadataOutdated);
+       if(localMetadataReady)metadataRecovered++;
+       return current;
       });
+      if(localIdea.metadataOutdated)idea.metadataOutdated=true;
      }
     }
     if(!idea.cloudAssetRefs){
@@ -2062,7 +2071,7 @@ async function downloadSelectedCloudResultsZip(btnEl){
       exported=await getExportedAsset(sceneIdea);
       zip.file('series/'+base+'/'+exported.filename,exported.data,{compression:'STORE'});
      }
-     if(scene.metadata)metadataRows.push(buildAdobeStockCsvRow(seriesSceneAssetIdea(idea,scene,i),scene.metadata,exported?.filename||''));
+     if(scene.metadata&&!scene.metadataOutdated&&!idea.metadataOutdated)metadataRows.push(buildAdobeStockCsvRow(seriesSceneAssetIdea(idea,scene,i),scene.metadata,exported?.filename||''));
      else missingMetadata.push(base+' · '+(scene.sceneTitle||'Scene '+(i+1)));
      completed++;progress('Preparing '+Math.min(completed,totalWork)+'/'+totalWork+'...');
     }
@@ -2078,7 +2087,7 @@ async function downloadSelectedCloudResultsZip(btnEl){
      exported=await getExportedAsset(exportIdea);
      zip.file(exported.filename,exported.data,{compression:'STORE'});
     }
-    if(idea.metadata)metadataRows.push(buildAdobeStockCsvRow(idea,idea.metadata,exported?.filename||''));
+    if(idea.metadata&&!idea.metadataOutdated)metadataRows.push(buildAdobeStockCsvRow(idea,idea.metadata,exported?.filename||''));
     else missingMetadata.push(base);
     completed++;progress('Preparing '+Math.min(completed,totalWork)+'/'+totalWork+'...');
    }
