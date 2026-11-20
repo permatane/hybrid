@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.105. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
+/* RIVIS GitHub Support — v3.4.106. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
