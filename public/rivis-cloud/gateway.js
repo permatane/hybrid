@@ -13,6 +13,7 @@
   let signedIn = false;
   let verifiedSelection = false;
   let storageInfo = null;
+  let cloudMigrationReadyAt = 0;
   // Keep large image bytes in RIVIS; request only the chunk currently being uploaded.
   const chunkPending = new Map();
   let chunkSequence = 0;
@@ -133,6 +134,7 @@
       const result = await request('cloud-test');
       storageInfo = result;
       verifiedSelection = result.ok === true && result.storageMode === 'drive-json';
+      cloudMigrationReadyAt = 0;
       if (!verifiedSelection) throw new Error('Folder Google Drive belum dapat digunakan untuk RIVIS JSON Database.');
       status('CLOUD CONNECTED · Google Drive JSON siap digunakan.', 'success');
       $('testResult').textContent = JSON.stringify({storage:'Google Drive JSON',folder:result.folder?.name,legacyMigrationAvailable:result.legacyMigrationAvailable===true}, null, 2);
@@ -154,6 +156,7 @@
       signedIn = false;
       verifiedSelection = false;
       storageInfo = null;
+      cloudMigrationReadyAt = 0;
       render();
       status('Sesi Google diputus.', 'warning');
       emit('RIVIS_CLOUD_STATUS', {connected:false, verified:false});
@@ -161,15 +164,18 @@
   }
 
   async function ensureCloudMigration(requestId,listOptions=null){
-    let state=await request('cloud-data?action=state');let batches=0;
-    while(state.migrationRequired){
-      if(++batches>500)throw new Error('Migrasi Cloud lama melewati batas batch pengaman. Silakan ulangi dari Cloud Gallery.');
-      const migrated=await request('cloud-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'migrate',limit:8})},90000),migration=migrated.migration||{};
-      progress(requestId,'migration',Number(migration.offset)||0,Number(migration.total)||0,'Migrasi data lama ke Drive JSON: '+(Number(migration.offset)||0)+' / '+(Number(migration.total)||0));
-      if(!migration.done&&!migration.migrated&&Number(migration.total)>0)throw new Error('Migrasi tidak menghasilkan kemajuan. Periksa akses Spreadsheet lama dan folder Drive.');
-      state=await request('cloud-data?action=state');
+    if(!cloudMigrationReadyAt||Date.now()-cloudMigrationReadyAt>120000){
+      let state=await request('cloud-data?action=state');let batches=0;
+      while(state.migrationRequired){
+        if(++batches>500)throw new Error('Migrasi Cloud lama melewati batas batch pengaman. Silakan ulangi dari Cloud Gallery.');
+        const migrated=await request('cloud-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'migrate',limit:8})},90000),migration=migrated.migration||{};
+        progress(requestId,'migration',Number(migration.offset)||0,Number(migration.total)||0,'Migrasi data lama ke Drive JSON: '+(Number(migration.offset)||0)+' / '+(Number(migration.total)||0));
+        if(!migration.done&&!migration.migrated&&Number(migration.total)>0)throw new Error('Migrasi tidak menghasilkan kemajuan. Periksa akses Spreadsheet lama dan folder Drive.');
+        state=await request('cloud-data?action=state');
+      }
+      cloudMigrationReadyAt=Date.now();
     }
-    if(!listOptions)return state;
+    if(!listOptions)return {ok:true,storageMode:'drive-json',migrationRequired:false};
     const params=new URLSearchParams();
     if(listOptions.idsOnly===true)params.set('idsOnly','1');
     else{
