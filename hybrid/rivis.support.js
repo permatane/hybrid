@@ -1699,6 +1699,7 @@ function updateCloudControls(){
  const badge=$('rvCloudStatusBadge');
  if(badge){badge.textContent=enabled?'CLOUD CONNECTED':gatewayConnected?'GOOGLE SIGNED IN':'CLOUD NOT CONNECTED';badge.dataset.state=enabled?'connected':gatewayConnected?'auth':'disconnected';badge.style.color=enabled?'#6ee7b7':gatewayConnected?'#93c5fd':'#fde68a';}
  const connect=$('rvCloudOpenGateway');if(connect)connect.textContent='Reconnect Google';
+ updateCloudGallerySelectionUI();
 }
 
 function cloudSyncStatus(message){const el=$('rvCloudSyncStatus');if(el)el.textContent=String(message||'');}
