@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.100. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
+/* RIVIS GitHub Support — v3.4.101. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1523,6 +1523,13 @@ const GATEWAY_ORIGIN='https://vectorichqc2026.netlify.app';
 let gatewayPopup=null,gatewayChannel='',gatewayConnected=false,gatewayVerified=false;
 let cloudGalleryItems=[],cloudGalleryPage=1;
 let cloudBulkProgress=null,cloudGalleryRefreshPromise=null;
+const CLOUD_GALLERY_CACHE_KEY='rivis.cloud.gallery.cache.v1';
+function readCloudGalleryCache(){
+ try{const cached=JSON.parse(localStorage.getItem(CLOUD_GALLERY_CACHE_KEY)||'null');return Array.isArray(cached?.items)?cached.items:[];}catch(_){return [];}
+}
+function persistCloudGalleryCache(){
+ try{localStorage.setItem(CLOUD_GALLERY_CACHE_KEY,JSON.stringify({savedAt:Date.now(),items:cloudGalleryItems.slice(0,500)}));}catch(_){}
+}
 const CLOUD_GALLERY_PAGE_SIZE=20;
 function openCloudGateway(){
  const bytes=new Uint8Array(24);
@@ -1701,7 +1708,7 @@ function sendCloudCommand(command,payload){
   const uploadBlob=command==='upload'&&payload?.blob instanceof Blob?payload.blob:null;
   const outgoing=uploadBlob?{...payload,blob:undefined,streamedBlob:true,size:uploadBlob.size,mimeType:payload.mimeType||uploadBlob.type}:payload||{};
   const inactivityMs=command==='upload'?70000:90000;
-  const absoluteMs=command==='upload'?15*60*1000:2*60*1000;
+  const absoluteMs=command==='upload'?15*60*1000:(command==='list'||command==='save'||command==='load'||command==='delete'?15*60*1000:2*60*1000);
   let inactivityTimer=null,absoluteTimer=null,initialTimer=null,hasProgress=false;
   const cleanup=()=>{clearTimeout(inactivityTimer);clearTimeout(absoluteTimer);clearTimeout(initialTimer);cloudPending.delete(requestId);};
   const renew=()=>{
@@ -1896,6 +1903,7 @@ function cloudReferenceAsset(idea){
 function renderCloudGallery(ideas,page=1){
  cloudGalleryItems=Array.isArray(ideas)?ideas:[];
  const grid=$('rvCloudGalleryGrid'),pager=$('rvCloudGalleryPagination');if(!grid)return;
+ persistCloudGalleryCache();
  const total=cloudGalleryItems.length,totalPages=Math.max(1,Math.ceil(total/CLOUD_GALLERY_PAGE_SIZE));
  cloudGalleryPage=Math.max(1,Math.min(totalPages,Number(page)||1));
  if(!total){
@@ -1953,6 +1961,7 @@ async function loadCloudGalleryThumbnails(){
 async function refreshCloudGallery(){
  if(!gatewayVerified){cloudSyncStatus('Hubungkan Google terlebih dahulu untuk membuka Cloud Gallery.');return;}
  if(cloudGalleryRefreshPromise)return cloudGalleryRefreshPromise;
+ if(!cloudGalleryItems.length){const cached=readCloudGalleryCache();if(cached.length)renderCloudGallery(cached,cloudGalleryPage);}
  const task=(async()=>{
   const button=$('rvCloudRefreshGallery'),old=button?.textContent||'Refresh Gallery';
   if(button){button.disabled=true;button.textContent='Loading...';}
