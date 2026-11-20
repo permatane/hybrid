@@ -34,6 +34,52 @@ function sheetHeaderResponse(url) {
   const tab = range.match(/^'?(.+?)'?!A1:/)?.[1]?.replace(/^'|'$/g,'');
   return {ok:true,status:200,json:async()=>({values:[expectedHeaders[tab]||[]]})};
 }
+
+function freshCloudData(){delete require.cache[require.resolve('../netlify/functions/cloud-data.js')];return require('../netlify/functions/cloud-data.js').handler;}
+function driveJsonMock(options={}){
+ const files=new Map();let seq=0;
+ const response=(body,status=200,etag='"rev-1"')=>({ok:status>=200&&status<300,status,headers:{get:key=>key.toLowerCase()==='etag'?etag:null},text:async()=>typeof body==='string'?body:JSON.stringify(body),json:async()=>typeof body==='string'?JSON.parse(body):body});
+ const fetch=async(url,opts={})=>{
+  const uri=String(url),method=opts.method||'GET';
+  if(uri.includes('sheets.googleapis.com')){
+   if(!options.legacy)throw Error('Unexpected Sheets access after JSON mode: '+uri);
+   const ranges=new URL(uri).searchParams.getAll('ranges');
+   return response({valueRanges:ranges.map(range=>{
+    const tab=Object.keys(expectedHeaders).find(name=>range.includes("'"+name+"'!"));
+    const values=tab==='IDEAS'?[expectedHeaders.IDEAS,options.legacyIdea]:[expectedHeaders[tab]||[]];
+    return{range,values};
+   })});
+  }
+  if(uri.includes('/drive/v3/files?q=')){
+   const nameMatch=uri.match(/name%20%3D%20%27([^%]+)%27/),name=nameMatch?decodeURIComponent(nameMatch[1]):'';
+   return response({files:[...files.values()].filter(x=>x.name===name&&x.parents.includes('folder12345')).map(x=>({id:x.id,name:x.name,mimeType:x.mimeType,parents:x.parents,version:1}))});
+  }
+  if(uri.includes('/upload/drive/v3/files?uploadType=multipart')){
+   const boundary=(opts.headers['Content-Type']||'').split('boundary=')[1],parts=String(opts.body).split('--'+boundary);
+   const metaPart=parts[1]||'',contentPart=parts[2]||'';
+   const meta=JSON.parse(metaPart.slice(metaPart.indexOf('\r\n\r\n')+4).trim());
+   const payloadStart=contentPart.indexOf('\r\n\r\n')+4,payloadEnd=contentPart.lastIndexOf('\r\n');
+   const doc=JSON.parse(contentPart.slice(payloadStart,payloadEnd));
+   const id=meta.name==='RIVIS_CLOUD_CATALOG.json'?'catalog_'+(++seq):'idea_'+(++seq);
+   const file={id,name:meta.name,mimeType:meta.mimeType,parents:meta.parents,doc,etag:'"rev-1"'};
+   files.set(id,file);return response({id,name:file.name,mimeType:file.mimeType,parents:file.parents});
+  }
+  const updateMatch=uri.match(/\/upload\/drive\/v3\/files\/([^?]+)/);
+  if(updateMatch&&uri.includes('uploadType=media')&&method==='PATCH'){
+   const file=files.get(decodeURIComponent(updateMatch[1]));if(!file)return response({error:{message:'not found'}},404);
+   file.doc=JSON.parse(opts.body);file.etag='"rev-'+(Number(file.etag.match(/(\d+)/)?.[1]||1)+1)+'"';
+   return response({id:file.id,name:file.name,mimeType:file.mimeType,modifiedTime:new Date().toISOString(),version:2},200,file.etag);
+  }
+  const metaMatch=uri.match(/\/drive\/v3\/files\/([^?]+)/);
+  if(metaMatch){
+   const file=files.get(decodeURIComponent(metaMatch[1]));if(!file)return response({error:{message:'not found'}},404);
+   if(uri.includes('alt=media'))return response(JSON.stringify(file.doc),200,file.etag);
+   return response({id:file.id,name:file.name,mimeType:file.mimeType,parents:file.parents,version:1},200,file.etag);
+  }
+  throw Error('Unexpected Drive mock URL '+uri+' '+method);
+ };
+ return {fetch,files,response};
+}
 test('Vectorich QC is copied byte-for-byte (CSP and all scripts preserved)',()=>{
   const html=fs.readFileSync(path.join(root,'public/index.html'));
   assert.equal(crypto.createHash('sha256').update(html).digest('hex'),userUploadedHash);
