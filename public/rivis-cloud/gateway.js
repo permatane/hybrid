@@ -290,6 +290,15 @@
         const fileId = String(d.payload?.fileId || '');
         if (!/^[A-Za-z0-9_-]{8,128}$/.test(fileId)) throw new Error('Drive file ID tidak valid.');
         result = await request('cloud-thumbnail?fileId=' + encodeURIComponent(fileId));
+      } else if (d.command === 'metadata') {
+        const payload=d.payload||{},ideaId=String(payload.ideaId||'');
+        if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))throw new Error('Idea ID tidak valid.');
+        await ensureCloudMigration(d.requestId);
+        result=await request('cloud-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+          action:'metadata',ideaId,metadata:payload.metadata||null,
+          metadataOutdated:payload.metadataOutdated,
+          seriesScenes:Array.isArray(payload.seriesScenes)?payload.seriesScenes:[]
+        })});
       } else if (d.command === 'archive' || d.command === 'delete') {
         await ensureCloudMigration(d.requestId);
         result = await request('cloud-data', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:d.command, ideaId:d.payload?.ideaId})});
