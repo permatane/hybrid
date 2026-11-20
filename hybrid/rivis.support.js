@@ -1877,16 +1877,13 @@ async function syncIdeaMetadataToCloud(idea,force=false){
  const knownCloud=Boolean(force||idea.cloudSavedAt||idea.cloudAssetRefs||cloudGalleryItems.some(item=>String(item.ideaId)===String(idea.ideaId)));
  if(!knownCloud)return {synced:false,reason:'not-cloud-saved'};
  if(!gatewayVerified){idea.cloudMetadataPending=true;return {synced:false,reason:'gateway-not-connected'};}
- if(!idea.cloudAssetRefs){
-  const assets=Array.isArray(idea.cloudAssets)?idea.cloudAssets:[];
-  const generated=assets.filter(asset=>asset.assetType==='generated'&&String(asset.isActive).toLowerCase()!=='false');
-  idea.cloudAssetRefs={
-   cover:generated.find(asset=>!asset.sceneId)||null,
-   reference:assets.find(asset=>asset.assetType==='reference'&&String(asset.isActive).toLowerCase()!=='false')||null,
-   scenes:generated.filter(asset=>Boolean(asset.sceneId))
-  };
- }
- await saveIdeaToCloud(idea);
+ const seriesScenes=Array.isArray(idea.seriesScenes)?idea.seriesScenes.map((scene,index)=>({
+  index,sceneId:scene.sceneId||'',metadata:scene.metadata||null,metadataOutdated:Boolean(scene.metadataOutdated)
+ })): [];
+ await sendCloudCommand('metadata',{
+  ideaId:idea.ideaId,metadata:idea.metadata||null,
+  metadataOutdated:Boolean(idea.metadataOutdated),seriesScenes
+ });
  idea.cloudMetadataPending=false;
  return {synced:true};
 }
