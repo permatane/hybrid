@@ -69,6 +69,56 @@ async function rows(event, tab) {
   }
   return data;
 }
+
+async function rowsMany(event,tabs){
+ const spreadsheet=sheetId(),query=tabs.map(tab=>'ranges='+encodeURIComponent(range(tab))).join('&');
+ const result=await google(event,'https://sheets.googleapis.com/v4/spreadsheets/'+encodeURIComponent(spreadsheet)+'/values:batchGet?'+query);
+ if(result.error)throw new Error(result.error);
+ if(!result.response.ok)throw googleFailure('Sheets batch read failed',result);
+ const valueRanges=result.data.valueRanges||[],output={};
+ for(let index=0;index<tabs.length;index++){
+  const tab=tabs[index],data=valueRanges[index]?.values||[],expected=HEADERS[tab];
+  if(expected&&data[0]?.[0]===expected[0])for(let i=1;i<data.length;i++){
+   const row=data[i]||[];
+   if(String(row[0]||'').trim()!==''||!/^[A-Za-z0-9_-]{1,128}$/.test(String(row[1]||'')))continue;
+   const repaired=row.slice(1,expected.length+1);while(repaired.length<expected.length)repaired.push('');
+   const write=await values(event,tab,'PUT',[...repaired,''],i+1);
+   if(write.error)throw new Error(write.error);
+   if(!write.response.ok)throw googleFailure('Legacy shifted row repair failed in '+tab,write);
+   data[i]=repaired;
+  }
+  output[tab]=data;
+ }
+ return output;
+}
+async function batchUpsert(event,tables){
+ const tabs=Object.keys(tables).filter(tab=>HEADERS[tab]&&Array.isArray(tables[tab])&&tables[tab].length);
+ if(!tabs.length)return {};
+ const current=await rowsMany(event,tabs),data=[],result={};
+ for(const tab of tabs){
+  const existing=current[tab]||[],expected=HEADERS[tab].length,lastColumn=columnName(expected),rowIndex=new Map();
+  for(let i=1;i<existing.length;i++){const key=String(existing[i]?.[0]||'');if(key)rowIndex.set(key,i+1);}
+  const updates=new Map(),appends=new Map();
+  for(const source of tables[tab]){
+   const key=text(source?.[0],128);if(!key)throw new Error('Missing primary key in '+tab);
+   const clean=source.slice(0,expected);while(clean.length<expected)clean.push('');
+   const index=rowIndex.get(key);if(index)updates.set(index,clean);else appends.set(key,clean);
+  }
+  for(const [rowNumber,row] of updates)data.push({range:range(tab,'A'+rowNumber+':'+lastColumn+rowNumber),majorDimension:'ROWS',values:[row]});
+  if(appends.size){
+   const start=Math.max(1,existing.length)+1,rowsToAppend=[...appends.values()];
+   data.push({range:range(tab,'A'+start+':'+lastColumn+(start+rowsToAppend.length-1)),majorDimension:'ROWS',values:rowsToAppend});
+  }
+  result[tab]={created:appends.size,updated:updates.size};
+ }
+ if(data.length){
+  const write=await google(event,'https://sheets.googleapis.com/v4/spreadsheets/'+encodeURIComponent(sheetId())+'/values:batchUpdate?valueInputOption=RAW',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({valueInputOption:'RAW',data})});
+  if(write.error)throw new Error(write.error);
+  if(!write.response.ok)throw googleFailure('Sheets batch update failed',write);
+ }
+ return result;
+}
+
 async function upsert(event, tab, key, row) {
   const existing=await rows(event,tab);
   const index=existing.findIndex((r,i)=>i>0 && String(r[0]||'')===String(key));
@@ -103,7 +153,8 @@ function itemRow(x,ideaId,groupId){return [text(x.itemId||id('it'),128),text(x.g
 function logRow(x,ideaId){return [text(x.runId||id('run'),128),text(ideaId,128),text(x.sceneId,128),text(x.promptId,128),text(x.promptVersion,40),text(x.aiProvider,100),text(x.model,200),text(x.resolution,50),text(x.aspectRatio,40),text(x.generationDate||now(),80),text(x.status,80),text(x.outputAssetId,128),text(x.errorMessage,2000)];}
 function parseIdeaRow(r){const note=jsonObject(r[20]);return {...note,ideaId:r[0],cardCode:r[1],conceptName:r[2],productionType:r[3],dataType:r[4],category:r[5],subcategory:r[6],visualStyle:r[7],assetType:r[8],colorPalette:r[9],targetBuyer:r[10],designNeed:r[11],commercialValueScore:r[12],status:r[13],createdAt:r[14],updatedAt:r[15],parentIdeaId:r[16],driveFolderId:r[17],coverAssetId:r[18],activePromptId:r[19]};}
 async function listIdeas(event){
- const [data,assetRows]=await Promise.all([rows(event,'IDEAS'),rows(event,'ASSETS')]);
+ const loaded=await rowsMany(event,['IDEAS','ASSETS']);
+ const data=loaded.IDEAS||[],assetRows=loaded.ASSETS||[];
  const assets=assetRows.slice(1).filter(r=>r[0]&&r[1]).map(r=>({assetId:r[0],ideaId:r[1],sceneId:r[2]||'',assetType:r[3]||'reference',driveFileId:r[4]||'',fileName:r[5]||'',mimeType:r[6]||'',format:r[7]||'',width:r[8]||'',height:r[9]||'',megapixels:r[10]||'',fileSizeBytes:r[11]||'',version:r[12]||1,isActive:r[13]??'true',createdAt:r[14]||'',sourceAssetId:r[15]||''}));
  return data.slice(1).filter(r=>r[0]&&!['deleted','archived'].includes(String(r[13]||'').trim().toLowerCase())).map(row=>{
   const idea=parseIdeaRow(row),linked=assets.filter(a=>String(a.ideaId)===String(idea.ideaId));
@@ -113,9 +164,10 @@ async function listIdeas(event){
   return idea;
  }).sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
 }
-async function loadIdea(event,ideaId){
- const tabs=await Promise.all(['IDEAS','PROMPTS','ASSETS','GROUPS','GROUP ITEMS','GENERATION LOG'].map(t=>rows(event,t)));
- const [ideas,prompts,assets,groups,items,logs]=tabs;
+async function loadIdea(event,ideaId,mode='library'){
+ const names=mode==='explore'?['IDEAS','PROMPTS','ASSETS']:['IDEAS','PROMPTS','ASSETS','GROUPS','GROUP ITEMS','GENERATION LOG'];
+ const loaded=await rowsMany(event,names);
+ const ideas=loaded.IDEAS||[],prompts=loaded.PROMPTS||[],assets=loaded.ASSETS||[],groups=loaded.GROUPS||[],items=loaded['GROUP ITEMS']||[],logs=loaded['GENERATION LOG']||[];
  const r=ideas.slice(1).find(x=>String(x[0])===ideaId);if(!r||['deleted','archived'].includes(String(r[13]||'').trim().toLowerCase()))return null;
  const byIdea=x=>x.slice(1).filter(y=>String(y[1])===ideaId);
  return {idea:parseIdeaRow(r),prompts:byIdea(prompts).map(x=>({...jsonObject(x[11]),promptId:x[0],ideaId:x[1],promptType:x[2],version:x[3],simplePrompt:x[4],visualPrompt:x[5],finalPrompt:x[6],referenceAssetId:x[7],activeVersion:x[8]})),assets:byIdea(assets).map(x=>({assetId:x[0],ideaId:x[1],sceneId:x[2],assetType:x[3],driveFileId:x[4],fileName:x[5],mimeType:x[6],format:x[7],width:x[8],height:x[9],megapixels:x[10],fileSizeBytes:x[11],version:x[12],isActive:x[13],createdAt:x[14],sourceAssetId:x[15]})),groups:byIdea(groups).map(x=>({groupId:x[0],ideaId:x[1],groupType:x[2],groupTitle:x[3],seriesBible:x[4],continuityLock:x[5],visualStyle:x[6],colorPalette:x[7],characterDescription:x[8],location:x[9],sceneCount:x[10],createdAt:x[11],updatedAt:x[12]})),groupItems:items.slice(1).filter(x=>String(x[2])===ideaId).map(x=>({itemId:x[0],groupId:x[1],ideaId:x[2],sequence:x[3],sceneId:x[4],sceneTitle:x[5],sceneAction:x[6],promptId:x[7],activeAssetId:x[8],generationStatus:x[9],createdAt:x[10],updatedAt:x[11]})),generationLogs:byIdea(logs).map(x=>({runId:x[0],ideaId:x[1],sceneId:x[2],promptId:x[3],promptVersion:x[4],aiProvider:x[5],model:x[6],resolution:x[7],aspectRatio:x[8],generationDate:x[9],status:x[10],outputAssetId:x[11],errorMessage:x[12]}))};
@@ -132,7 +184,8 @@ exports.handler=async(event)=>{
    if(action==='list')return h.json(200,{ok:true,ideas:await listIdeas(event)},headers);
    if(action==='load'){
     const ideaId=event.queryStringParameters?.ideaId||'';if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))return h.json(400,{error:'Invalid ideaId'});
-    const data=await loadIdea(event,ideaId);return data?h.json(200,{ok:true,...data},headers):h.json(404,{error:'Idea not found'},headers);
+    const mode=event.queryStringParameters?.mode==='explore'?'explore':'library';
+    const data=await loadIdea(event,ideaId,mode);return data?h.json(200,{ok:true,...data},headers):h.json(404,{error:'Idea not found'},headers);
    }
    return h.json(400,{error:'Unknown action'},headers);
   }
@@ -143,25 +196,25 @@ exports.handler=async(event)=>{
    const prompts=Array.isArray(body.prompts)&&body.prompts.length?body.prompts:[{promptId:idea.activePromptId||id('pr'),promptType:idea.productionType,simplePrompt:idea.simplePrompt,visualPrompt:idea.visualPrompt||idea.imagePrompt,finalPrompt:idea.finalGenerationPrompt||idea.finalPrompt,referenceAssetId:idea.referenceAssetId,version:1,activeVersion:true}];
    if(!idea.activePromptId&&prompts[0])idea.activePromptId=prompts[0].promptId||id('pr');
    if(prompts[0]&&!prompts[0].promptId)prompts[0].promptId=idea.activePromptId;
-   const result={idea:await upsert(event,'IDEAS',ideaId,ideaRow(idea)),prompts:0,assets:0,groups:0,groupItems:0,generationLogs:0};
-   for(const p of prompts){const row=promptRow(idea,p);result.prompts+=await upsert(event,'PROMPTS',row[0],row)==='created'?1:0;}
-   for(const a of (Array.isArray(body.assets)?body.assets:[])){const row=assetRow(a,ideaId);result.assets+=await upsert(event,'ASSETS',row[0],row)==='created'?1:0;}
+   const tables={IDEAS:[ideaRow(idea)],PROMPTS:[],ASSETS:[],GROUPS:[], 'GROUP ITEMS':[],'GENERATION LOG':[]};
+   for(const prompt of prompts)tables.PROMPTS.push(promptRow(idea,prompt));
+   for(const asset of (Array.isArray(body.assets)?body.assets:[]))tables.ASSETS.push(assetRow(asset,ideaId));
    const groups=Array.isArray(body.groups)?body.groups:[];
    const groupItems=Array.isArray(body.groupItems)?body.groupItems:[];
    if(idea.productionType==='series'&&Array.isArray(idea.seriesScenes)){
     const groupId=idea.groupId||ideaId+'_series';
     groups.push({groupId,groupType:'series',groupTitle:idea.conceptName||idea.title,seriesBible:JSON.stringify(idea.seriesBible||{}),continuityLock:String(idea.seriesContinuityLock!==false),visualStyle:idea.visualStyle||idea.style,colorPalette:Array.isArray(idea.colorPalette)?idea.colorPalette.join(', '):idea.colorPalette,characterDescription:idea.seriesBible?.mainCharacter||idea.mainSubject||'',location:idea.seriesBible?.primaryLocation||idea.environment||'',sceneCount:idea.seriesScenes.length});
-    for(let index=0;index<idea.seriesScenes.length;index++){const scene=idea.seriesScenes[index];
-     const sceneId=scene.sceneId||ideaId+'_scene_'+(index+1);
-     const promptId=scene.promptId||ideaId+'_scene_prompt_'+(index+1);
+    for(let index=0;index<idea.seriesScenes.length;index++){
+     const scene=idea.seriesScenes[index],sceneId=scene.sceneId||ideaId+'_scene_'+(index+1),promptId=scene.promptId||ideaId+'_scene_prompt_'+(index+1);
      groupItems.push({itemId:scene.itemId||ideaId+'_scene_item_'+(index+1),groupId,sequence:index+1,sceneId,sceneTitle:scene.sceneTitle||scene.title||('Scene '+(index+1)),sceneAction:[scene.narrativeBeat,scene.mainAction||scene.action,scene.interaction,scene.camera,scene.environment].filter(Boolean).join(' · '),promptId,activeAssetId:scene.activeAssetId||scene.assetId||'',generationStatus:scene.generationStatus||'saved'});
-     if(scene.finalGenerationPrompt||scene.scenePrompt){const scenePrompt={promptId, promptType:'series-scene',version:scene.promptVersion||1,simplePrompt:scene.scenePrompt||scene.mainAction||'',visualPrompt:scene.visualPrompt||'',finalPrompt:scene.finalGenerationPrompt||scene.scenePrompt||'',referenceAssetId:scene.referenceAssetId||'',activeVersion:true};const prow=promptRow(idea,scenePrompt);result.prompts+=await upsert(event,'PROMPTS',prow[0],prow)==='created'?1:0;}
+     if(scene.finalGenerationPrompt||scene.scenePrompt)tables.PROMPTS.push(promptRow(idea,{promptId,promptType:'series-scene',version:scene.promptVersion||1,simplePrompt:scene.scenePrompt||scene.mainAction||'',visualPrompt:scene.visualPrompt||'',finalPrompt:scene.finalGenerationPrompt||scene.scenePrompt||'',referenceAssetId:scene.referenceAssetId||'',activeVersion:true}));
     }
    }
-   for(const g of groups){const row=groupRow(g,ideaId);result.groups+=await upsert(event,'GROUPS',row[0],row)==='created'?1:0;}
-   for(const x of groupItems){const row=itemRow(x,ideaId,x.groupId);result.groupItems+=await upsert(event,'GROUP ITEMS',row[0],row)==='created'?1:0;}
-   for(const x of (Array.isArray(body.generationLogs)?body.generationLogs:[])){const row=logRow(x,ideaId);result.generationLogs+=await upsert(event,'GENERATION LOG',row[0],row)==='created'?1:0;}
-   return h.json(200,{ok:true,ideaId,result},headers);
+   for(const group of groups)tables.GROUPS.push(groupRow(group,ideaId));
+   for(const item of groupItems)tables['GROUP ITEMS'].push(itemRow(item,ideaId,item.groupId));
+   for(const log of (Array.isArray(body.generationLogs)?body.generationLogs:[]))tables['GENERATION LOG'].push(logRow(log,ideaId));
+   const writes=await batchUpsert(event,tables);
+   return h.json(200,{ok:true,ideaId,result:{idea:writes.IDEAS?.created?'created':'updated',prompts:writes.PROMPTS?.created||0,assets:writes.ASSETS?.created||0,groups:writes.GROUPS?.created||0,groupItems:writes['GROUP ITEMS']?.created||0,generationLogs:writes['GENERATION LOG']?.created||0,updated:{prompts:writes.PROMPTS?.updated||0,assets:writes.ASSETS?.updated||0,groups:writes.GROUPS?.updated||0,groupItems:writes['GROUP ITEMS']?.updated||0,generationLogs:writes['GENERATION LOG']?.updated||0}}},headers);
   }
   if(body.action==='delete'){
    const ideaId=text(body.ideaId,128);

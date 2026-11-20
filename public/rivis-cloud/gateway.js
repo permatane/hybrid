@@ -188,7 +188,7 @@
       } else if (d.command === 'load') {
         const ideaId = String(d.payload?.ideaId || '');
         if (!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId)) throw new Error('Idea ID tidak valid.');
-        result = await request('cloud-data?action=load&ideaId=' + encodeURIComponent(ideaId));
+        result = await request('cloud-data?action=load&ideaId=' + encodeURIComponent(ideaId)+'&mode='+(d.payload?.mode==='explore'?'explore':'library'));
       } else if (d.command === 'upload') {
         const payload=d.payload||{};
         const streamed=payload.streamedBlob===true;

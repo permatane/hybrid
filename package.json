@@ -1,8 +1,8 @@
 {
   "name": "rivis-cloud-gateway-netlify",
-  "version": "1.3.6",
+  "version": "1.3.7",
   "private": true,
-  "description": "RIVIS Cloud Gallery remove, Save All Cloud progress, mobile actions and streamed uploads",
+  "description": "RIVIS Cloud performance: batched Sheets IO, parallel assets, reduced refreshes",
   "scripts": {
     "test": "node --test tests/*.test.cjs",
     "deploy": "netlify deploy --prod --dir public --functions netlify/functions"

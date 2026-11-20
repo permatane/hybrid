@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.99. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
+/* RIVIS GitHub Support — v3.4.100. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1522,7 +1522,7 @@ const cloudPending=new Map();
 const GATEWAY_ORIGIN='https://vectorichqc2026.netlify.app';
 let gatewayPopup=null,gatewayChannel='',gatewayConnected=false,gatewayVerified=false;
 let cloudGalleryItems=[],cloudGalleryPage=1;
-let cloudBulkProgress=null;
+let cloudBulkProgress=null,cloudGalleryRefreshPromise=null;
 const CLOUD_GALLERY_PAGE_SIZE=20;
 function openCloudGateway(){
  const bytes=new Uint8Array(24);
@@ -1792,24 +1792,35 @@ async function uploadCloudImage(idea,source,assetType,sceneId,fileName,existingR
  return {...asset,fingerprint,sceneId:sceneId||'',assetType};
 }
 
+function updateCloudGalleryCache(idea){
+ const safe=cloudSafeIdea({...idea,updatedAt:new Date().toISOString()});
+ cloudGalleryItems=[safe,...cloudGalleryItems.filter(item=>String(item.ideaId)!==String(safe.ideaId))];
+ if($('rvCloudGalleryGrid')&&!cloudBulkProgress)renderCloudGallery(cloudGalleryItems,1);
+}
+
 async function saveIdeaToCloud(sourceIdea,referenceSourceOverride=null){
  const referenceSource=referenceSourceOverride||sourceIdea.referenceImageBlob||sourceIdea.referenceImageFile||sourceIdea.referenceImageUrl||sourceIdea.refImageUrl||sourceIdea.referenceImageDataUrl||null;
  const idea=JSON.parse(JSON.stringify(sourceIdea)),old=idea.cloudAssetRefs||{};
  delete idea.referenceImageBlob;delete idea.referenceImageFile;
  const refs={cover:old.cover||null,reference:old.reference||null,scenes:[]};
  const base=(idea.conceptName||idea.ideaId||'rivis').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50)||'rivis';
- if(idea.generatedImageUrl)refs.cover=await uploadCloudImage(idea,idea.generatedImageUrl,'generated','',base+'-cover',old.cover,{width:idea.generatedImageWidth,height:idea.generatedImageHeight,megapixels:idea.megapixels});
- if(referenceSource)refs.reference=await uploadCloudImage(idea,referenceSource,'reference','',base+'-reference',old.reference);
+ const tasks=[];
+ if(idea.generatedImageUrl)tasks.push(async()=>{refs.cover=await uploadCloudImage(idea,idea.generatedImageUrl,'generated','',base+'-cover',old.cover,{width:idea.generatedImageWidth,height:idea.generatedImageHeight,megapixels:idea.megapixels});});
+ if(referenceSource)tasks.push(async()=>{refs.reference=await uploadCloudImage(idea,referenceSource,'reference','',base+'-reference',old.reference);});
  if(Array.isArray(idea.seriesScenes)){
   for(let i=0;i<idea.seriesScenes.length;i++){
    const scene=idea.seriesScenes[i];scene.sceneId=scene.sceneId||idea.ideaId+'_scene_'+(i+1);
    const previous=(old.scenes||[]).find(x=>String(x.sceneId)===String(scene.sceneId));
-   if(scene.generatedImageUrl){
+   if(scene.generatedImageUrl)tasks.push(async()=>{
     const asset=await uploadCloudImage(idea,scene.generatedImageUrl,'generated',scene.sceneId,base+'-scene-'+(i+1),previous,{width:scene.generatedImageWidth||scene.width,height:scene.generatedImageHeight||scene.height,megapixels:scene.megapixels});
     refs.scenes.push({...asset,sceneId:scene.sceneId});scene.activeAssetId=asset?.assetId||scene.activeAssetId||'';
-   }else if(previous)refs.scenes.push(previous);
+   });
+   else if(previous)refs.scenes.push(previous);
   }
  }
+ let taskIndex=0;
+ const workers=Array.from({length:Math.min(2,tasks.length)},async()=>{while(taskIndex<tasks.length){const task=tasks[taskIndex++];await task();}});
+ await Promise.all(workers);
  idea.cloudAssetRefs=refs;
  idea.cloudAssets=[refs.cover,refs.reference,...refs.scenes].filter(Boolean);
  idea.coverAssetId=refs.cover?.assetId||idea.coverAssetId||'';
@@ -1832,7 +1843,10 @@ async function saveIdeaToCloud(sourceIdea,referenceSourceOverride=null){
  }]:[];
  if(promptRows.length){idea.activePromptId=idea.activePromptId||promptRows[0].promptId;idea.prompts=promptRows;}
  const safe=cloudSafeIdea(idea);
- return await sendCloudCommand('save',{idea:safe,prompts:promptRows,assets:idea.cloudAssets||[],groups:idea.cloudGroups||[],groupItems:idea.cloudGroupItems||[],generationLogs:idea.cloudGenerationLogs||[]});
+ const saved=await sendCloudCommand('save',{idea:safe,prompts:promptRows,assets:idea.cloudAssets||[],groups:idea.cloudGroups||[],groupItems:idea.cloudGroupItems||[],generationLogs:idea.cloudGenerationLogs||[]});
+ Object.assign(sourceIdea,{cloudAssetRefs:refs,cloudAssets:idea.cloudAssets,coverAssetId:idea.coverAssetId,activePromptId:idea.activePromptId});
+ updateCloudGalleryCache(idea);
+ return saved;
 }
 
 async function downloadCloudAsset(fileId){
@@ -1856,8 +1870,8 @@ async function restoreCloudIdeaAssets(idea,assets,options={}){
   if(onlyReference&&asset.assetType!=='reference')continue;
   const key=String(asset.assetType||'generated')+':'+String(asset.sceneId||'');latest.set(key,asset);
  }
- for(const asset of latest.values()){
-  const url=await downloadCloudAsset(asset.driveFileId);
+ const queue=[...latest.values()];let cursor=0;
+ const worker=async()=>{while(cursor<queue.length){const asset=queue[cursor++],url=await downloadCloudAsset(asset.driveFileId);
   if(asset.assetType==='reference'){idea.referenceImageUrl=url;idea.refImageUrl=url;continue;}
   if(asset.assetType==='generated'){
    if(asset.sceneId&&Array.isArray(idea.seriesScenes)){
@@ -1865,7 +1879,8 @@ async function restoreCloudIdeaAssets(idea,assets,options={}){
     if(scene){scene.generatedImageUrl=url;scene.generatedImagePreviewUrl=null;scene.generatedImageWidth=Number(asset.width)||scene.generatedImageWidth||0;scene.generatedImageHeight=Number(asset.height)||scene.generatedImageHeight||0;}
    }else{idea.generatedImageUrl=url;idea.generatedImagePreviewUrl=null;idea.generatedImageWidth=Number(asset.width)||idea.generatedImageWidth||0;idea.generatedImageHeight=Number(asset.height)||idea.generatedImageHeight||0;}
   }
- }
+ }};
+ await Promise.all(Array.from({length:Math.min(3,queue.length)},worker));
 }
 
 function cloudCoverAsset(idea){
@@ -1927,8 +1942,8 @@ function renderCloudGallery(ideas,page=1){
 async function loadCloudGalleryThumbnails(){
  const grid=$('rvCloudGalleryGrid');if(!grid||!gatewayVerified)return;
  const images=Array.from(grid.querySelectorAll('[data-cloud-thumb-id]'));
- for(let i=0;i<images.length;i+=4){
-  await Promise.all(images.slice(i,i+4).map(async img=>{
+ for(let i=0;i<images.length;i+=6){
+  await Promise.all(images.slice(i,i+6).map(async img=>{
    const fileId=img.dataset.cloudThumbId;if(!fileId)return;
    try{const result=await sendCloudCommand('thumbnail',{fileId});if(result?.base64)img.src='data:'+(result.mimeType||'image/jpeg')+';base64,'+result.base64;}
    catch(_){img.closest('.rv-cloud-gallery-preview')?.classList.add('opacity-50');}
@@ -1937,11 +1952,16 @@ async function loadCloudGalleryThumbnails(){
 }
 async function refreshCloudGallery(){
  if(!gatewayVerified){cloudSyncStatus('Hubungkan Google terlebih dahulu untuk membuka Cloud Gallery.');return;}
- const button=$('rvCloudRefreshGallery'),old=button?.textContent||'Refresh Gallery';
- if(button){button.disabled=true;button.textContent='Loading...';}
- try{cloudSyncStatus('Mengambil daftar ide dari Google Sheets...');const result=await sendCloudCommand('list',{});renderCloudGallery(result.ideas||[],cloudGalleryPage);cloudSyncStatus((result.ideas||[]).length+' card ditemukan di Cloud Gallery.');}
- catch(error){cloudSyncStatus('Gagal memuat Cloud Gallery: '+error.message);}
- finally{if(button){button.disabled=false;button.textContent=old;}}
+ if(cloudGalleryRefreshPromise)return cloudGalleryRefreshPromise;
+ const task=(async()=>{
+  const button=$('rvCloudRefreshGallery'),old=button?.textContent||'Refresh Gallery';
+  if(button){button.disabled=true;button.textContent='Loading...';}
+  try{cloudSyncStatus('Mengambil daftar ide dari Cloud...');const result=await sendCloudCommand('list',{});renderCloudGallery(result.ideas||[],cloudGalleryPage);cloudSyncStatus((result.ideas||[]).length+' card ditemukan di Cloud Gallery.');return result;}
+  catch(error){cloudSyncStatus('Gagal memuat Cloud Gallery: '+error.message);throw error;}
+  finally{if(button){button.disabled=false;button.textContent=old;}}
+ })();
+ cloudGalleryRefreshPromise=task;
+ try{return await task;}finally{if(cloudGalleryRefreshPromise===task)cloudGalleryRefreshPromise=null;}
 }
 async function loadCloudGalleryIdea(ideaId,button,mode='library'){
  if(!gatewayVerified){cloudSyncStatus('Hubungkan Google terlebih dahulu.');return;}
@@ -1949,7 +1969,7 @@ async function loadCloudGalleryIdea(ideaId,button,mode='library'){
  if(button){button.disabled=true;button.textContent=explore?'Loading Idea...':'Loading...';}
  try{
   cloudSyncStatus(explore?'Memuat prompt dan referensi ke Idea Studio...':'Mengambil card dan gambar dari Cloud...');
-  const result=await sendCloudCommand('load',{ideaId}),idea=result.idea;
+  const result=await sendCloudCommand('load',{ideaId,mode:explore?'explore':'library'}),idea=result.idea;
   if(!idea)throw new Error('Data ide tidak ditemukan.');
   const promptRows=result.prompts||[];
   idea.cloudPrompts=promptRows;idea.prompts=promptRows;
@@ -1999,7 +2019,6 @@ async function deleteCloudGalleryIdea(ideaId,button){
   renderCloudGallery(cloudGalleryItems.filter(x=>String(x.ideaId)!==String(ideaId)),cloudGalleryPage);
   cloudSyncStatus('Item dihapus dari Cloud Gallery: '+title+'. File Drive tetap aman.');
   showToast('Item berhasil dihapus dari Cloud Gallery.','success');
-  await refreshCloudGallery();
   return true;
  }catch(error){
   cloudSyncStatus('Gagal menghapus item: '+error.message);
@@ -2012,7 +2031,7 @@ async function saveCardToCloud(ideaId,button){
  if(!gatewayVerified){cloudSyncStatus('Klik Connect Google terlebih dahulu.');showToast('Hubungkan Google melalui Cloud Gallery sebelum menyimpan ke cloud.','error');return;}
  const idea=window.RIVIS_LIBRARY_BRIDGE?.getIdea(ideaId);if(!idea){cloudSyncStatus('Card lokal tidak ditemukan.');showToast('Card lokal tidak ditemukan.','error');return;}
  const old=button?.textContent||'Save to Cloud';if(button){button.disabled=true;button.textContent='Saving...';}
- try{await saveIdeaToCloud(idea);cloudSyncStatus('Berhasil disimpan ke Cloud Gallery: '+(idea.conceptName||idea.ideaId));showToast('Berhasil disimpan ke Cloud: '+(idea.conceptName||idea.ideaId),'success');await refreshCloudGallery();}
+ try{await saveIdeaToCloud(idea);cloudSyncStatus('Berhasil disimpan ke Cloud Gallery: '+(idea.conceptName||idea.ideaId));showToast('Berhasil disimpan ke Cloud: '+(idea.conceptName||idea.ideaId),'success');}
  catch(error){cloudSyncStatus('Gagal menyimpan '+(idea.conceptName||idea.ideaId)+': '+error.message);showToast('Gagal menyimpan ke Cloud: '+error.message,'error');}
  finally{if(button){button.disabled=false;button.textContent=old;}}
 }
@@ -2065,7 +2084,6 @@ window.RIVIS_SAVE_IDEA_TO_CLOUD=async(idea,referenceSource)=>{
  try{
   await saveIdeaToCloud(idea,referenceSource);
   cloudSyncStatus('Prompt idea berhasil disimpan ke Cloud Gallery: '+(idea.conceptName||idea.ideaId));
-  await refreshCloudGallery();
   return true;
  }catch(error){
   cloudSyncStatus('Gagal menyimpan prompt idea: '+String(error?.message||error));
