@@ -65,7 +65,7 @@
     $('storageState').textContent = config?.storageConfigured ? 'Siap · otomatis' : 'Belum dikonfigurasi';
     $('storageState').dataset.state = config?.storageConfigured ? 'success' : 'error';
     $('folderState').textContent = storageInfo?.folder?.name || (config?.storageConfigured ? 'Folder RIVIS sudah ditetapkan di Netlify' : 'Folder belum ditetapkan');
-    $('sheetState').textContent = storageInfo?.spreadsheet?.name || (config?.storageConfigured ? 'Spreadsheet RIVIS sudah ditetapkan di Netlify' : 'Spreadsheet belum ditetapkan');
+    
     $('logoutBtn').disabled = !signedIn;
   }
   async function request(path, options={}, timeoutMs=45000) {
@@ -129,20 +129,15 @@
   }
   async function testConnection() {
     try {
-      status('Memeriksa akses Google Drive dan Google Sheets...');
+      status('Memeriksa akses Google Drive JSON...');
       const result = await request('cloud-test');
       storageInfo = result;
-      verifiedSelection = result.ok === true && Array.isArray(result.missingTabs) && result.missingTabs.length === 0 && Array.isArray(result.schemaErrors) && result.schemaErrors.length === 0;
-      if (!verifiedSelection) {
-        const issues = [];
-        if (result.missingTabs?.length) issues.push('Tab tidak ditemukan: ' + result.missingTabs.join(', '));
-        for (const item of (result.schemaErrors || [])) issues.push(item.tab + ': ' + item.error);
-        throw new Error(issues.length ? issues.join(' · ') : 'Struktur spreadsheet belum valid.');
-      }
-      status('CLOUD CONNECTED · Drive dan Sheets siap digunakan.', 'success');
-      $('testResult').textContent = JSON.stringify({folder:result.folder?.name, spreadsheet:result.spreadsheet?.name, tabs:result.spreadsheet?.tabs}, null, 2);
+      verifiedSelection = result.ok === true && result.storageMode === 'drive-json';
+      if (!verifiedSelection) throw new Error('Folder Google Drive belum dapat digunakan untuk RIVIS JSON Database.');
+      status('CLOUD CONNECTED · Google Drive JSON siap digunakan.', 'success');
+      $('testResult').textContent = JSON.stringify({storage:'Google Drive JSON',folder:result.folder?.name,legacyMigrationAvailable:result.legacyMigrationAvailable===true}, null, 2);
       render();
-      emit('RIVIS_CLOUD_STATUS', {connected:true, verified:true, folderName:result.folder?.name, sheetName:result.spreadsheet?.name});
+      emit('RIVIS_CLOUD_STATUS', {connected:true, verified:true, folderName:result.folder?.name, storageMode:'drive-json'});
       return true;
     } catch (error) {
       verifiedSelection = false;
@@ -164,6 +159,19 @@
       emit('RIVIS_CLOUD_STATUS', {connected:false, verified:false});
     } catch (error) { status(error.message, 'error'); }
   }
+
+  async function ensureCloudMigration(requestId){
+    let result=await request('cloud-data?action=list');let batches=0;
+    while(result.migrationRequired){
+      if(++batches>500)throw new Error('Migrasi Cloud lama melewati batas batch pengaman. Silakan ulangi dari Cloud Gallery.');
+      const migrated=await request('cloud-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'migrate',limit:8})},90000),state=migrated.migration||{};
+      progress(requestId,'migration',Number(state.offset)||0,Number(state.total)||0,'Migrasi data lama ke Drive JSON: '+(Number(state.offset)||0)+' / '+(Number(state.total)||0));
+      if(state.done)break;
+      if(!state.migrated&&Number(state.total)>0)throw new Error('Migrasi tidak menghasilkan kemajuan. Periksa akses Spreadsheet lama dan folder Drive.');
+      result={migrationRequired:true};
+    }
+    return result.migrationRequired?request('cloud-data?action=list'):result;
+  }
   async function handleCanvasCommand(event) {
     const d = event.data || {};
     if (!channel || !window.opener || event.source !== window.opener || d.type !== 'RIVIS_CLOUD_COMMAND' || d.channel !== channel) return;
@@ -182,12 +190,14 @@
       if (d.command === 'save') {
         const payload = d.payload || {};
         if (!payload.idea || typeof payload.idea !== 'object') throw new Error('Data idea tidak ditemukan.');
+        await ensureCloudMigration(d.requestId);
         result = await request('cloud-data', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'save', idea:payload.idea, prompts:payload.prompts||[], assets:payload.assets||[], groups:payload.groups||[], groupItems:payload.groupItems||[], generationLogs:payload.generationLogs||[]})});
       } else if (d.command === 'list') {
-        result = await request('cloud-data?action=list');
+        result = await ensureCloudMigration(d.requestId);
       } else if (d.command === 'load') {
         const ideaId = String(d.payload?.ideaId || '');
         if (!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId)) throw new Error('Idea ID tidak valid.');
+        await ensureCloudMigration(d.requestId);
         result = await request('cloud-data?action=load&ideaId=' + encodeURIComponent(ideaId)+'&mode='+(d.payload?.mode==='explore'?'explore':'library'));
       } else if (d.command === 'upload') {
         const payload=d.payload||{};
@@ -203,7 +213,7 @@
         let offset=0,failures=0;
         const chunkSize=1024*1024; // smaller Netlify payload; Google Drive requires 256 KiB alignment.
         const started=Date.now();
-        if(uploaded)progress(d.requestId,'resume',total,total,'Gambar ditemukan di Drive, melanjutkan sinkronisasi ASSETS...');
+        if(uploaded)progress(d.requestId,'resume',total,total,'Gambar ditemukan di Drive, memulihkan metadata aset...');
         while(!uploaded&&offset<total){
           if(Date.now()-started>12*60*1000)throw new Error('Batas waktu total upload 12 menit tercapai. Coba kembali dengan jaringan lebih stabil.');
           const end=Math.min(total,offset+chunkSize)-1;
@@ -242,7 +252,7 @@
           progress(d.requestId,'upload',offset,total,'Upload gambar '+Math.round(offset/total*100)+'%');
         }
         if(!uploaded?.id)throw new Error('Drive tidak mengonfirmasi file setelah semua chunk dikirim.');
-        progress(d.requestId,'index',total,total,'Upload gambar 100% · mencatat file ke ASSETS...');
+        progress(d.requestId,'index',total,total,'Upload gambar 100% · memverifikasi aset di Drive...');
         let indexed=null;
         for(let attempt=1;attempt<=2;attempt++){
           try{
@@ -252,12 +262,12 @@
             break;
           }catch(error){
             if(attempt>=2)throw new Error('File sudah tersimpan di Drive (ID '+uploaded.id+'), tetapi indeks ASSETS gagal: '+error.message);
-            progress(d.requestId,'index-retry',total,total,'Gambar tersimpan, mengulang pencatatan ASSETS...');
+            progress(d.requestId,'index-retry',total,total,'Gambar tersimpan, mengulang verifikasi aset...');
             await delay(700);
           }
         }
         result=indexed;
-        progress(d.requestId,'done',total,total,'Gambar dan indeks ASSETS berhasil disimpan.');
+        progress(d.requestId,'done',total,total,'Gambar berhasil disimpan dan diverifikasi di Drive.');
       } else if (d.command === 'download') {
         const fileId = String(d.payload?.fileId || '');
         if (!/^[A-Za-z0-9_-]{8,128}$/.test(fileId)) throw new Error('Drive file ID tidak valid.');
@@ -269,6 +279,7 @@
         if (!/^[A-Za-z0-9_-]{8,128}$/.test(fileId)) throw new Error('Drive file ID tidak valid.');
         result = await request('cloud-thumbnail?fileId=' + encodeURIComponent(fileId));
       } else if (d.command === 'archive' || d.command === 'delete') {
+        await ensureCloudMigration(d.requestId);
         result = await request('cloud-data', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:d.command, ideaId:d.payload?.ideaId})});
       } else throw new Error('Perintah Cloud Gallery tidak dikenal.');
       reply(true, result, null);
@@ -310,7 +321,7 @@
       const [cfg, session] = await Promise.all([request('gateway-config'), request('session')]);
       config = cfg;
       signedIn = !!session.connected;
-      if (!config.storageConfigured) throw new Error('Atur RIVIS_DRIVE_FOLDER_ID dan RIVIS_SPREADSHEET_ID di Netlify Environment Variables.');
+      if (!config.storageConfigured) throw new Error('Atur RIVIS_DRIVE_FOLDER_ID di Netlify Environment Variables.');
       if (signedIn) await testConnection();
       else status('Belum terhubung · Klik Connect Google untuk mulai.', 'warning');
     } catch (error) { status('Gateway belum siap · ' + error.message, 'error'); }

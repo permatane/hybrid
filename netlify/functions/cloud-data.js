@@ -172,68 +172,152 @@ async function loadIdea(event,ideaId,mode='library'){
  const byIdea=x=>x.slice(1).filter(y=>String(y[1])===ideaId);
  return {idea:parseIdeaRow(r),prompts:byIdea(prompts).map(x=>({...jsonObject(x[11]),promptId:x[0],ideaId:x[1],promptType:x[2],version:x[3],simplePrompt:x[4],visualPrompt:x[5],finalPrompt:x[6],referenceAssetId:x[7],activeVersion:x[8]})),assets:byIdea(assets).map(x=>({assetId:x[0],ideaId:x[1],sceneId:x[2],assetType:x[3],driveFileId:x[4],fileName:x[5],mimeType:x[6],format:x[7],width:x[8],height:x[9],megapixels:x[10],fileSizeBytes:x[11],version:x[12],isActive:x[13],createdAt:x[14],sourceAssetId:x[15]})),groups:byIdea(groups).map(x=>({groupId:x[0],ideaId:x[1],groupType:x[2],groupTitle:x[3],seriesBible:x[4],continuityLock:x[5],visualStyle:x[6],colorPalette:x[7],characterDescription:x[8],location:x[9],sceneCount:x[10],createdAt:x[11],updatedAt:x[12]})),groupItems:items.slice(1).filter(x=>String(x[2])===ideaId).map(x=>({itemId:x[0],groupId:x[1],ideaId:x[2],sequence:x[3],sceneId:x[4],sceneTitle:x[5],sceneAction:x[6],promptId:x[7],activeAssetId:x[8],generationStatus:x[9],createdAt:x[10],updatedAt:x[11]})),generationLogs:byIdea(logs).map(x=>({runId:x[0],ideaId:x[1],sceneId:x[2],promptId:x[3],promptVersion:x[4],aiProvider:x[5],model:x[6],resolution:x[7],aspectRatio:x[8],generationDate:x[9],status:x[10],outputAssetId:x[11],errorMessage:x[12]}))};
 }
+
+const CATALOG_NAME='RIVIS_CLOUD_CATALOG.json';
+let catalogFileIdCache='',legacySnapshotCache=null,legacySnapshotAt=0;
+function driveError(label,response,data){return new Error(label+' ('+response.status+'): '+String(data?.error?.message||data?.message||'Google Drive API error').slice(0,900));}
+async function driveFetch(ctx,url,options={},timeout=22000){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);try{return await fetch(url,{...options,signal:controller.signal,headers:{Authorization:'Bearer '+ctx.token,...(options.headers||{})}});}finally{clearTimeout(timer);}}
+async function driveFindJson(ctx,name){
+ const q="'"+ctx.folderId+"' in parents and name = '"+String(name).replace(/'/g,"\\'")+"' and trashed = false";
+ const url='https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&pageSize=10&supportsAllDrives=true&includeItemsFromAllDrives=true&fields='+encodeURIComponent('files(id,name,mimeType,modifiedTime,version,parents)');
+ const res=await driveFetch(ctx,url),data=await res.json().catch(()=>({}));if(!res.ok)throw driveError('Drive JSON index search failed',res,data);
+ return (data.files||[]).find(file=>file.mimeType==='application/json'&&file.parents?.includes(ctx.folderId))||null;
+}
+async function driveReadJson(ctx,fileId){
+ const res=await driveFetch(ctx,'https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(fileId)+'?alt=media&supportsAllDrives=true');
+ if(!res.ok){const data=await res.json().catch(()=>({}));throw driveError('Drive JSON read failed',res,data);}
+ const raw=await res.text();let document;try{document=JSON.parse(raw);}catch(_){throw new Error('JSON file in Google Drive is invalid: '+fileId);}
+ return {document,etag:res.headers?.get?.('etag')||''};
+}
+async function driveWriteJson(ctx,{fileId=null,name,document,etag=''}){
+ const payload=JSON.stringify(document);if(Buffer.byteLength(payload,'utf8')>8*1024*1024)throw new Error('JSON document exceeds the 8 MB safety limit.');
+ if(fileId){
+  let currentEtag=etag;
+  if(!currentEtag){const meta=await driveFetch(ctx,'https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(fileId)+'?supportsAllDrives=true&fields=id,name,mimeType,version');const metaData=await meta.json().catch(()=>({}));if(!meta.ok)throw driveError('Drive JSON metadata read failed',meta,metaData);currentEtag=meta.headers?.get?.('etag')||'';}
+  const headers={'Content-Type':'application/json; charset=UTF-8'};if(currentEtag)headers['If-Match']=currentEtag;
+  const url='https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(fileId)+'?uploadType=media&supportsAllDrives=true&fields=id,name,mimeType,modifiedTime,version';
+  const res=await driveFetch(ctx,url,{method:'PATCH',headers,body:payload}),data=await res.json().catch(()=>({}));
+  if(res.status===412)throw new Error('DRIVE_JSON_CONFLICT: File changed during save. Retry the operation.');
+  if(!res.ok)throw driveError('Drive JSON update failed',res,data);return {fileId:data.id||fileId,etag:res.headers?.get?.('etag')||''};
+ }
+ const boundary='rivis_'+crypto.randomBytes(12).toString('hex'),metadata={name,mimeType:'application/json',parents:[ctx.folderId],description:'RIVIS Cloud JSON Database · '+name};
+ const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+payload+'\r\n--'+boundary+'--';
+ const url='https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,mimeType,parents';
+ const res=await driveFetch(ctx,url,{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body}),data=await res.json().catch(()=>({}));
+ if(!res.ok)throw driveError('Drive JSON create failed',res,data);return {fileId:data.id,etag:res.headers?.get?.('etag')||''};
+}
+async function getCatalog(ctx){
+ if(catalogFileIdCache){try{return {fileId:catalogFileIdCache,...await driveReadJson(ctx,catalogFileIdCache)};}catch(_){catalogFileIdCache='';}}
+ const file=await driveFindJson(ctx,CATALOG_NAME);if(!file)return null;catalogFileIdCache=file.id;return {fileId:file.id,...await driveReadJson(ctx,file.id)};
+}
+function emptyCatalog(){return {schema:'rivis-drive-json',schemaVersion:2,revision:1,createdAt:now(),updatedAt:now(),migration:{status:'complete',offset:0,total:0,source:'new'},ideas:[]};}
+async function createCatalog(ctx,catalog){const saved=await driveWriteJson(ctx,{name:CATALOG_NAME,document:catalog});catalogFileIdCache=saved.fileId;return saved.fileId;}
+async function saveCatalog(ctx,catalog,fileId,etag=''){catalog.revision=Number(catalog.revision||0)+1;catalog.updatedAt=now();const saved=await driveWriteJson(ctx,{fileId,name:CATALOG_NAME,document:catalog,etag});catalogFileIdCache=saved.fileId;return saved;}
+function assetFromRow(r){return {assetId:r[0],ideaId:r[1],sceneId:r[2]||'',assetType:r[3]||'reference',driveFileId:r[4]||'',fileName:r[5]||'',mimeType:r[6]||'',format:r[7]||'',width:r[8]||'',height:r[9]||'',megapixels:r[10]||'',fileSizeBytes:r[11]||'',version:r[12]||1,isActive:r[13]??'true',createdAt:r[14]||'',sourceAssetId:r[15]||''};}
+function promptFromRow(r){return {...jsonObject(r[11]),promptId:r[0],ideaId:r[1],promptType:r[2],version:r[3],simplePrompt:r[4],visualPrompt:r[5],finalPrompt:r[6],referenceAssetId:r[7],activeVersion:r[8],createdAt:r[9],updatedAt:r[10]};}
+function groupFromRow(r){return {groupId:r[0],ideaId:r[1],groupType:r[2],groupTitle:r[3],seriesBible:r[4],continuityLock:r[5],visualStyle:r[6],colorPalette:r[7],characterDescription:r[8],location:r[9],sceneCount:r[10],createdAt:r[11],updatedAt:r[12]};}
+function groupItemFromRow(r){return {itemId:r[0],groupId:r[1],ideaId:r[2],sequence:r[3],sceneId:r[4],sceneTitle:r[5],sceneAction:r[6],promptId:r[7],activeAssetId:r[8],generationStatus:r[9],createdAt:r[10],updatedAt:r[11]};}
+function logFromRow(r){return {runId:r[0],ideaId:r[1],sceneId:r[2],promptId:r[3],promptVersion:r[4],aiProvider:r[5],model:r[6],resolution:r[7],aspectRatio:r[8],generationDate:r[9],status:r[10],outputAssetId:r[11],errorMessage:r[12]};}
+async function readLegacySnapshot(ctx){
+ if(!h.validFileId(SPREADSHEET_ID()))return null;if(legacySnapshotCache&&Date.now()-legacySnapshotAt<5*60*1000)return legacySnapshotCache;
+ const tables=await rowsMany(ctx.event,['IDEAS','PROMPTS','ASSETS','GROUPS','GROUP ITEMS','GENERATION LOG']);
+ const ideas=(tables.IDEAS||[]).slice(1).filter(r=>r[0]).map(parseIdeaRow),prompts=(tables.PROMPTS||[]).slice(1).filter(r=>r[0]&&r[1]).map(promptFromRow),assets=(tables.ASSETS||[]).slice(1).filter(r=>r[0]&&r[1]).map(assetFromRow),groups=(tables.GROUPS||[]).slice(1).filter(r=>r[0]&&r[1]).map(groupFromRow),groupItems=(tables['GROUP ITEMS']||[]).slice(1).filter(r=>r[0]&&r[2]).map(groupItemFromRow),generationLogs=(tables['GENERATION LOG']||[]).slice(1).filter(r=>r[0]&&r[1]).map(logFromRow);
+ const docs=ideas.map(idea=>{const ideaId=String(idea.ideaId),doc={schemaVersion:2,idea,prompts:prompts.filter(x=>String(x.ideaId)===ideaId),assets:assets.filter(x=>String(x.ideaId)===ideaId),groups:groups.filter(x=>String(x.ideaId)===ideaId),groupItems:groupItems.filter(x=>String(x.ideaId)===ideaId),generationLogs:generationLogs.filter(x=>String(x.ideaId)===ideaId)};idea.cloudAssets=doc.assets;idea.cloudPrompts=doc.prompts;idea.cloudGroups=doc.groups;idea.cloudGroupItems=doc.groupItems;idea.cloudGenerationLogs=doc.generationLogs;return doc;});
+ legacySnapshotCache=docs;legacySnapshotAt=Date.now();return docs;
+}
+function catalogSummary(doc,fileId){
+ const idea=doc.idea||{},prompts=Array.isArray(doc.prompts)?doc.prompts:[],assets=Array.isArray(doc.assets)?doc.assets:[],active=prompts.find(p=>String(p.promptId)===String(idea.activePromptId))||prompts.find(p=>['true','1','yes'].includes(String(p.activeVersion).toLowerCase()))||prompts.at(-1)||{};
+ const summary={ideaId:idea.ideaId,fileId,cardCode:idea.cardCode||idea.uniqueCode||idea.ideaId,conceptName:idea.conceptName||idea.title||idea.name||'Untitled Idea',title:idea.title||idea.conceptName||'Untitled Idea',productionType:idea.productionType||'single',dataType:idea.dataType||'',category:idea.category||'',subcategory:idea.subcategory||'',visualStyle:idea.visualStyle||idea.style||'',assetType:idea.assetType||'',colorPalette:idea.colorPalette||'',targetBuyer:idea.targetBuyer||'',designNeed:idea.designNeed||'',commercialValueScore:idea.commercialValueScore??idea.score??null,score:idea.score??idea.commercialValueScore??null,status:idea.status||'Saved',createdAt:idea.createdAt||now(),updatedAt:idea.updatedAt||now(),parentIdeaId:idea.parentIdeaId||'',driveFolderId:idea.driveFolderId||'',coverAssetId:idea.coverAssetId||'',activePromptId:idea.activePromptId||active.promptId||'',simplePrompt:idea.simplePrompt||active.simplePrompt||'',visualPrompt:idea.visualPrompt||active.visualPrompt||'',finalGenerationPrompt:idea.finalGenerationPrompt||active.finalPrompt||'',prompts:active.promptId?[active]:[],cloudAssets:assets,cloudAssetRefs:idea.cloudAssetRefs||{}};
+ const cover=assets.find(a=>a.assetType==='generated'&&!a.sceneId&&String(a.isActive).toLowerCase()!=='false')||assets.find(a=>a.assetType==='generated'&&String(a.isActive).toLowerCase()!=='false');if(cover){summary.coverAssetId=summary.coverAssetId||cover.assetId;summary.cloudAssetRefs={...summary.cloudAssetRefs,cover:summary.cloudAssetRefs.cover||cover};}return summary;
+}
+function cleanJsonValue(value){if(typeof value==='string'&&(value.startsWith('data:image/')||value.startsWith('blob:')))return '';if(Array.isArray(value))return value.map(cleanJsonValue);if(value&&typeof value==='object'){const out={};for(const [key,item] of Object.entries(value)){if(['referenceImageBlob','referenceImageFile','imageBase64'].includes(key))continue;out[key]=cleanJsonValue(item);}return out;}return value;}
+async function writeIdeaDocument(ctx,doc,fileId=''){
+ const safeId=String(doc.idea?.ideaId||'').replace(/[^A-Za-z0-9_-]/g,'_').slice(0,128);if(!safeId)throw new Error('Invalid ideaId for Drive JSON document.');
+ const name='RIVIS_IDEA_'+safeId+'.json';let existing=fileId;if(!existing){const found=await driveFindJson(ctx,name);existing=found?.id||'';}
+ return (await driveWriteJson(ctx,{fileId:existing||null,name,document:cleanJsonValue(doc)})).fileId;
+}
+async function initializeCatalog(ctx){
+ const current=await getCatalog(ctx);if(current)return current;
+ if(h.validFileId(SPREADSHEET_ID())){const docs=await readLegacySnapshot(ctx),catalog={schema:'rivis-drive-json',schemaVersion:2,revision:1,createdAt:now(),updatedAt:now(),migration:{status:docs.length?'pending':'complete',offset:0,total:docs.length,source:'Google Sheets'},ideas:docs.map(doc=>catalogSummary(doc,''))};const fileId=await createCatalog(ctx,catalog);return {fileId,document:catalog,etag:''};}
+ const catalog=emptyCatalog(),fileId=await createCatalog(ctx,catalog);return {fileId,document:catalog,etag:''};
+}
+async function migrateLegacyBatch(ctx,limit=8){
+ const current=await initializeCatalog(ctx),catalog=current.document;if(catalog.migration?.status==='complete')return {done:true,migrated:0,total:Number(catalog.migration.total||0),offset:Number(catalog.migration.offset||0)};
+ if(!h.validFileId(SPREADSHEET_ID()))throw new Error('Legacy migration requires RIVIS_SPREADSHEET_ID. Keep the old Spreadsheet ID configured until migration is complete.');
+ const docs=await readLegacySnapshot(ctx),total=docs.length,offset=Math.max(0,Math.min(total,Number(catalog.migration?.offset)||0)),batch=docs.slice(offset,Math.min(total,offset+Math.max(1,Math.min(8,Number(limit)||8))));
+ const results=await Promise.all(batch.map(async doc=>{const entry=catalog.ideas.find(x=>String(x.ideaId)===String(doc.idea.ideaId)),fileId=await writeIdeaDocument(ctx,doc,entry?.fileId||'');return {ideaId:doc.idea.ideaId,fileId,summary:catalogSummary(doc,fileId)};}));
+ const latest=await getCatalog(ctx);if(!latest)throw new Error('Cloud JSON catalog disappeared during migration.');
+ for(const result of results){const index=latest.document.ideas.findIndex(x=>String(x.ideaId)===String(result.ideaId));if(index>=0)latest.document.ideas[index]=result.summary;else latest.document.ideas.push(result.summary);}
+ const nextOffset=Math.min(total,offset+batch.length);latest.document.migration={status:nextOffset>=total?'complete':'pending',offset:nextOffset,total,source:'Google Sheets',completedAt:nextOffset>=total?now():null};
+ await saveCatalog(ctx,latest.document,latest.fileId,latest.etag);return {done:nextOffset>=total,migrated:batch.length,total,offset:nextOffset};
+}
+async function ensureJsonCatalog(ctx){const existing=await getCatalog(ctx);if(existing)return existing;if(h.validFileId(SPREADSHEET_ID()))return null;return initializeCatalog(ctx);}
+async function updateCatalogEntry(ctx,summary){
+ for(let attempt=0;attempt<3;attempt++){const current=await initializeCatalog(ctx),catalog=current.document,index=catalog.ideas.findIndex(x=>String(x.ideaId)===String(summary.ideaId));if(index>=0)catalog.ideas[index]=summary;else catalog.ideas.push(summary);
+  try{await saveCatalog(ctx,catalog,current.fileId,current.etag);return;}catch(error){if(!String(error.message).includes('DRIVE_JSON_CONFLICT')||attempt===2)throw error;}
+ }
+}
+async function updateIdeaStatus(ctx,ideaId,status){
+ const catalog=await ensureJsonCatalog(ctx);if(!catalog)return {migrationRequired:true};const entry=catalog.document.ideas.find(x=>String(x.ideaId)===String(ideaId));if(!entry||!entry.fileId)return null;
+ const loaded=await driveReadJson(ctx,entry.fileId),doc=loaded.document;doc.idea=doc.idea||{};doc.idea.status=status;doc.idea.updatedAt=now();
+ const saved=await driveWriteJson(ctx,{fileId:entry.fileId,name:'RIVIS_IDEA_'+String(ideaId)+'.json',document:cleanJsonValue(doc),etag:loaded.etag});await updateCatalogEntry(ctx,catalogSummary(doc,saved.fileId));return {ideaId,status,retainedDriveAssets:true};
+}
+
 exports.handler=async(event)=>{
  if(event.httpMethod==='OPTIONS')return h.json(204,{});
- if(event.httpMethod==='POST'){const origin=event.headers?.origin||event.headers?.Origin||'';if(origin!==h.baseUrl())return h.json(403,{error:'Invalid request origin'});}
+ if(event.httpMethod==='POST'&&(event.headers?.origin||event.headers?.Origin||'')!==h.baseUrl())return h.json(403,{error:'Invalid request origin'});
  if(!['GET','POST'].includes(event.httpMethod))return h.json(405,{error:'Method not allowed'});
- const session=await h.activeSession(event);if(session.error)return h.json(401,{error:session.error});
- const headers=session.newCookie?{'Set-Cookie':session.newCookie}:{};
+ const state=await h.activeSession(event);if(state.error)return h.json(401,{error:state.error});
+ const headers=state.newCookie?{'Set-Cookie':state.newCookie}:{},folderId=process.env.RIVIS_DRIVE_FOLDER_ID||'';
+ if(!h.validFileId(folderId))return h.json(500,{error:'RIVIS_DRIVE_FOLDER_ID is not configured'},headers);
+ const ctx={event,token:state.session.access_token,folderId};
  try{
   if(event.httpMethod==='GET'){
    const action=event.queryStringParameters?.action||'list';
-   if(action==='list')return h.json(200,{ok:true,ideas:await listIdeas(event)},headers);
+   if(action==='list'){
+    const current=await ensureJsonCatalog(ctx);if(!current)return h.json(200,{ok:true,storageMode:'drive-json',migrationRequired:true,ideas:[]},headers);
+    if(current.document.migration?.status==='pending')return h.json(200,{ok:true,storageMode:'drive-json',migrationRequired:true,migration:current.document.migration,ideas:[]},headers);
+    const ideas=(current.document.ideas||[]).filter(x=>x.ideaId&&!['deleted','archived'].includes(String(x.status||'').toLowerCase())).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+    return h.json(200,{ok:true,storageMode:'drive-json',total:ideas.length,ideas},headers);
+   }
    if(action==='load'){
-    const ideaId=event.queryStringParameters?.ideaId||'';if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))return h.json(400,{error:'Invalid ideaId'});
-    const mode=event.queryStringParameters?.mode==='explore'?'explore':'library';
-    const data=await loadIdea(event,ideaId,mode);return data?h.json(200,{ok:true,...data},headers):h.json(404,{error:'Idea not found'},headers);
+    const ideaId=String(event.queryStringParameters?.ideaId||'');if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))return h.json(400,{error:'Invalid ideaId'},headers);
+    const current=await ensureJsonCatalog(ctx);if(!current)return h.json(409,{error:'Legacy migration is required before loading this item.',migrationRequired:true},headers);
+    if(current.document.migration?.status==='pending')return h.json(409,{error:'Legacy migration is still in progress.',migrationRequired:true},headers);
+    const entry=current.document.ideas.find(x=>String(x.ideaId)===ideaId);if(!entry||!entry.fileId||['deleted','archived'].includes(String(entry.status||'').toLowerCase()))return h.json(404,{error:'Idea not found'},headers);
+    const loaded=await driveReadJson(ctx,entry.fileId),doc=loaded.document;if(!doc?.idea||String(doc.idea.ideaId)!==ideaId)return h.json(409,{error:'Drive JSON document does not match its catalog entry.'},headers);
+    const idea=doc.idea;idea.cloudAssets=doc.assets||[];idea.cloudPrompts=doc.prompts||[];idea.cloudGroups=doc.groups||[];idea.cloudGroupItems=doc.groupItems||[];idea.cloudGenerationLogs=doc.generationLogs||[];
+    return h.json(200,{ok:true,storageMode:'drive-json',idea,prompts:doc.prompts||[],assets:doc.assets||[],groups:doc.groups||[],groupItems:doc.groupItems||[],generationLogs:doc.generationLogs||[]},headers);
    }
    return h.json(400,{error:'Unknown action'},headers);
   }
   const body=parseBody(event);if(!body)return h.json(400,{error:'Invalid JSON body'},headers);
+  if(body.action==='migrate')return h.json(200,{ok:true,storageMode:'drive-json',migration:await migrateLegacyBatch(ctx,body.limit||8)},headers);
   if(body.action==='save'){
-   const idea=jsonObject(body.idea);const ideaId=text(idea.ideaId||id('idea'),128);if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))return h.json(400,{error:'Invalid ideaId'},headers);idea.ideaId=ideaId;
-   if(JSON.stringify(idea).length>45000)return h.json(413,{error:'Card data exceeds the 45 KB Google Sheets cell safety limit. Remove embedded image data and try again.'},headers);
-   const prompts=Array.isArray(body.prompts)&&body.prompts.length?body.prompts:[{promptId:idea.activePromptId||id('pr'),promptType:idea.productionType,simplePrompt:idea.simplePrompt,visualPrompt:idea.visualPrompt||idea.imagePrompt,finalPrompt:idea.finalGenerationPrompt||idea.finalPrompt,referenceAssetId:idea.referenceAssetId,version:1,activeVersion:true}];
-   if(!idea.activePromptId&&prompts[0])idea.activePromptId=prompts[0].promptId||id('pr');
-   if(prompts[0]&&!prompts[0].promptId)prompts[0].promptId=idea.activePromptId;
-   const tables={IDEAS:[ideaRow(idea)],PROMPTS:[],ASSETS:[],GROUPS:[], 'GROUP ITEMS':[],'GENERATION LOG':[]};
-   for(const prompt of prompts)tables.PROMPTS.push(promptRow(idea,prompt));
-   for(const asset of (Array.isArray(body.assets)?body.assets:[]))tables.ASSETS.push(assetRow(asset,ideaId));
-   const groups=Array.isArray(body.groups)?body.groups:[];
-   const groupItems=Array.isArray(body.groupItems)?body.groupItems:[];
-   if(idea.productionType==='series'&&Array.isArray(idea.seriesScenes)){
-    const groupId=idea.groupId||ideaId+'_series';
-    groups.push({groupId,groupType:'series',groupTitle:idea.conceptName||idea.title,seriesBible:JSON.stringify(idea.seriesBible||{}),continuityLock:String(idea.seriesContinuityLock!==false),visualStyle:idea.visualStyle||idea.style,colorPalette:Array.isArray(idea.colorPalette)?idea.colorPalette.join(', '):idea.colorPalette,characterDescription:idea.seriesBible?.mainCharacter||idea.mainSubject||'',location:idea.seriesBible?.primaryLocation||idea.environment||'',sceneCount:idea.seriesScenes.length});
-    for(let index=0;index<idea.seriesScenes.length;index++){
-     const scene=idea.seriesScenes[index],sceneId=scene.sceneId||ideaId+'_scene_'+(index+1),promptId=scene.promptId||ideaId+'_scene_prompt_'+(index+1);
-     groupItems.push({itemId:scene.itemId||ideaId+'_scene_item_'+(index+1),groupId,sequence:index+1,sceneId,sceneTitle:scene.sceneTitle||scene.title||('Scene '+(index+1)),sceneAction:[scene.narrativeBeat,scene.mainAction||scene.action,scene.interaction,scene.camera,scene.environment].filter(Boolean).join(' · '),promptId,activeAssetId:scene.activeAssetId||scene.assetId||'',generationStatus:scene.generationStatus||'saved'});
-     if(scene.finalGenerationPrompt||scene.scenePrompt)tables.PROMPTS.push(promptRow(idea,{promptId,promptType:'series-scene',version:scene.promptVersion||1,simplePrompt:scene.scenePrompt||scene.mainAction||'',visualPrompt:scene.visualPrompt||'',finalPrompt:scene.finalGenerationPrompt||scene.scenePrompt||'',referenceAssetId:scene.referenceAssetId||'',activeVersion:true}));
-    }
-   }
-   for(const group of groups)tables.GROUPS.push(groupRow(group,ideaId));
-   for(const item of groupItems)tables['GROUP ITEMS'].push(itemRow(item,ideaId,item.groupId));
-   for(const log of (Array.isArray(body.generationLogs)?body.generationLogs:[]))tables['GENERATION LOG'].push(logRow(log,ideaId));
-   const writes=await batchUpsert(event,tables);
-   return h.json(200,{ok:true,ideaId,result:{idea:writes.IDEAS?.created?'created':'updated',prompts:writes.PROMPTS?.created||0,assets:writes.ASSETS?.created||0,groups:writes.GROUPS?.created||0,groupItems:writes['GROUP ITEMS']?.created||0,generationLogs:writes['GENERATION LOG']?.created||0,updated:{prompts:writes.PROMPTS?.updated||0,assets:writes.ASSETS?.updated||0,groups:writes.GROUPS?.updated||0,groupItems:writes['GROUP ITEMS']?.updated||0,generationLogs:writes['GENERATION LOG']?.updated||0}}},headers);
+   const idea=jsonObject(body.idea),ideaId=text(idea.ideaId||id('idea'),128);if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))return h.json(400,{error:'Invalid ideaId'},headers);
+   const current=await ensureJsonCatalog(ctx);if(!current)return h.json(409,{error:'Legacy migration is required before saving. Keep RIVIS_SPREADSHEET_ID configured and open Cloud Gallery once.',migrationRequired:true},headers);
+   if(current.document.migration?.status==='pending')return h.json(409,{error:'Legacy migration is still in progress.',migrationRequired:true},headers);
+   const existing=current.document.ideas.find(x=>String(x.ideaId)===ideaId),existingDoc=existing?.fileId?(await driveReadJson(ctx,existing.fileId)).document:null;
+   idea.ideaId=ideaId;idea.createdAt=idea.createdAt||existingDoc?.idea?.createdAt||now();idea.updatedAt=now();idea.status=idea.status||'Saved';
+   const prompts=Array.isArray(body.prompts)&&body.prompts.length?body.prompts:(Array.isArray(idea.cloudPrompts)?idea.cloudPrompts:(Array.isArray(idea.prompts)?idea.prompts:(existingDoc?.prompts||[])));
+   const assets=Array.isArray(body.assets)&&body.assets.length?body.assets:(Array.isArray(idea.cloudAssets)?idea.cloudAssets:(existingDoc?.assets||[]));
+   const groups=Array.isArray(body.groups)&&body.groups.length?body.groups:(Array.isArray(idea.cloudGroups)?idea.cloudGroups:(existingDoc?.groups||[]));
+   const groupItems=Array.isArray(body.groupItems)&&body.groupItems.length?body.groupItems:(Array.isArray(idea.cloudGroupItems)?idea.cloudGroupItems:(existingDoc?.groupItems||[]));
+   const generationLogs=Array.isArray(body.generationLogs)&&body.generationLogs.length?body.generationLogs:(Array.isArray(idea.cloudGenerationLogs)?idea.cloudGenerationLogs:(existingDoc?.generationLogs||[]));
+   idea.cloudAssets=assets;idea.cloudPrompts=prompts;idea.cloudGroups=groups;idea.cloudGroupItems=groupItems;idea.cloudGenerationLogs=generationLogs;
+   const doc=cleanJsonValue({schemaVersion:2,idea,prompts,assets,groups,groupItems,generationLogs,updatedAt:idea.updatedAt});
+   const fileId=await writeIdeaDocument(ctx,doc,existing?.fileId||'');await updateCatalogEntry(ctx,catalogSummary(doc,fileId));
+   return h.json(200,{ok:true,storageMode:'drive-json',ideaId,result:{idea:existing?'updated':'created',prompts:prompts.length,assets:assets.length,groups:groups.length,groupItems:groupItems.length,generationLogs:generationLogs.length},fileId},headers);
   }
-  if(body.action==='delete'){
-   const ideaId=text(body.ideaId,128);
-   if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))return h.json(400,{error:'Invalid ideaId'},headers);
-   const data=await rows(event,'IDEAS');
-   const index=data.findIndex((row,i)=>i>0&&String(row[0])===ideaId);
-   if(index<=0)return h.json(404,{error:'Idea not found'},headers);
-   const idea=parseIdeaRow(data[index]);
-   if(String(idea.status||'').toLowerCase()==='deleted')return h.json(200,{ok:true,ideaId,status:'Deleted',alreadyDeleted:true},headers);
-   idea.status='Deleted';idea.updatedAt=now();
-   const write=await values(event,'IDEAS','PUT',ideaRow(idea),index+1);
-   if(write.error)throw new Error(write.error);
-   if(!write.response.ok)throw googleFailure('Cloud Gallery delete failed',write);
-   return h.json(200,{ok:true,ideaId,status:'Deleted',retainedDriveAssets:true},headers);
-  }
-  if(body.action==='archive'){
-   const ideaId=text(body.ideaId,128);const existing=await loadIdea(event,ideaId);if(!existing)return h.json(404,{error:'Idea not found'},headers);
-   existing.idea.status='Archived';const result=await upsert(event,'IDEAS',ideaId,ideaRow(existing.idea));return h.json(200,{ok:true,ideaId,status:'Archived',result},headers);
+  if(body.action==='delete'||body.action==='archive'){
+   const ideaId=text(body.ideaId,128);if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))return h.json(400,{error:'Invalid ideaId'},headers);
+   const status=body.action==='delete'?'Deleted':'Archived',result=await updateIdeaStatus(ctx,ideaId,status);
+   if(!result)return h.json(404,{error:'Idea not found'},headers);if(result.migrationRequired)return h.json(409,{error:'Legacy migration is required before changing this item.',migrationRequired:true},headers);
+   return h.json(200,{ok:true,storageMode:'drive-json',...result},headers);
   }
   return h.json(400,{error:'Unknown action'},headers);
- }catch(error){return h.json(502,{error:error.message||'Cloud data operation failed'},headers);}
+ }catch(error){
+  const timeout=error?.name==='AbortError'||error?.name==='TimeoutError',conflict=String(error?.message||'').includes('DRIVE_JSON_CONFLICT');
+  return h.json(conflict?409:timeout?504:502,{error:error.message||'Cloud JSON operation failed'},headers);
+ }
 };

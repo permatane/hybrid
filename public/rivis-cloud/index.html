@@ -5,29 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>RIVIS Cloud Gateway</title>
-  <meta name="description" content="Koneksi aman Google Drive dan Sheets untuk Rich Vector Idea Studio.">
+  <meta name="description" content="Koneksi aman Google Drive JSON untuk Rich Vector Idea Studio.">
   <link rel="stylesheet" href="./gateway.css">
   <script src="./gateway.js" defer></script>
 </head>
 <body>
   <main class="shell">
-    <header class="header"><div class="brand-mark" aria-hidden="true">R</div><div><p class="eyebrow">RICH VECTOR IDEA STUDIO</p><h1>Cloud Gateway <small>v1.3.3</small></h1><p class="subtitle">Satu koneksi untuk Cloud Gallery, Google Drive, dan Sheets</p></div></header>
+    <header class="header"><div class="brand-mark" aria-hidden="true">R</div><div><p class="eyebrow">RICH VECTOR IDEA STUDIO</p><h1>Cloud Gateway <small>v1.3.8</small></h1><p class="subtitle">Satu koneksi untuk Cloud Gallery dan Google Drive JSON</p></div></header>
     <div class="status" id="connectionStatus" role="status" aria-live="polite"><span class="dot"></span><span>Memeriksa koneksi...</span></div>
     <div id="authMessage" class="notice" hidden></div>
     <section class="card">
-      <div class="section-head"><span class="step">1</span><div><h2>Hubungkan akun Google</h2><p>Login aman melalui Netlify. Setelah login, RIVIS otomatis memeriksa folder Drive dan spreadsheet yang sudah dikonfigurasi.</p></div></div>
+      <div class="section-head"><span class="step">1</span><div><h2>Hubungkan akun Google</h2><p>Login aman melalui Netlify. Setelah login, RIVIS otomatis memeriksa folder Google Drive yang sudah dikonfigurasi.</p></div></div>
       <div class="actions"><a id="loginBtn" class="button primary" href="/.netlify/functions/auth-start">Connect Google</a><button id="logoutBtn" class="button" type="button" hidden>Disconnect</button></div>
-      <p class="hint">Anda tidak perlu memilih folder, memilih spreadsheet, atau menekan Test Connection. Cukup login satu kali.</p>
+      <p class="hint">Anda tidak perlu memilih folder atau menekan Test Connection. Cukup login satu kali.</p>
     </section>
     <section class="card" id="storageCard">
       <div class="section-head"><span class="step">2</span><div><h2>RIVIS Cloud Storage</h2><p>Tujuan penyimpanan sudah ditetapkan di Netlify dan digunakan otomatis.</p></div></div>
       <div class="selection"><div class="selection-label"><strong>Google Drive</strong><span id="folderState">Memeriksa folder...</span></div><span class="storage-pill" id="storageState">Memeriksa...</span></div>
-      <div class="selection"><div class="selection-label"><strong>Google Sheets</strong><span id="sheetState">Memeriksa spreadsheet...</span></div></div>
-      <p class="hint">Koneksi dianggap siap setelah Google Drive, Google Sheets, dan enam tab indeks berhasil diverifikasi.</p>
+      <div class="selection"><div class="selection-label"><strong>Drive JSON Database</strong><span>Catalog, data ide, prompt, dan indeks aset disimpan sebagai JSON.</span></div></div>
+      <p class="hint">Google Sheets lama hanya digunakan untuk migrasi data, jika masih dikonfigurasi. Setelah migrasi selesai, operasi Cloud Gallery sepenuhnya menggunakan Google Drive.</p>
     </section>
     <section class="card compact"><div class="section-head"><span class="step">3</span><div><h2>Hasil pemeriksaan</h2><p>Ringkasan koneksi Cloud Gallery.</p></div></div><pre id="testResult" aria-live="polite">Belum diperiksa.</pre></section>
-    <details class="card"><summary>Diagnostik dan informasi Gateway</summary><dl><dt>Gateway Origin</dt><dd id="gatewayOrigin">—</dd><dt>OAuth Redirect URI</dt><dd id="oauthRedirect">—</dd><dt>Gateway Version</dt><dd id="gatewayVersion">1.3.3</dd><dt>Canvas Bridge</dt><dd id="bridgeStatus">Belum terhubung</dd></dl></details>
-    <p class="footer">RIVIS Cloud Gateway 1.3.3 · OAuth token tetap berada di server dan tidak dikirim ke Canvas.</p>
+    <details class="card"><summary>Diagnostik dan informasi Gateway</summary><dl><dt>Gateway Origin</dt><dd id="gatewayOrigin">—</dd><dt>OAuth Redirect URI</dt><dd id="oauthRedirect">—</dd><dt>Gateway Version</dt><dd id="gatewayVersion">1.3.8</dd><dt>Canvas Bridge</dt><dd id="bridgeStatus">Belum terhubung</dd></dl></details>
+    <p class="footer">RIVIS Cloud Gateway 1.3.8 · OAuth token tetap berada di server dan tidak dikirim ke Canvas.</p>
   </main>
 </body>
 </html>

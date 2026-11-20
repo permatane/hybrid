@@ -11,7 +11,7 @@ exports.handler=async(event)=>{
  try{
   const body=JSON.parse(event.body||'{}');
   const folderId=process.env.RIVIS_DRIVE_FOLDER_ID||'';
-  if(!h.validFileId(folderId)||!h.validFileId(process.env.RIVIS_SPREADSHEET_ID||''))return h.json(500,{error:'RIVIS Drive folder or spreadsheet is not configured'},headers);
+  if(!h.validFileId(folderId))return h.json(500,{error:'RIVIS Drive folder is not configured'},headers);
   if(!h.validFileId(body.ideaId))return h.json(400,{error:'Invalid ideaId'},headers);
   const assetId=body.assetId&&/^[A-Za-z0-9_-]{1,128}$/.test(body.assetId)?body.assetId:'as_'+crypto.randomBytes(9).toString('hex');
   const mime=String(body.mimeType||'');
