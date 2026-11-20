@@ -1539,7 +1539,7 @@ function openCloudGateway(){
  const url=GATEWAY_ORIGIN+'/rivis-cloud/?channel='+encodeURIComponent(gatewayChannel);
  gatewayPopup=window.open(url,'rivis_cloud_gateway','popup=yes,width=680,height=790,resizable=yes,scrollbars=yes');
  if(!gatewayPopup){status('Browser memblokir popup. Izinkan popup Netlify atau buka '+GATEWAY_ORIGIN+'/rivis-cloud/','warning');return;}
- status('Cloud Gateway dibuka. Hubungkan Google, pilih folder dan spreadsheet, lalu kirim pilihan ke RIVIS.','info');
+ status('Cloud Gateway dibuka. Hubungkan akun Google; folder RIVIS sudah ditetapkan otomatis.','info');
 }
 window.addEventListener('message',event=>{
  if(event.origin!==GATEWAY_ORIGIN || event.source!==gatewayPopup || !gatewayChannel)return;
@@ -1583,7 +1583,7 @@ window.addEventListener('message',event=>{
  }else if(d.type==='RIVIS_CLOUD_STATUS'){
   gatewayConnected=d.connected===true;
   gatewayVerified=d.verified===true;
-  status(gatewayVerified?'CLOUD CONNECTED · Google Drive & Sheets siap digunakan.':gatewayConnected?'GOOGLE SIGNED IN · Penyimpanan sedang diverifikasi.':'CLOUD NOT CONNECTED · Klik Connect Google untuk memulai.',gatewayVerified?'success':gatewayConnected?'info':'warning');
+  status(gatewayVerified?'CLOUD CONNECTED · Google Drive JSON siap digunakan.':gatewayConnected?'GOOGLE SIGNED IN · Penyimpanan sedang diverifikasi.':'CLOUD NOT CONNECTED · Klik Connect Google untuk memulai.',gatewayVerified?'success':gatewayConnected?'info':'warning');
   updateCloudControls();
   if(gatewayVerified)refreshCloudGallery();
  }else if(d.type==='RIVIS_CLOUD_SELECTED'){
@@ -1594,7 +1594,7 @@ window.addEventListener('message',event=>{
   if($('rvCloudSpreadsheetId'))$('rvCloudSpreadsheetId').value=d.spreadsheetId;
   if($('rvCloudFolderPicked'))$('rvCloudFolderPicked').textContent='Dipilih via Cloud Gateway: '+(d.folderName||'Folder');
   if($('rvCloudSheetPicked'))$('rvCloudSheetPicked').textContent='Dipilih via Cloud Gateway: '+(d.sheetName||'Spreadsheet');
-  status('CLOUD CONNECTED · Folder dan Google Sheets terverifikasi. Save & Load siap.','success');
+  status('CLOUD CONNECTED · Google Drive JSON siap digunakan. Save & Load siap.','success');
   updateCloudControls();
  }
 });
@@ -2050,36 +2050,62 @@ async function saveAllToCloud(button){
  if(!ideas.length){cloudSyncStatus('Library lokal masih kosong.');showToast('Library lokal masih kosong.','info');return;}
  if(cloudBulkProgress){showToast('Save All to Cloud sedang berlangsung.','info');return;}
  const total=ideas.length,old=button?.textContent||'Save All to Cloud';
- let saved=0,progressPercent=0;
+ let saved=0,progressPercent=0,cursor=0;
+ const failures=[];
+ const transferProgress=new Map();
  const paint=value=>{
   progressPercent=Math.max(progressPercent,Math.min(100,Math.round(value)));
   if(button){setInnerProgress(button,progressPercent);button.textContent='Saving '+saved+'/'+total;button.title='Save All to Cloud · '+progressPercent+'% · '+saved+'/'+total+' card';}
  };
- const bulk={onProgress:d=>{
-  const current=Number(d.percent);
-  if(!Number.isFinite(current))return;
-  const partial=Math.min(.92,Math.max(0,current/100)*.92);
+ const paintEstimated=()=>{
+  const values=[...transferProgress.values()];
+  const partial=values.length?Math.min(.92,(values.reduce((sum,value)=>sum+value,0)/values.length/100)*.92):0;
   paint(((saved+partial)/total)*100);
- }};
+ };
+ const bulk={
+  onProgress:d=>{
+   const current=Number(d.percent);
+   if(!Number.isFinite(current))return;
+   transferProgress.set(String(d.requestId||''),Math.max(0,Math.min(100,current)));
+   paintEstimated();
+  },
+  onComplete:requestId=>{
+   transferProgress.delete(String(requestId||''));
+   paintEstimated();
+  }
+ };
  cloudBulkProgress=bulk;
  if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
  paint(0);
- try{
-  for(const idea of ideas){
-   cloudSyncStatus('Menyimpan '+(saved+1)+'/'+total+' · '+(idea.conceptName||idea.ideaId));
-   await saveIdeaToCloud(idea);
-   saved++;
-   paint(saved/total*100);
+ const worker=async()=>{
+  while(true){
+   const index=cursor++;
+   if(index>=total)return;
+   const idea=ideas[index];
+   cloudSyncStatus('Menyimpan '+(index+1)+'/'+total+' · '+(idea.conceptName||idea.ideaId));
+   try{await saveIdeaToCloud(idea);saved++;}
+   catch(error){failures.push({name:idea.conceptName||idea.ideaId,error:String(error?.message||error)});}
+   paint(((saved+failures.length)/total)*100);
   }
-  cloudSyncStatus(saved+' card berhasil disimpan ke Cloud Gallery.');
-  showToast(saved+' card berhasil disimpan ke Cloud Gallery.','success');
-  await refreshCloudGallery();
- }catch(error){
-  cloudSyncStatus(saved+' dari '+total+' card tersimpan. Error: '+error.message);
-  showToast(saved+' card tersimpan. Error: '+error.message,'error');
+ };
+ try{
+  // Two cards at a time; each card already limits its own image uploads to two workers.
+  await Promise.all(Array.from({length:Math.min(2,total)},worker));
+  if(saved){
+   try{await refreshCloudGallery();}
+   catch(error){cloudSyncStatus(saved+' card tersimpan, tetapi daftar gallery belum berhasil diperbarui: '+error.message);}
+  }
+  if(failures.length){
+   const first=failures[0];
+   cloudSyncStatus(saved+' dari '+total+' card tersimpan. '+failures.length+' gagal; pertama: '+first.name+' — '+first.error);
+   showToast(saved+' tersimpan · '+failures.length+' gagal. Periksa status Cloud.','error');
+  }else{
+   cloudSyncStatus(saved+' card berhasil disimpan ke Cloud Gallery.');
+   showToast(saved+' card berhasil disimpan ke Cloud Gallery.','success');
+  }
  }finally{
   if(cloudBulkProgress===bulk)cloudBulkProgress=null;
-  if(button){clearInnerProgress(button);button.disabled=false;button.textContent=old;button.title='Simpan semua card Library ke Cloud Gallery';}
+  if(button){clearInnerProgress(button);button.disabled=false;button.removeAttribute('aria-busy');button.textContent=old;button.title='Simpan semua card Library ke Cloud Gallery';}
  }
 }
 window.RIVIS_SAVE_CARD_TO_CLOUD=saveCardToCloud;
@@ -2099,7 +2125,7 @@ window.RIVIS_SAVE_IDEA_TO_CLOUD=async(idea,referenceSource)=>{
   throw error;
  }
 };
-window.RIVIS_CLOUD_INIT=()=>{render();updateCloudControls();status(gatewayVerified?'CLOUD CONNECTED · Google Drive & Sheets siap digunakan.':'CLOUD NOT CONNECTED · Klik Connect Google untuk mulai.',gatewayVerified?'success':'warning');if(gatewayVerified)refreshCloudGallery();};
+window.RIVIS_CLOUD_INIT=()=>{render();updateCloudControls();status(gatewayVerified?'CLOUD CONNECTED · Google Drive JSON siap digunakan.':'CLOUD NOT CONNECTED · Klik Connect Google untuk mulai.',gatewayVerified?'success':'warning');if(gatewayVerified)refreshCloudGallery();};
 window.RIVIS_CLOUD_STATUS=()=>({connected:gatewayConnected,verified:gatewayVerified,gatewayUrl:GATEWAY_ORIGIN+'/rivis-cloud/'});
 window.addEventListener('focus',()=>{if(gatewayPopup&&gatewayPopup.closed){gatewayPopup=null;gatewayConnected=false;gatewayVerified=false;updateCloudControls();status('CLOUD NOT CONNECTED · Jendela Gateway sudah ditutup. Hubungkan kembali untuk sinkronisasi.','info');}});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',render,{once:true});else render();
