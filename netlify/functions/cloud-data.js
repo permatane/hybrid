@@ -311,23 +311,26 @@ async function compactCatalogIfNeeded(ctx,current){
  return latest;
 }
 async function ensureJsonCatalog(ctx){const existing=await getCatalog(ctx);if(existing)return compactCatalogIfNeeded(ctx,existing);if(h.validFileId(SPREADSHEET_ID()))return null;return initializeCatalog(ctx);}
-async function updateCatalogEntry(ctx,summary){
+async function updateCatalogEntry(ctx,summary,initialCurrent=null){
+ let current=initialCurrent;
  for(let attempt=0;attempt<7;attempt++){
-  const current=await initializeCatalog(ctx),catalog=current.document;
-  const index=catalog.ideas.findIndex(x=>String(x.ideaId)===String(summary.ideaId));
+  if(!current)current=await initializeCatalog(ctx);
+  const catalog=current.document,index=catalog.ideas.findIndex(x=>String(x.ideaId)===String(summary.ideaId));
   if(index>=0)catalog.ideas[index]=summary;else catalog.ideas.push(summary);
   catalog.schemaVersion=5;
   try{await saveCatalog(ctx,catalog,current.fileId,current.etag);return;}
   catch(error){
    if(!String(error.message).includes('DRIVE_JSON_CONFLICT')||attempt===6)throw error;
    await new Promise(resolve=>setTimeout(resolve,Math.min(900,80*Math.pow(2,attempt))));
+   current=await getCatalog(ctx);
+   if(!current)throw new Error('Cloud JSON catalog disappeared during concurrent update.');
   }
  }
 }
 async function updateIdeaStatus(ctx,ideaId,status){
  const catalog=await ensureJsonCatalog(ctx);if(!catalog)return {migrationRequired:true};const entry=catalog.document.ideas.find(x=>String(x.ideaId)===String(ideaId));if(!entry||!entry.fileId)return null;
  const loaded=await driveReadJson(ctx,entry.fileId),doc=loaded.document;doc.idea=doc.idea||{};doc.idea.status=status;doc.idea.updatedAt=now();
- const saved=await driveWriteJson(ctx,{fileId:entry.fileId,name:'RIVIS_IDEA_'+String(ideaId)+'.json',document:cleanJsonValue(doc),etag:loaded.etag});await updateCatalogEntry(ctx,catalogSummary(doc,saved.fileId));return {ideaId,status,retainedDriveAssets:true};
+ const saved=await driveWriteJson(ctx,{fileId:entry.fileId,name:'RIVIS_IDEA_'+String(ideaId)+'.json',document:cleanJsonValue(doc),etag:loaded.etag});await updateCatalogEntry(ctx,catalogSummary(doc,saved.fileId),catalog);return {ideaId,status,retainedDriveAssets:true};
 }
 
 exports.handler=async(event)=>{
@@ -384,7 +387,7 @@ exports.handler=async(event)=>{
    const generationLogs=Array.isArray(body.generationLogs)&&body.generationLogs.length?body.generationLogs:(Array.isArray(idea.cloudGenerationLogs)?idea.cloudGenerationLogs:(existingDoc?.generationLogs||[]));
    idea.cloudAssets=assets;idea.cloudPrompts=prompts;idea.cloudGroups=groups;idea.cloudGroupItems=groupItems;idea.cloudGenerationLogs=generationLogs;
    const doc=cleanJsonValue({schemaVersion:2,idea,prompts,assets,groups,groupItems,generationLogs,updatedAt:idea.updatedAt});
-   const fileId=await writeIdeaDocument(ctx,doc,existing?.fileId||'',existingLoaded?.etag||'');await updateCatalogEntry(ctx,catalogSummary(doc,fileId));
+   const fileId=await writeIdeaDocument(ctx,doc,existing?.fileId||'',existingLoaded?.etag||'');await updateCatalogEntry(ctx,catalogSummary(doc,fileId),current);
    return h.json(200,{ok:true,storageMode:'drive-json',ideaId,result:{idea:existing?'updated':'created',prompts:prompts.length,assets:assets.length,groups:groups.length,groupItems:groupItems.length,generationLogs:generationLogs.length},fileId},headers);
   }
   if(body.action==='delete'||body.action==='archive'){
