@@ -210,7 +210,7 @@ async function getCatalog(ctx){
  if(catalogFileIdCache){try{return {fileId:catalogFileIdCache,...await driveReadJson(ctx,catalogFileIdCache)};}catch(_){catalogFileIdCache='';}}
  const file=await driveFindJson(ctx,CATALOG_NAME);if(!file)return null;catalogFileIdCache=file.id;return {fileId:file.id,...await driveReadJson(ctx,file.id)};
 }
-function emptyCatalog(){return {schema:'rivis-drive-json',schemaVersion:2,revision:1,createdAt:now(),updatedAt:now(),migration:{status:'complete',offset:0,total:0,source:'new'},ideas:[]};}
+function emptyCatalog(){return {schema:'rivis-drive-json',schemaVersion:3,revision:1,createdAt:now(),updatedAt:now(),migration:{status:'complete',offset:0,total:0,source:'new'},ideas:[]};}
 async function createCatalog(ctx,catalog){const saved=await driveWriteJson(ctx,{name:CATALOG_NAME,document:catalog});catalogFileIdCache=saved.fileId;return saved.fileId;}
 async function saveCatalog(ctx,catalog,fileId,etag=''){catalog.revision=Number(catalog.revision||0)+1;catalog.updatedAt=now();const saved=await driveWriteJson(ctx,{fileId,name:CATALOG_NAME,document:catalog,etag});catalogFileIdCache=saved.fileId;return saved;}
 function assetFromRow(r){return {assetId:r[0],ideaId:r[1],sceneId:r[2]||'',assetType:r[3]||'reference',driveFileId:r[4]||'',fileName:r[5]||'',mimeType:r[6]||'',format:r[7]||'',width:r[8]||'',height:r[9]||'',megapixels:r[10]||'',fileSizeBytes:r[11]||'',version:r[12]||1,isActive:r[13]??'true',createdAt:r[14]||'',sourceAssetId:r[15]||''};}
@@ -227,8 +227,14 @@ async function readLegacySnapshot(ctx){
 }
 function catalogSummary(doc,fileId){
  const idea=doc.idea||{},prompts=Array.isArray(doc.prompts)?doc.prompts:[],assets=Array.isArray(doc.assets)?doc.assets:[],active=prompts.find(p=>String(p.promptId)===String(idea.activePromptId))||prompts.find(p=>['true','1','yes'].includes(String(p.activeVersion).toLowerCase()))||prompts.at(-1)||{};
- const summary={ideaId:idea.ideaId,fileId,cardCode:idea.cardCode||idea.uniqueCode||idea.ideaId,conceptName:idea.conceptName||idea.title||idea.name||'Untitled Idea',title:idea.title||idea.conceptName||'Untitled Idea',productionType:idea.productionType||'single',dataType:idea.dataType||'',category:idea.category||'',subcategory:idea.subcategory||'',visualStyle:idea.visualStyle||idea.style||'',assetType:idea.assetType||'',colorPalette:idea.colorPalette||'',targetBuyer:idea.targetBuyer||'',designNeed:idea.designNeed||'',commercialValueScore:idea.commercialValueScore??idea.score??null,score:idea.score??idea.commercialValueScore??null,status:idea.status||'Saved',createdAt:idea.createdAt||now(),updatedAt:idea.updatedAt||now(),parentIdeaId:idea.parentIdeaId||'',driveFolderId:idea.driveFolderId||'',coverAssetId:idea.coverAssetId||'',activePromptId:idea.activePromptId||active.promptId||'',simplePrompt:idea.simplePrompt||active.simplePrompt||'',visualPrompt:idea.visualPrompt||active.visualPrompt||'',finalGenerationPrompt:idea.finalGenerationPrompt||active.finalPrompt||'',prompts:active.promptId?[active]:[],cloudAssets:assets,cloudAssetRefs:idea.cloudAssetRefs||{}};
- const cover=assets.find(a=>a.assetType==='generated'&&!a.sceneId&&String(a.isActive).toLowerCase()!=='false')||assets.find(a=>a.assetType==='generated'&&String(a.isActive).toLowerCase()!=='false');if(cover){summary.coverAssetId=summary.coverAssetId||cover.assetId;summary.cloudAssetRefs={...summary.cloudAssetRefs,cover:summary.cloudAssetRefs.cover||cover};}return summary;
+ const activeAsset=asset=>({assetId:asset.assetId,ideaId:asset.ideaId,sceneId:asset.sceneId||'',assetType:asset.assetType,driveFileId:asset.driveFileId||'',fileName:asset.fileName||'',mimeType:asset.mimeType||'',format:asset.format||'',width:asset.width||'',height:asset.height||'',megapixels:asset.megapixels||'',fileSizeBytes:asset.fileSizeBytes||'',version:asset.version||1,isActive:asset.isActive??'true',createdAt:asset.createdAt||''});
+ const generated=assets.filter(a=>a.assetType==='generated'&&String(a.isActive).toLowerCase()!=='false');
+ const cover=generated.filter(a=>!a.sceneId).at(-1)||generated.at(-1)||null;
+ const reference=assets.filter(a=>a.assetType==='reference'&&String(a.isActive).toLowerCase()!=='false').at(-1)||null;
+ const galleryAssets=[cover,reference].filter(Boolean).map(activeAsset);
+ const activePrompt=active.promptId?{promptId:active.promptId,ideaId:active.ideaId,simplePrompt:active.simplePrompt||'',visualPrompt:active.visualPrompt||'',finalPrompt:active.finalPrompt||'',activeVersion:active.activeVersion??true}:null;
+ const summary={ideaId:idea.ideaId,fileId,cardCode:idea.cardCode||idea.uniqueCode||idea.ideaId,conceptName:idea.conceptName||idea.title||idea.name||'Untitled Idea',title:idea.title||idea.conceptName||'Untitled Idea',productionType:idea.productionType||'single',dataType:idea.dataType||'',category:idea.category||'',subcategory:idea.subcategory||'',visualStyle:idea.visualStyle||idea.style||'',assetType:idea.assetType||'',colorPalette:idea.colorPalette||'',targetBuyer:idea.targetBuyer||'',designNeed:idea.designNeed||'',commercialValueScore:idea.commercialValueScore??idea.score??null,score:idea.score??idea.commercialValueScore??null,status:idea.status||'Saved',createdAt:idea.createdAt||now(),updatedAt:idea.updatedAt||now(),parentIdeaId:idea.parentIdeaId||'',driveFolderId:idea.driveFolderId||'',coverAssetId:idea.coverAssetId||cover?.assetId||'',activePromptId:idea.activePromptId||active.promptId||'',simplePrompt:idea.simplePrompt||active.simplePrompt||'',visualPrompt:idea.visualPrompt||active.visualPrompt||'',finalGenerationPrompt:idea.finalGenerationPrompt||active.finalPrompt||'',prompts:activePrompt?[activePrompt]:[],cloudAssets:galleryAssets,cloudAssetRefs:{...(cover?{cover:activeAsset(cover)}:{}),...(reference?{reference:activeAsset(reference)}:{})}};
+ return summary;
 }
 function cleanJsonValue(value){if(typeof value==='string'&&(value.startsWith('data:image/')||value.startsWith('blob:')))return '';if(Array.isArray(value))return value.map(cleanJsonValue);if(value&&typeof value==='object'){const out={};for(const [key,item] of Object.entries(value)){if(['referenceImageBlob','referenceImageFile','imageBase64'].includes(key))continue;out[key]=cleanJsonValue(item);}return out;}return value;}
 async function writeIdeaDocument(ctx,doc,fileId=''){
@@ -251,10 +257,43 @@ async function migrateLegacyBatch(ctx,limit=8){
  const nextOffset=Math.min(total,offset+batch.length);latest.document.migration={status:nextOffset>=total?'complete':'pending',offset:nextOffset,total,source:'Google Sheets',completedAt:nextOffset>=total?now():null};
  await saveCatalog(ctx,latest.document,latest.fileId,latest.etag);return {done:nextOffset>=total,migrated:batch.length,total,offset:nextOffset};
 }
-async function ensureJsonCatalog(ctx){const existing=await getCatalog(ctx);if(existing)return existing;if(h.validFileId(SPREADSHEET_ID()))return null;return initializeCatalog(ctx);}
+function compactCatalogEntry(entry){
+ const assets=Array.isArray(entry.cloudAssets)?entry.cloudAssets:[];
+ const refs=entry.cloudAssetRefs||{};
+ const generated=assets.filter(a=>a.assetType==='generated'&&String(a.isActive).toLowerCase()!=='false');
+ const cover=generated.filter(a=>!a.sceneId).at(-1)||generated.at(-1)||refs.cover||null;
+ const reference=assets.filter(a=>a.assetType==='reference'&&String(a.isActive).toLowerCase()!=='false').at(-1)||refs.reference||null;
+ const keep=[cover,reference].filter(Boolean);
+ const prompts=Array.isArray(entry.prompts)?entry.prompts:[];
+ const active=prompts.find(p=>String(p.promptId||'')===String(entry.activePromptId||''))||prompts.at(-1)||null;
+ const compactPrompt=active?{promptId:active.promptId,ideaId:active.ideaId,simplePrompt:active.simplePrompt||'',visualPrompt:active.visualPrompt||'',finalPrompt:active.finalPrompt||'',activeVersion:active.activeVersion??true}:null;
+ const assetFields=a=>({assetId:a.assetId,ideaId:a.ideaId,sceneId:a.sceneId||'',assetType:a.assetType,driveFileId:a.driveFileId||'',fileName:a.fileName||'',mimeType:a.mimeType||'',format:a.format||'',width:a.width||'',height:a.height||'',megapixels:a.megapixels||'',fileSizeBytes:a.fileSizeBytes||'',version:a.version||1,isActive:a.isActive??'true',createdAt:a.createdAt||''});
+ return {...entry,prompts:compactPrompt?[compactPrompt]:[],cloudAssets:keep.map(assetFields),cloudAssetRefs:{...(cover?{cover:assetFields(cover)}:{}),...(reference?{reference:assetFields(reference)}:{})}};
+}
+async function compactCatalogIfNeeded(ctx,current){
+ let latest=current;
+ for(let attempt=0;attempt<5;attempt++){
+  if(Number(latest.document.schemaVersion||0)>=3)return latest;
+  const catalog=latest.document;
+  catalog.ideas=(Array.isArray(catalog.ideas)?catalog.ideas:[]).map(compactCatalogEntry);
+  catalog.schemaVersion=3;
+  try{const saved=await saveCatalog(ctx,catalog,latest.fileId,latest.etag);return {fileId:latest.fileId,document:catalog,etag:saved.etag};}
+  catch(error){if(!String(error.message).includes('DRIVE_JSON_CONFLICT')||attempt===4)throw error;latest=await getCatalog(ctx);if(!latest)throw new Error('Cloud JSON catalog disappeared during compaction.');}
+ }
+ return latest;
+}
+async function ensureJsonCatalog(ctx){const existing=await getCatalog(ctx);if(existing)return compactCatalogIfNeeded(ctx,existing);if(h.validFileId(SPREADSHEET_ID()))return null;return initializeCatalog(ctx);}
 async function updateCatalogEntry(ctx,summary){
- for(let attempt=0;attempt<3;attempt++){const current=await initializeCatalog(ctx),catalog=current.document,index=catalog.ideas.findIndex(x=>String(x.ideaId)===String(summary.ideaId));if(index>=0)catalog.ideas[index]=summary;else catalog.ideas.push(summary);
-  try{await saveCatalog(ctx,catalog,current.fileId,current.etag);return;}catch(error){if(!String(error.message).includes('DRIVE_JSON_CONFLICT')||attempt===2)throw error;}
+ for(let attempt=0;attempt<7;attempt++){
+  const current=await initializeCatalog(ctx),catalog=current.document;
+  const index=catalog.ideas.findIndex(x=>String(x.ideaId)===String(summary.ideaId));
+  if(index>=0)catalog.ideas[index]=summary;else catalog.ideas.push(summary);
+  catalog.schemaVersion=3;
+  try{await saveCatalog(ctx,catalog,current.fileId,current.etag);return;}
+  catch(error){
+   if(!String(error.message).includes('DRIVE_JSON_CONFLICT')||attempt===6)throw error;
+   await new Promise(resolve=>setTimeout(resolve,Math.min(900,80*Math.pow(2,attempt))));
+  }
  }
 }
 async function updateIdeaStatus(ctx,ideaId,status){
@@ -274,11 +313,22 @@ exports.handler=async(event)=>{
  try{
   if(event.httpMethod==='GET'){
    const action=event.queryStringParameters?.action||'list';
+   if(action==='state'){
+    const current=await ensureJsonCatalog(ctx);
+    if(!current)return h.json(200,{ok:true,storageMode:'drive-json',migrationRequired:true,migration:{status:'pending',offset:0,total:0}},headers);
+    const migration=current.document.migration||{status:'complete',offset:0,total:0};
+    return h.json(200,{ok:true,storageMode:'drive-json',migrationRequired:migration.status==='pending',migration,totalIdeas:(current.document.ideas||[]).length},headers);
+   }
    if(action==='list'){
     const current=await ensureJsonCatalog(ctx);if(!current)return h.json(200,{ok:true,storageMode:'drive-json',migrationRequired:true,ideas:[]},headers);
     if(current.document.migration?.status==='pending')return h.json(200,{ok:true,storageMode:'drive-json',migrationRequired:true,migration:current.document.migration,ideas:[]},headers);
-    const ideas=(current.document.ideas||[]).filter(x=>x.ideaId&&!['deleted','archived'].includes(String(x.status||'').toLowerCase())).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
-    return h.json(200,{ok:true,storageMode:'drive-json',total:ideas.length,ideas},headers);
+    const ideas=(current.document.ideas||[]).filter(x=>x.ideaId&&!['deleted','archived'].includes(String(x.status||'').toLowerCase())).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))||String(a.ideaId).localeCompare(String(b.ideaId)));
+    const total=ideas.length,idsOnly=['1','true','yes'].includes(String(event.queryStringParameters?.idsOnly||'').toLowerCase());
+    if(idsOnly)return h.json(200,{ok:true,storageMode:'drive-json',total,ids:ideas.map(idea=>String(idea.ideaId))},headers);
+    const page=Math.max(1,Math.floor(Number(event.queryStringParameters?.page)||1));
+    const pageSize=Math.max(1,Math.min(100,Math.floor(Number(event.queryStringParameters?.pageSize)||20)));
+    const totalPages=Math.max(1,Math.ceil(total/pageSize)),safePage=Math.min(page,totalPages),start=(safePage-1)*pageSize;
+    return h.json(200,{ok:true,storageMode:'drive-json',total,page:safePage,pageSize,totalPages,ideas:ideas.slice(start,start+pageSize)},headers);
    }
    if(action==='load'){
     const ideaId=String(event.queryStringParameters?.ideaId||'');if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))return h.json(400,{error:'Invalid ideaId'},headers);
