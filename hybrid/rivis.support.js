@@ -1867,10 +1867,30 @@ async function saveIdeaToCloud(sourceIdea,referenceSourceOverride=null){
  if(promptRows.length){idea.activePromptId=idea.activePromptId||promptRows[0].promptId;idea.prompts=promptRows;}
  const safe=cloudSafeIdea(idea);
  const saved=await sendCloudCommand('save',{idea:safe,prompts:promptRows,assets:idea.cloudAssets||[],groups:idea.cloudGroups||[],groupItems:idea.cloudGroupItems||[],generationLogs:idea.cloudGenerationLogs||[]});
- Object.assign(sourceIdea,{cloudAssetRefs:refs,cloudAssets:idea.cloudAssets,coverAssetId:idea.coverAssetId,activePromptId:idea.activePromptId});
+ Object.assign(sourceIdea,{cloudAssetRefs:refs,cloudAssets:idea.cloudAssets,coverAssetId:idea.coverAssetId,activePromptId:idea.activePromptId,cloudSavedAt:new Date().toISOString(),cloudMetadataPending:false});
  updateCloudGalleryCache(idea);
  return saved;
 }
+
+async function syncIdeaMetadataToCloud(idea,force=false){
+ if(!idea||!idea.ideaId)return {synced:false,reason:'invalid-idea'};
+ const knownCloud=Boolean(force||idea.cloudSavedAt||idea.cloudAssetRefs||cloudGalleryItems.some(item=>String(item.ideaId)===String(idea.ideaId)));
+ if(!knownCloud)return {synced:false,reason:'not-cloud-saved'};
+ if(!gatewayVerified){idea.cloudMetadataPending=true;return {synced:false,reason:'gateway-not-connected'};}
+ if(!idea.cloudAssetRefs){
+  const assets=Array.isArray(idea.cloudAssets)?idea.cloudAssets:[];
+  const generated=assets.filter(asset=>asset.assetType==='generated'&&String(asset.isActive).toLowerCase()!=='false');
+  idea.cloudAssetRefs={
+   cover:generated.find(asset=>!asset.sceneId)||null,
+   reference:assets.find(asset=>asset.assetType==='reference'&&String(asset.isActive).toLowerCase()!=='false')||null,
+   scenes:generated.filter(asset=>Boolean(asset.sceneId))
+  };
+ }
+ await saveIdeaToCloud(idea);
+ idea.cloudMetadataPending=false;
+ return {synced:true};
+}
+window.RIVIS_SYNC_IDEA_METADATA_TO_CLOUD=syncIdeaMetadataToCloud;
 
 async function downloadCloudAsset(fileId){
  const parts=[];let start=0,total=0,mimeType='image/png',done=false;
@@ -1973,7 +1993,7 @@ async function downloadSelectedCloudResultsZip(btnEl){
  const btn=btnEl||$('rvCloudDownloadSelected'),old=btn?.textContent||'Download Selected ZIP';
  if(btn){btn.disabled=true;btn.textContent='Loading cards...';}
  try{
-  const selected=new Array(selectedIds.length);let cursor=0,loadedCount=0;
+  const selected=new Array(selectedIds.length);let cursor=0,loadedCount=0,metadataSynced=0,metadataRecovered=0;
   const loadWorker=async()=>{
    while(true){
     const index=cursor++;if(index>=selectedIds.length)return;
@@ -1983,6 +2003,32 @@ async function downloadSelectedCloudResultsZip(btnEl){
     idea.cloudAssets=result.assets||[];idea.cloudPrompts=result.prompts||[];
     idea.cloudGroups=result.groups||[];idea.cloudGroupItems=result.groupItems||[];
     idea.cloudGenerationLogs=result.generationLogs||[];
+    const localIdea=window.RIVIS_LIBRARY_BRIDGE?.getIdea?.(ideaId)||null;
+    if(localIdea){
+     if(localIdea.metadata){idea.metadata=localIdea.metadata;metadataRecovered++;}
+     if(Array.isArray(localIdea.seriesScenes)){
+      const localScenes=new Map(localIdea.seriesScenes.map((scene,i)=>[String(scene.sceneId||i),scene]));
+      idea.seriesScenes=(Array.isArray(idea.seriesScenes)?idea.seriesScenes:[]).map((scene,i)=>{
+       const localScene=localScenes.get(String(scene.sceneId||i));
+       return localScene?.metadata?{...scene,metadata:localScene.metadata,metadataOutdated:Boolean(localScene.metadataOutdated)}:scene;
+      });
+     }
+    }
+    if(!idea.cloudAssetRefs){
+     const assets=idea.cloudAssets;
+     const generated=assets.filter(asset=>asset.assetType==='generated'&&String(asset.isActive).toLowerCase()!=='false');
+     idea.cloudAssetRefs={
+      cover:generated.find(asset=>!asset.sceneId)||null,
+      reference:assets.find(asset=>asset.assetType==='reference'&&String(asset.isActive).toLowerCase()!=='false')||null,
+      scenes:generated.filter(asset=>Boolean(asset.sceneId))
+     };
+    }
+    if(localIdea&&(localIdea.metadata||Array.isArray(localIdea.seriesScenes)&&localIdea.seriesScenes.some(scene=>scene.metadata))){
+     try{
+      const sync=await window.RIVIS_SYNC_IDEA_METADATA_TO_CLOUD?.(idea,true);
+      if(sync?.synced)metadataSynced++;
+     }catch(syncError){console.warn('Cloud metadata sync during ZIP skipped:',ideaId,syncError?.message||syncError);}
+    }
     selected[index]=idea;loadedCount++;
     if(btn)btn.textContent='Loading cards '+loadedCount+'/'+selectedIds.length+'...';
    }
@@ -1996,7 +2042,7 @@ async function downloadSelectedCloudResultsZip(btnEl){
   });
   if(!exportable.length)throw new Error('Card terpilih belum memiliki gambar hasil generate atau metadata.');
   const skipped=selected.length-exportable.length;
-  const zip=new JSZip(),metadataRows=[];
+  const zip=new JSZip(),metadataRows=[],missingMetadata=[];
   let completed=0,totalWork=exportable.reduce((sum,idea)=>sum+(idea.productionType==='series'?Math.max(1,(idea.seriesScenes||[]).length):1),0);
   const progress=label=>{if(btn)btn.textContent=label;};
   for(const idea of exportable){
@@ -2016,10 +2062,8 @@ async function downloadSelectedCloudResultsZip(btnEl){
       exported=await getExportedAsset(sceneIdea);
       zip.file('series/'+base+'/'+exported.filename,exported.data,{compression:'STORE'});
      }
-     if(scene.metadata){
-      const sceneIdea=seriesSceneAssetIdea(idea,scene,i);
-      metadataRows.push(buildAdobeStockCsvRow(sceneIdea,scene.metadata,exported?.filename||''));
-     }
+     if(scene.metadata)metadataRows.push(buildAdobeStockCsvRow(seriesSceneAssetIdea(idea,scene,i),scene.metadata,exported?.filename||''));
+     else missingMetadata.push(base+' · '+(scene.sceneTitle||'Scene '+(i+1)));
      completed++;progress('Preparing '+Math.min(completed,totalWork)+'/'+totalWork+'...');
     }
     zip.file('series/'+base+'/series_bible.json',JSON.stringify(idea.seriesBible||{},null,2));
@@ -2035,17 +2079,27 @@ async function downloadSelectedCloudResultsZip(btnEl){
      zip.file(exported.filename,exported.data,{compression:'STORE'});
     }
     if(idea.metadata)metadataRows.push(buildAdobeStockCsvRow(idea,idea.metadata,exported?.filename||''));
+    else missingMetadata.push(base);
     completed++;progress('Preparing '+Math.min(completed,totalWork)+'/'+totalWork+'...');
    }
   }
   if(metadataRows.length)zip.file('metadata.csv','Filename,Title,Keywords,Category,Releases\r\n'+metadataRows.join('\r\n'));
+  if(missingMetadata.length)zip.file('metadata_missing.txt','Metadata belum tersedia untuk item berikut:\r\n'+missingMetadata.join('\r\n')+'\r\n\r\nBuat atau perbarui metadata pada Library, lalu simpan kembali ke Cloud Gallery.');
+  if(!metadataRows.length)zip.file('README_METADATA.txt','Tidak ada metadata yang tersedia untuk card terpilih. Periksa metadata_missing.txt. Metadata tidak dibuat otomatis agar judul dan keyword tidak direkayasa.');
   progress('Packaging ZIP...');
   const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}},meta=>{
    if(btn)btn.textContent='Packaging '+Math.round(meta.percent)+'%...';
   });
   const filename=getResultZipFilename(exportable[0],exportable.length);
   const ok=await executeDownloadManager({data:blob,filename,mimeType:'application/zip'});
-  if(ok)showToast('ZIP Cloud Gallery berhasil dibuat: '+exportable.length+' card'+(skipped?' · '+skipped+' card tanpa hasil dilewati':''),'success');
+  if(ok){
+   const notes=[];
+   if(metadataRows.length)notes.push(metadataRows.length+' metadata row');
+   if(missingMetadata.length)notes.push(missingMetadata.length+' belum ada metadata');
+   if(metadataRecovered)notes.push(metadataRecovered+' metadata dipulihkan dari Library lokal');
+   if(metadataSynced)notes.push(metadataSynced+' card disinkronkan ke Cloud');
+   showToast('ZIP Cloud Gallery berhasil dibuat: '+exportable.length+' card · '+(notes.join(' · ')||'tanpa metadata'),'success');
+  }
  }catch(error){
   console.error('Cloud Gallery selected ZIP error:',error);
   showToast('Gagal membuat ZIP Cloud Gallery: '+String(error?.message||error),'error');
