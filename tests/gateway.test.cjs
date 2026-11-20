@@ -149,136 +149,55 @@ test('Gateway config never exposes OAuth secret and reports automatic storage re
 });
 
 
-test('Cloud data save batches all sheet writes into one Google Sheets batchUpdate',async()=>{
- setEnv();process.env.RIVIS_SPREADSHEET_ID='sheet12345';
- const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000});
- const orig=global.fetch,calls=[];
- global.fetch=async(url,opts={})=>{
-  calls.push({url:String(url),method:opts.method||'GET',body:opts.body});
-  if(String(url).includes('/values:batchGet?')){
-   const u=new URL(String(url)),ranges=u.searchParams.getAll('ranges');
-   return{ok:true,status:200,text:async()=>JSON.stringify({valueRanges:ranges.map(range=>{
-    const tab=Object.keys(expectedHeaders).find(name=>range.includes("'"+name+"'!"));
-    return{range,values:[expectedHeaders[tab]]};
-   })})};
-  }
-  if(String(url).includes('/values:batchUpdate?'))return{ok:true,status:200,text:async()=>JSON.stringify({totalUpdatedRows:2})};
-  throw Error('Unexpected Google Sheets call '+url);
- };
+
+test('Cloud data saves an idea and catalog as separate Drive JSON files, then lists and loads it',async()=>{
+ setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
+ const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();global.fetch=mock.fetch;
  try{
-  const res=await cloudData({httpMethod:'POST',headers:{cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'},body:JSON.stringify({action:'save',idea:{ideaId:'idea_12345678',conceptName:'Test Concept',simplePrompt:'clean vector',finalGenerationPrompt:'flat vector illustration'}})});
-  assert.equal(res.statusCode,200,res.body);
-  const data=JSON.parse(res.body);assert.equal(data.ok,true);assert.equal(data.ideaId,'idea_12345678');
-  const reads=calls.filter(x=>x.url.includes('/values:batchGet?'));
-  const writes=calls.filter(x=>x.url.includes('/values:batchUpdate?'));
-  assert.equal(reads.length,1,'One batch read should cover all needed tabs');
-  assert.equal(writes.length,1,'One batch write should cover all card and prompt rows');
-  const batch=JSON.parse(writes[0].body);
-  const ideaRow=batch.data.find(x=>x.range.includes("'IDEAS'!"));
-  const promptRow=batch.data.find(x=>x.range.includes("'PROMPTS'!"));
-  assert.ok(ideaRow);assert.ok(promptRow);
-  assert.equal(ideaRow.values[0].length,21);assert.equal(promptRow.values[0].length,12);
-  assert.equal(data.result.idea,'created');assert.equal(data.result.prompts,1);
+  const handler=freshCloudData(),headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
+  const saved=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'save',idea:{ideaId:'idea_12345678',conceptName:'Test Concept',simplePrompt:'clean vector',finalGenerationPrompt:'flat vector illustration'},prompts:[{promptId:'prompt_1',simplePrompt:'clean vector',finalPrompt:'flat vector illustration'}]})});
+  assert.equal(saved.statusCode,200,saved.body);const saveBody=JSON.parse(saved.body);assert.equal(saveBody.storageMode,'drive-json');assert.equal(saveBody.result.idea,'created');assert.equal(saveBody.result.prompts,1);
+  const names=[...mock.files.values()].map(x=>x.name);assert.ok(names.includes('RIVIS_CLOUD_CATALOG.json'));assert.ok(names.includes('RIVIS_IDEA_idea_12345678.json'));
+  const listed=await handler({httpMethod:'GET',headers,queryStringParameters:{action:'list'}});const listBody=JSON.parse(listed.body);assert.equal(listed.statusCode,200);assert.equal(listBody.ideas.length,1);assert.equal(listBody.ideas[0].conceptName,'Test Concept');
+  const loaded=await handler({httpMethod:'GET',headers,queryStringParameters:{action:'load',ideaId:'idea_12345678'}});const loadBody=JSON.parse(loaded.body);assert.equal(loaded.statusCode,200);assert.equal(loadBody.idea.simplePrompt,'clean vector');assert.equal(loadBody.prompts[0].finalPrompt,'flat vector illustration');
  }finally{global.fetch=orig;process.env={...oldEnv};}
 });
 
-
-test('Cloud data list returns saved idea records using one batch read',async()=>{
- setEnv();process.env.RIVIS_SPREADSHEET_ID='sheet12345';
- const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000});
- const orig=global.fetch;let reads=0;
- global.fetch=async(url)=>{
-  assert.ok(String(url).includes('/values:batchGet?'));reads++;
-  const u=new URL(String(url)),ranges=u.searchParams.getAll('ranges');
-  return{ok:true,status:200,text:async()=>JSON.stringify({valueRanges:ranges.map(range=>{
-   const tab=Object.keys(expectedHeaders).find(name=>range.includes("'"+name+"'!"));
-   const values=tab==='IDEAS'?[expectedHeaders.IDEAS,['idea_12345678','RV-001','Cloud Concept','','','','','','','','','','88','Saved','2026-11-19','2026-11-19','','','','','{}']]:[expectedHeaders.ASSETS];
-   return{range,values};
-  })})};
- };
+test('Cloud data migrates legacy Sheets records into per-idea JSON documents in resumable batches',async()=>{
+ setEnv();const legacyIdea=Array(expectedHeaders.IDEAS.length).fill('');
+ legacyIdea[0]='idea_legacy123';legacyIdea[1]='RV-LEGACY';legacyIdea[2]='Legacy Cloud Idea';legacyIdea[13]='Saved';legacyIdea[14]='2026-11-19T00:00:00.000Z';legacyIdea[15]='2026-11-19T00:00:00.000Z';legacyIdea[20]=JSON.stringify({ideaId:'idea_legacy123',conceptName:'Legacy Cloud Idea',simplePrompt:'legacy prompt'});
+ const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock({legacy:true,legacyIdea});global.fetch=mock.fetch;
  try{
-  const res=await cloudData({httpMethod:'GET',headers:{cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session)},queryStringParameters:{action:'list'}});
-  assert.equal(res.statusCode,200,res.body);const data=JSON.parse(res.body);
-  assert.equal(data.ideas[0].ideaId,'idea_12345678');assert.equal(data.ideas[0].conceptName,'Cloud Concept');assert.equal(reads,1);
+  const handler=freshCloudData(),headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
+  const first=await handler({httpMethod:'GET',headers,queryStringParameters:{action:'list'}});assert.equal(JSON.parse(first.body).migrationRequired,true);
+  const migration=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'migrate',limit:8})});const state=JSON.parse(migration.body).migration;assert.equal(migration.statusCode,200);assert.equal(state.done,true);assert.equal(state.migrated,1);
+  const listed=await handler({httpMethod:'GET',headers,queryStringParameters:{action:'list'}});const data=JSON.parse(listed.body);assert.equal(data.ideas.length,1);assert.equal(data.ideas[0].ideaId,'idea_legacy123');
+  const loaded=await handler({httpMethod:'GET',headers,queryStringParameters:{action:'load',ideaId:'idea_legacy123'}});assert.equal(loaded.statusCode,200);assert.equal(JSON.parse(loaded.body).idea.simplePrompt,'legacy prompt');
  }finally{global.fetch=orig;process.env={...oldEnv};}
 });
 
-
-
-test('Cloud data automatically repairs legacy rows shifted from column B to column A',async()=>{
-  setEnv();
-  const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000});
-  const orig=global.fetch;const writes=[];
-  const legacyIdea=['','idea_legacy123','RV-LEGACY','Legacy Cloud Idea','','','','','','','','','','Saved','2026-11-19','2026-11-19','','','','','{}'];
-  global.fetch=async(url,opts={})=>{
-    if(String(url).includes('/values:batchGet?')){
-      const u=new URL(String(url)),ranges=u.searchParams.getAll('ranges');
-      return{ok:true,status:200,text:async()=>JSON.stringify({valueRanges:ranges.map(range=>{
-        const tab=Object.keys(expectedHeaders).find(name=>range.includes("'"+name+"'!"));
-        return{range,values:tab==='IDEAS'?[expectedHeaders.IDEAS,legacyIdea]:[expectedHeaders.ASSETS]};
-      })})};
-    }
-    if(String(url).includes('/values/')){
-      const range=decodeURIComponent(String(url).split('/values/')[1].split('?')[0]);
-      writes.push({range,method:opts.method,body:JSON.parse(opts.body)});
-      return{ok:true,status:200,text:async()=>JSON.stringify({updatedRows:1})};
-    }
-    throw new Error('Unexpected URL '+url);
-  };
-  try{
-    const res=await cloudData({httpMethod:'GET',headers:{cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session)},queryStringParameters:{action:'list'}});
-    assert.equal(res.statusCode,200,res.body);
-    const data=JSON.parse(res.body);assert.equal(data.ideas[0].ideaId,'idea_legacy123');assert.equal(data.ideas[0].conceptName,'Legacy Cloud Idea');
-    assert.equal(writes.length,1);assert.equal(writes[0].range,"'IDEAS'!A2:V2");assert.equal(writes[0].body.values[0][0],'idea_legacy123');
-  }finally{global.fetch=orig;process.env={...oldEnv};}
-});
-
-test('Cloud data exposes Google Sheets batch update status and API reason instead of a generic error',async()=>{
- setEnv();
- const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000});
- const orig=global.fetch;
- global.fetch=async(url)=>{
-  if(String(url).includes('/values:batchGet?')){
-   const u=new URL(String(url)),ranges=u.searchParams.getAll('ranges');
-   return{ok:true,status:200,text:async()=>JSON.stringify({valueRanges:ranges.map(range=>({range,values:[expectedHeaders[Object.keys(expectedHeaders).find(name=>range.includes("'"+name+"'!"))]]}))})};
-  }
-  return{ok:false,status:403,text:async()=>JSON.stringify({error:{status:'PERMISSION_DENIED',message:'The caller does not have permission'}})};
- };
+test('Cloud data delete soft-deletes JSON record and hides it from the catalog without deleting assets',async()=>{
+ setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
+ const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();global.fetch=mock.fetch;
  try{
-  const res=await cloudData({httpMethod:'POST',headers:{cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'},body:JSON.stringify({action:'save',idea:{ideaId:'idea_perm123',conceptName:'Permission Test'}})});
-  const body=JSON.parse(res.body);assert.equal(res.statusCode,502);
-  assert.match(body.error,/Sheets batch update failed \(403/);assert.match(body.error,/PERMISSION_DENIED/);assert.match(body.error,/does not have permission/);
+  const handler=freshCloudData(),headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
+  await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'save',idea:{ideaId:'idea_delete123',conceptName:'Delete Fixture'},assets:[{assetId:'asset_keep',ideaId:'idea_delete123',driveFileId:'drive_asset_123',assetType:'generated'}]})});
+  const deleted=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'delete',ideaId:'idea_delete123'})});assert.equal(deleted.statusCode,200,deleted.body);assert.equal(JSON.parse(deleted.body).retainedDriveAssets,true);
+  const listed=await handler({httpMethod:'GET',headers,queryStringParameters:{action:'list'}});assert.deepEqual(JSON.parse(listed.body).ideas,[]);
+  const doc=[...mock.files.values()].find(x=>x.name==='RIVIS_IDEA_idea_delete123.json');assert.equal(doc.doc.idea.status,'Deleted');assert.equal(doc.doc.assets[0].driveFileId,'drive_asset_123');
  }finally{global.fetch=orig;process.env={...oldEnv};}
 });
 
-
-test('Cloud data Series save batches series prompts, groups, and scene items',async()=>{
- setEnv();process.env.RIVIS_SPREADSHEET_ID='sheet12345';
- const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000});
- const orig=global.fetch,calls=[];
- global.fetch=async(url,opts={})=>{
-  calls.push({url:String(url),method:opts.method||'GET',body:opts.body});
-  if(String(url).includes('/values:batchGet?')){
-   const u=new URL(String(url)),ranges=u.searchParams.getAll('ranges');
-   return{ok:true,status:200,text:async()=>JSON.stringify({valueRanges:ranges.map(range=>{
-    const tab=Object.keys(expectedHeaders).find(name=>range.includes("'"+name+"'!"));
-    return{range,values:[expectedHeaders[tab]]};
-   })})};
-  }
-  if(String(url).includes('/values:batchUpdate?'))return{ok:true,status:200,text:async()=>JSON.stringify({totalUpdatedRows:6})};
-  throw Error('Unexpected Google Sheets call '+url);
- };
+test('Cloud data stores series prompts, groups, and scene items inside one JSON document',async()=>{
+ setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
+ const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();global.fetch=mock.fetch;
  try{
-  const res=await cloudData({httpMethod:'POST',headers:{cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'},body:JSON.stringify({action:'save',idea:{ideaId:'series_12345678',conceptName:'Test Series',productionType:'series',seriesBible:{mainCharacter:'A fox',primaryLocation:'Old town'},seriesScenes:[{sceneTitle:'Arrival',mainAction:'Fox arrives',finalGenerationPrompt:'Scene prompt 1'},{sceneTitle:'Discovery',mainAction:'Fox discovers a map',finalGenerationPrompt:'Scene prompt 2'}]}})});
-  assert.equal(res.statusCode,200,res.body);const result=JSON.parse(res.body).result;
-  assert.equal(result.groups,1);assert.equal(result.groupItems,2);assert.equal(result.prompts,3);
-  const writes=calls.filter(x=>x.url.includes('/values:batchUpdate?'));assert.equal(writes.length,1);
-  const ranges=JSON.parse(writes[0].body).data.map(x=>x.range);
-  assert.ok(ranges.some(x=>x.includes("'GROUPS'!")));assert.ok(ranges.some(x=>x.includes("'GROUP ITEMS'!")));assert.ok(ranges.some(x=>x.includes("'PROMPTS'!")));
+  const handler=freshCloudData(),headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
+  const res=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'save',idea:{ideaId:'series_12345678',conceptName:'Test Series',productionType:'series',seriesScenes:[{sceneTitle:'Arrival'}]},prompts:[{promptId:'p1',simplePrompt:'scene 1'},{promptId:'p2',simplePrompt:'scene 2'}],groups:[{groupId:'g1',groupTitle:'Series'}],groupItems:[{itemId:'i1',groupId:'g1',sceneTitle:'Arrival'}]})});
+  assert.equal(res.statusCode,200,res.body);const doc=[...mock.files.values()].find(x=>x.name==='RIVIS_IDEA_series_12345678.json').doc;
+  assert.equal(doc.prompts.length,2);assert.equal(doc.groups.length,1);assert.equal(doc.groupItems.length,1);
  }finally{global.fetch=orig;process.env={...oldEnv};}
 });
-
-
 
 test('Cloud download streams large assets as authenticated byte ranges',async()=>{
   setEnv();
@@ -328,41 +247,25 @@ test('Cloud upload init accepts SVG reference assets but rejects SVG generated a
   }finally{global.fetch=originalFetch;process.env={...oldEnv};}
 });
 
-test('Cloud upload completion verifies Drive folder and indexes asset in ASSETS tab',async()=>{
-  setEnv();
-  const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000});
-  const originalFetch=global.fetch;const calls=[];
-  global.fetch=async(url,opts={})=>{
-    calls.push({url:String(url),method:opts.method||'GET',body:opts.body});
-    if(String(url).includes('/drive/v3/files/file12345?fields='))return {ok:true,status:200,json:async()=>({id:'file12345',name:'asset_cover.png',mimeType:'image/png',size:'12500000',parents:['folder12345'],webViewLink:'https://drive.google.com/file/d/file12345/view'})};
-    if((opts.method||'GET')==='GET')return {ok:true,status:200,json:async()=>({values:[['Asset ID','Idea ID']]})};
-    return {ok:true,status:200,json:async()=>({updates:{updatedRows:1}}),text:async()=>JSON.stringify({updates:{updatedRows:1}})};
-  };
-  try{
-    const res=await cloudUploadComplete({httpMethod:'POST',headers:{cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'},body:JSON.stringify({ideaId:'idea_12345678',assetId:'asset_12345678',driveFileId:'file12345',assetType:'generated',mimeType:'image/png',size:12500000,width:4096,height:4096})});
-    assert.equal(res.statusCode,200,res.body);const body=JSON.parse(res.body);assert.equal(body.asset.fileSizeBytes,12500000);assert.equal(body.asset.driveFileId,'file12345');
-    const assetsWrite=calls.find(x=>x.url.includes('ASSETS')&&x.method==='POST');
-    assert.ok(assetsWrite);assert.ok(decodeURIComponent(assetsWrite.url).includes("'ASSETS'!A:P:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS"));
-    assert.equal(JSON.parse(assetsWrite.body).values[0][0],'asset_12345678');
-  }finally{global.fetch=originalFetch;process.env={...oldEnv};}
+
+test('Cloud upload completion verifies Drive asset and returns metadata without Google Sheets',async()=>{
+ setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
+ const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000}),orig=global.fetch;let calls=0;
+ global.fetch=async(url,opts={})=>{calls++;assert.equal(opts.headers.Authorization,'Bearer token_test');assert.ok(String(url).includes('/drive/v3/files/file12345?fields='));return{ok:true,status:200,json:async()=>({id:'file12345',name:'asset_cover.png',mimeType:'image/png',size:'12500000',parents:['folder12345'],webViewLink:'https://drive.google.com/file/d/file12345/view'})};};
+ try{
+  const res=await cloudUploadComplete({httpMethod:'POST',headers:{cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'},body:JSON.stringify({ideaId:'idea_12345678',assetId:'asset_12345678',driveFileId:'file12345',assetType:'generated',mimeType:'image/png',size:12500000,width:4096,height:4096})});
+  const body=JSON.parse(res.body);assert.equal(res.statusCode,200,res.body);assert.equal(body.storageMode,'drive-json');assert.equal(body.asset.fileSizeBytes,12500000);assert.equal(body.asset.driveFileId,'file12345');assert.equal(calls,1);
+ }finally{global.fetch=orig;process.env={...oldEnv};}
 });
 
-
-test('Cloud upload completion indexes SVG reference with svg format in ASSETS',async()=>{
-  setEnv();
-  const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000});
-  const originalFetch=global.fetch;const calls=[];
-  global.fetch=async(url,opts={})=>{
-    calls.push({url:String(url),method:opts.method||'GET',body:opts.body});
-    if(String(url).includes('/drive/v3/files/file_svg123?fields='))return{ok:true,status:200,json:async()=>({id:'file_svg123',name:'reference.svg',mimeType:'image/svg+xml',size:'2048',parents:['folder12345']})};
-    if((opts.method||'GET')==='GET')return{ok:true,status:200,json:async()=>({values:[expectedHeaders.ASSETS]})};
-    return{ok:true,status:200,text:async()=>JSON.stringify({updates:{updatedRows:1}})};
-  };
-  try{
-    const res=await cloudUploadComplete({httpMethod:'POST',headers:{cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'},body:JSON.stringify({ideaId:'idea_12345678',assetId:'asset_svg123456',driveFileId:'file_svg123',assetType:'reference',mimeType:'image/svg+xml',size:2048,fileName:'reference.svg'})});
-    assert.equal(res.statusCode,200,res.body);const body=JSON.parse(res.body);assert.equal(body.asset.mimeType,'image/svg+xml');assert.equal(body.asset.assetType,'reference');
-    const write=calls.find(x=>x.url.includes('ASSETS')&&x.method==='POST');assert.ok(write);const row=JSON.parse(write.body).values[0];assert.equal(row[6],'image/svg+xml');assert.equal(row[7],'svg');
-  }finally{global.fetch=originalFetch;process.env={...oldEnv};}
+test('Cloud upload completion accepts SVG reference metadata without spreadsheet configuration',async()=>{
+ setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
+ const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000}),orig=global.fetch;
+ global.fetch=async()=>({ok:true,status:200,json:async()=>({id:'file_svg123',name:'reference.svg',mimeType:'image/svg+xml',size:'2048',parents:['folder12345']})});
+ try{
+  const res=await cloudUploadComplete({httpMethod:'POST',headers:{cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'},body:JSON.stringify({ideaId:'idea_12345678',assetId:'asset_svg123456',driveFileId:'file_svg123',assetType:'reference',mimeType:'image/svg+xml',size:2048,fileName:'reference.svg'})});
+  const asset=JSON.parse(res.body).asset;assert.equal(res.statusCode,200);assert.equal(asset.mimeType,'image/svg+xml');assert.equal(asset.format,'svg');assert.equal(asset.assetType,'reference');
+ }finally{global.fetch=orig;process.env={...oldEnv};}
 });
 
 test('Cloud upload chunk proxies binary data to the Google Drive resumable session and accepts final metadata',async()=>{
