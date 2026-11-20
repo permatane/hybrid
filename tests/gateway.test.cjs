@@ -129,48 +129,23 @@ test('Cloud test rejects file ID containing URL before any fetch',async()=>{
   const result=await cloudTest({httpMethod:'GET',queryStringParameters:{folderId:'https://evil.example',sheetId:'defghijk'}});
   assert.equal(result.statusCode,400);
 });
-test('Cloud test verifies the configured folder, spreadsheet, six tabs, and headers in column A',async()=>{
-  setEnv();
-  const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000});
-  const orig=global.fetch;let calls=0;
-  global.fetch=async(url,opts)=>{
-    calls++;assert.equal(opts.headers.Authorization,'Bearer token_test');
-    if(String(url).includes('/values/'))return sheetHeaderResponse(url);
-    if(String(url).includes('sheets.googleapis.com'))return{ok:true,status:200,json:async()=>({spreadsheetId:'sheet12345',properties:{title:'RIVIS Cloud Index'},sheets:Object.keys(expectedHeaders).map(title=>({properties:{title}}))})};
-    if(String(url).includes('folder12345'))return{ok:true,status:200,json:async()=>({id:'folder12345',name:'RIVIS CLOUD GALLERY',mimeType:'application/vnd.google-apps.folder',capabilities:{canAddChildren:true}})};
-    return{ok:true,status:200,json:async()=>({id:'sheet12345',name:'RIVIS Cloud Index',mimeType:'application/vnd.google-apps.spreadsheet',capabilities:{canEdit:true}})};
-  };
-  try{
-    const res=await cloudTest({httpMethod:'GET',headers:{cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session)}});
-    assert.equal(res.statusCode,200,res.body);
-    const body=JSON.parse(res.body);assert.equal(body.ok,true);assert.deepEqual(body.missingTabs,[]);assert.deepEqual(body.schemaErrors,[]);assert.equal(body.schemaStatus,'valid');assert.equal(calls,9);
-  } finally {global.fetch=orig;process.env={...oldEnv};}
+test('Cloud test verifies the configured Drive folder only for JSON storage',async()=>{
+ setEnv();const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000}),orig=global.fetch;let calls=0;
+ global.fetch=async(url,opts)=>{calls++;assert.equal(opts.headers.Authorization,'Bearer token_test');return{ok:true,status:200,json:async()=>({id:'folder12345',name:'RIVIS CLOUD GALLERY',mimeType:'application/vnd.google-apps.folder',capabilities:{canAddChildren:true}})};};
+ try{const res=await cloudTest({httpMethod:'GET',headers:{cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session)}});const body=JSON.parse(res.body);assert.equal(res.statusCode,200);assert.equal(body.ok,true);assert.equal(body.storageMode,'drive-json');assert.equal(body.folder.name,'RIVIS CLOUD GALLERY');assert.equal(body.legacyMigrationAvailable,true);assert.equal(calls,1);}
+ finally{global.fetch=orig;process.env={...oldEnv};}
 });
 
-test('Cloud test flags an offset or mismatched sheet header before enabling Cloud Connected',async()=>{
-  setEnv();
-  const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000});
-  const orig=global.fetch;
-  global.fetch=async(url,opts)=>{
-    if(String(url).includes('/values/')){
-      const result=sheetHeaderResponse(url);
-      if(decodeURIComponent(String(url)).includes("'IDEAS'!A1:U1"))return{ok:true,status:200,json:async()=>({values:[['','Idea ID','Card Code']]})};
-      return result;
-    }
-    if(String(url).includes('sheets.googleapis.com'))return{ok:true,status:200,json:async()=>({spreadsheetId:'sheet12345',properties:{title:'RIVIS Cloud Index'},sheets:Object.keys(expectedHeaders).map(title=>({properties:{title}}))})};
-    if(String(url).includes('folder12345'))return{ok:true,status:200,json:async()=>({id:'folder12345',name:'RIVIS CLOUD LIBRARY',mimeType:'application/vnd.google-apps.folder',capabilities:{canAddChildren:true}})};
-    return{ok:true,status:200,json:async()=>({id:'sheet12345',name:'RIVIS Cloud Index',mimeType:'application/vnd.google-apps.spreadsheet',capabilities:{canEdit:true}})};
-  };
-  try{
-    const res=await cloudTest({httpMethod:'GET',headers:{cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session)}});
-    const body=JSON.parse(res.body);assert.equal(res.statusCode,200);assert.equal(body.ok,false);
-    assert.ok(body.schemaErrors.some(x=>x.tab==='IDEAS'&&x.error.includes('column A')));
-  } finally {global.fetch=orig;process.env={...oldEnv};}
+test('Cloud test rejects a Drive folder without write permission',async()=>{
+ setEnv();const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000}),orig=global.fetch;
+ global.fetch=async()=>({ok:true,status:200,json:async()=>({id:'folder12345',name:'RIVIS',mimeType:'application/vnd.google-apps.folder',capabilities:{canAddChildren:false}})});
+ try{const res=await cloudTest({httpMethod:'GET',headers:{cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session)}});assert.equal(res.statusCode,403);}
+ finally{global.fetch=orig;process.env={...oldEnv};}
 });
 
 test('Gateway config never exposes OAuth secret and reports automatic storage readiness',async()=>{
   setEnv();const res=await gatewayConfig({httpMethod:'GET'});
-  assert.equal(res.statusCode,200);assert.ok(!res.body.includes('client_secret_test'));assert.equal(JSON.parse(res.body).storageConfigured,true);assert.equal(JSON.parse(res.body).gatewayVersion,'1.3.7');
+  assert.equal(res.statusCode,200);assert.ok(!res.body.includes('client_secret_test'));assert.equal(JSON.parse(res.body).storageConfigured,true);assert.equal(JSON.parse(res.body).gatewayVersion,'1.3.8');
 });
 
 
