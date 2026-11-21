@@ -1,4 +1,4 @@
-/* RIVIS AI Runtime — v3.4.116. Editorial style fidelity and smart-repair ranking. */
+/* RIVIS AI Runtime — v3.4.117. Editorial fidelity with non-figurative style protection. */
 function scanIpRisk(value){const text=String(value||'');const issues=[];for(const match of text.matchAll(IP_RISK_PATTERN)){const before=text.slice(Math.max(0,
 match.index-35),match.index);if(/(?:\b(?:no|without|avoid|exclude|never|not|prohibit|remove|jangan|tanpa|hindari)\b|bukan)[^.!?\n]{0,22}$/i.test(before))continue;
 issues.push(match[0]);}if(/\b(?:in the style of|exact (?:replica|copy)|copy (?:the )?(?:character|logo|brand|product|design)|replicate (?:the )?(?:character|logo|brand)|identical to|looks? exactly like|fan art of)\b/i.test(text)){issues.push('instruksi peniruan');
@@ -333,9 +333,9 @@ function ideaStyleFingerprintBrief(idea){
 function rivisIsEditorialFigureStyle(idea){
  const f=idea?.referenceStyleFingerprint;
  if(!f||typeof f!=='object')return false;
- const dna=[f.styleLabel,f.shapeLanguage,f.proportions,f.silhouette,f.figureGeometry,f.poseCadence,f.patternLanguage,f.characterTreatment].filter(Boolean).join(' ').toLowerCase();
+ const dna=[f.medium,f.styleLabel,f.shapeLanguage,f.proportions,f.silhouette,f.figureGeometry,f.poseCadence,f.patternLanguage,f.characterTreatment].filter(Boolean).join(' ').toLowerCase();
  const subject=[idea?.mainSubject,idea?.conceptName,idea?.finalGenerationPrompt,...(Array.isArray(idea?.collectionItems)?idea.collectionItems:[])].filter(Boolean).join(' ').toLowerCase();
- const editorial=/fashion|editorial|streetwear|runway|elongat|garment|couture|illustrat|printmaking|risograph/.test(dna);
+ const editorial=/fashion|editorial|streetwear|runway|elongat|garment|couture|printmaking|risograph/.test(dna);
  const figures=/women|woman|female|men|man|male|person|people|human|figure|fashion|model|outfit|coat|clothes|clothing|jacket|garment|wardrobe|streetwear/.test(subject);
  return editorial&&figures;
 }
@@ -379,7 +379,11 @@ async function rivisEnsureCardRsiStyle(idea,signal=null){
  const raw=(result?.candidates?.[0]?.content?.parts||[]).filter(x=>typeof x.text==='string').map(x=>x.text).join('');
  const parsed=JSON.parse(raw.replace(/^\s*```(?:json)?\s*/i,'').replace(/\s*```\s*$/,''));
  const fingerprint=safeReferenceFingerprint(parsed?.styleFingerprint||parsed);
- if(!fingerprint||!fingerprint.shapeLanguage||!fingerprint.lineTreatment||!fingerprint.figureGeometry||!fingerprint.poseCadence)throw new Error('RSI tidak mendapatkan geometri figur dan variasi pose yang cukup spesifik; analisis referensi harus lengkap sebelum generate.');
+ if(!fingerprint||!fingerprint.shapeLanguage||!fingerprint.lineTreatment)throw new Error('RSI tidak mendapatkan bahasa bentuk dan perlakuan garis yang cukup spesifik; analisis referensi harus lengkap sebelum generate.');
+ const figureVisible=/fashion|editorial.+figur|human|people|person|woman|women|male|female|character|portrait|adult|body anatomy/i.test([fingerprint.styleLabel,fingerprint.characterTreatment,fingerprint.figureGeometry,fingerprint.poseCadence].filter(Boolean).join(' '));
+ if(figureVisible&&(!fingerprint.figureGeometry||!fingerprint.poseCadence))throw new Error('RSI tidak mendapatkan proporsi dan variasi pose figur dari referensi.');
+ if(!fingerprint.figureGeometry)fingerprint.figureGeometry='No human figures; preserve the observed object geometry and shape language.';
+ if(!fingerprint.poseCadence)fingerprint.poseCadence='No figure posing; preserve the observed composition and silhouette rhythm.';
  fingerprint.rsiSchemaVersion=2;
  idea.referenceStyleFingerprint=fingerprint;
  const live=state.savedIdeas.find(x=>String(x.ideaId)===String(idea.ideaId));
