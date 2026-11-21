@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.108. Cloud Gateway Netlify bridge replaces dynamic-origin OAuth in Canvas. */
+/* RIVIS GitHub Support — v3.4.109. Cloudflare Pages is primary RIVIS Cloud Gateway; Netlify retained as fallback. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1519,7 +1519,8 @@ const $=id=>document.getElementById(id),KEY='rivis.cloud.foundation.v1';
 const DEFAULT={clientId:'',apiKey:'',appId:'',folderId:'',spreadsheetId:'',folderPicked:false,sheetPicked:false,oauthGranted:false};
 let token=null,expires=0,loadPromise=null;
 const cloudPending=new Map();
-const GATEWAY_ORIGIN='https://vectorichqc2026.netlify.app';
+const GATEWAY_ORIGIN='https://rivis-cloud.pages.dev';
+const GATEWAY_FALLBACK_ORIGIN='https://vectorichqc2026.netlify.app';
 let gatewayPopup=null,gatewayChannel='',gatewayConnected=false,gatewayVerified=false;
 let cloudGalleryItems=[],cloudGalleryPage=1,cloudGalleryTotal=0;
 let cloudGallerySelectedIds=new Set();
@@ -1539,7 +1540,7 @@ function openCloudGateway(){
  gatewayChannel=Array.from(bytes,n=>n.toString(16).padStart(2,'0')).join('');
  const url=GATEWAY_ORIGIN+'/rivis-cloud/?channel='+encodeURIComponent(gatewayChannel);
  gatewayPopup=window.open(url,'rivis_cloud_gateway','popup=yes,width=680,height=790,resizable=yes,scrollbars=yes');
- if(!gatewayPopup){status('Browser memblokir popup. Izinkan popup Netlify atau buka '+GATEWAY_ORIGIN+'/rivis-cloud/','warning');return;}
+ if(!gatewayPopup){status('Browser memblokir popup. Izinkan popup Cloudflare atau buka '+GATEWAY_ORIGIN+'/rivis-cloud/','warning');return;}
  status('Cloud Gateway dibuka. Hubungkan akun Google; folder RIVIS sudah ditetapkan otomatis.','info');
 }
 window.addEventListener('message',event=>{
@@ -1582,7 +1583,7 @@ window.addEventListener('message',event=>{
  }
  if(d.type==='RIVIS_CLOUD_HELLO'){
   event.source.postMessage({type:'RIVIS_CLOUD_ACK',channel:gatewayChannel},GATEWAY_ORIGIN);
-  status('Cloud Gateway aktif. Proses login dan pemilihan file dilakukan di Netlify.','info');
+  status('Cloud Gateway aktif. Proses login dan akses Google Drive dilakukan di Cloudflare.','info');
  }else if(d.type==='RIVIS_CLOUD_STATUS'){
   gatewayConnected=d.connected===true;
   gatewayVerified=d.verified===true;
