@@ -1852,7 +1852,7 @@ async function uploadCloudImage(idea,source,assetType,sceneId,fileName,existingR
 function updateCloudGalleryCache(idea){
  const safe=cloudSafeIdea({...idea,updatedAt:new Date().toISOString()});
  cloudGalleryItems=[safe,...cloudGalleryItems.filter(item=>String(item.ideaId)!==String(safe.ideaId))];
- if($('rvCloudGalleryGrid')&&!cloudBulkProgress)renderCloudGallery(cloudGalleryItems,1);
+ if($('rvCloudGalleryGrid')&&!cloudBulkProgress)renderCloudGallery(cloudGalleryItems.slice(0,CLOUD_GALLERY_PAGE_SIZE),1,Math.max(cloudGalleryTotal,cloudGalleryItems.length));
 }
 
 async function saveIdeaToCloud(sourceIdea,referenceSourceOverride=null){
@@ -2200,14 +2200,28 @@ function renderCloudGallery(ideas,page=1,totalCount=null){
  loadCloudGalleryThumbnails();
 }
 
+const cloudThumbnailMemoryCache=new Map();
 async function loadCloudGalleryThumbnails(){
  const grid=$('rvCloudGalleryGrid');if(!grid||!gatewayVerified)return;
  const images=Array.from(grid.querySelectorAll('[data-cloud-thumb-id]'));
- for(let i=0;i<images.length;i+=6){
-  await Promise.all(images.slice(i,i+6).map(async img=>{
+ for(let i=0;i<images.length;i+=4){
+  await Promise.all(images.slice(i,i+4).map(async img=>{
    const fileId=img.dataset.cloudThumbId;if(!fileId)return;
-   try{const result=await sendCloudCommand('thumbnail',{fileId});if(result?.base64)img.src='data:'+(result.mimeType||'image/jpeg')+';base64,'+result.base64;}
-   catch(_){img.closest('.rv-cloud-gallery-preview')?.classList.add('opacity-50');}
+   const cached=cloudThumbnailMemoryCache.get(fileId);
+   if(cached){if(img.isConnected)img.src=cached;return;}
+   try{
+    const result=await sendCloudCommand('thumbnail',{fileId});
+    if(!result?.base64)return;
+    const url='data:'+(result.mimeType||'image/jpeg')+';base64,'+result.base64;
+    if(url.length<1300000){
+     cloudThumbnailMemoryCache.set(fileId,url);
+     if(cloudThumbnailMemoryCache.size>36)cloudThumbnailMemoryCache.delete(cloudThumbnailMemoryCache.keys().next().value);
+    }
+    if(img.isConnected)img.src=url;
+   }catch(error){
+    if(img.isConnected)img.closest('.rv-cloud-gallery-preview')?.classList.add('opacity-50');
+    console.warn('Cloud thumbnail failed:',fileId,String(error?.message||error).slice(0,100));
+   }
   }));
  }
 }
@@ -2353,9 +2367,8 @@ async function saveAllToCloud(button){
   // Drive JSON catalog is one shared file: serialize card saves to avoid 409 conflicts.
   // Image uploads within each card may still run concurrently.
   await worker();
-  if(saved){
-   try{await refreshCloudGallery(1);}
-   catch(error){cloudSyncStatus(saved+' card tersimpan, tetapi daftar gallery belum berhasil diperbarui: '+error.message);}
+  if(saved&&$('rvCloudGalleryGrid')){
+   renderCloudGallery(cloudGalleryItems.slice(0,CLOUD_GALLERY_PAGE_SIZE),1,Math.max(cloudGalleryTotal,cloudGalleryItems.length));
   }
   if(failures.length){
    const first=failures[0];
