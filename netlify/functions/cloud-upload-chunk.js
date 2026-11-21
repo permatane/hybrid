@@ -2,7 +2,7 @@
 const h = require('./_shared.cjs');
 
 // Keep individual uploads well below the Netlify synchronous execution limit.
-const MAX_CHUNK_BYTES = 1024 * 1024;
+const MAX_CHUNK_BYTES = 2 * 1024 * 1024;
 const DRIVE_CHUNK_QUANTUM = 256 * 1024;
 const MAX_ASSET_BYTES = 100 * 1024 * 1024;
 const MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml']);
