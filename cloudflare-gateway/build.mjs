@@ -27,12 +27,12 @@ for(const name of ['index.html','gateway.css','gateway.js']){
   c=c.replace(marker,"const API = '/api/';");
  }
  if(name==='index.html'){
-  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.4');
+  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.5');
   c=c.replace('href="/.netlify/functions/auth-start"','href="/api/auth-start"');
   c=c.replace(/Login aman melalui Netlify/g,'Login aman melalui Cloudflare');
   c=c.replace(/di Netlify/g,'di Cloudflare');
-  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.4');
-  c=c.replace(/v1\.3\.10/g,'v1.4.4');
+  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.5');
+  c=c.replace(/v1\.3\.10/g,'v1.4.5');
   if(!c.includes('href="/api/auth-start"'))throw Error('Login URL was not patched');
  }
  if(name==='gateway.js'){
@@ -41,7 +41,7 @@ for(const name of ['index.html','gateway.css','gateway.js']){
   c=c.replace('Koneksi ke Netlify gagal.','Koneksi ke Cloudflare gagal.');
   c=c.replace(
    "if (auth === 'failed') message('Login belum berhasil. Periksa Google OAuth consent screen, Redirect URI, dan Test Users.');",
-   "if (auth === 'failed') { const reason=params.get('reason')||'unknown'; const messages={google_denied:'Google tidak memberikan izin.',state_cookie_missing:'Cookie OAuth tidak ditemukan. Izinkan cookie untuk situs ini dan ulangi login di browser yang sama.',state_mismatch:'Cookie OAuth tidak cocok. Mulai login ulang dari Gateway.',no_access_token:'Google tidak mengirim access token.',token_exchange_failed:'Pertukaran token Google gagal. Periksa GOOGLE_CLIENT_SECRET dan OAuth Redirect URI.',session_secret_invalid:'Session secret tidak valid.',callback_runtime_error:'Proses callback gagal di Cloudflare. Periksa Workers Logs.'}; message('Login gagal ('+reason+'): '+(messages[reason]||'Periksa log Cloudflare.')); }"
+   "if (auth === 'failed') { const reason=params.get('reason')||'unknown'; const messages={google_denied:'Google tidak memberikan izin.',state_cookie_missing:'Cookie OAuth tidak ditemukan. Izinkan cookie untuk situs ini dan ulangi login di browser yang sama.',state_mismatch:'Cookie OAuth tidak cocok. Mulai login ulang dari Gateway.',no_access_token:'Google tidak mengirim access token.',token_exchange_failed:'Pertukaran token Google gagal. Periksa GOOGLE_CLIENT_SECRET dan OAuth Redirect URI.',session_secret_invalid:'Session secret tidak valid.',callback_runtime_error:'Proses callback gagal di Cloudflare. Periksa Workers Logs.',callback_state_validation_failed:'Validasi OAuth state gagal.',callback_oauth_credentials_failed:'Kredensial Google belum dapat digunakan.',callback_token_exchange_failed:'Google menolak atau gagal menukar authorization code. Periksa OAuth Client Secret dan Redirect URI.',callback_session_encryption_failed:'Pembuatan sesi Google gagal. Periksa kompatibilitas enkripsi Cloudflare.',callback_redirect_failed:'Pembuatan redirect dan cookie sesi gagal.',callback_initial_failed:'Callback gagal sebelum verifikasi OAuth.'}; message('Login gagal ('+reason+'): '+(messages[reason]||'Periksa log Cloudflare.')); }"
   );
  }
  fs.writeFileSync(path.join(dist,'rivis-cloud',name),c);
@@ -66,23 +66,29 @@ for(const name of names){
   'function handler_'+name.replace(/-/g,'_')+'(env){',
   ' const process={env}; const h=makeShared(env); const exports={};',
   name==='gateway-config'
-   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.4'")
+   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.5'")
    : name==='auth-callback'
     ? legacySource(path.join(source,name+'.js'))
-       .replace(
-        "const invalid=()=>h.redirect(h.baseUrl()+'/rivis-cloud/?auth=failed',[h.cookie(h.COOKIE_STATE,'',0)]);",
-        "const invalid=(reason='unknown')=>h.redirect(h.baseUrl()+'/rivis-cloud/?auth=failed&reason='+encodeURIComponent(reason),[h.cookie(h.COOKIE_STATE,'',0)]);"
-       )
+       .replace("const invalid=()=>h.redirect(h.baseUrl()+'/rivis-cloud/?auth=failed',[h.cookie(h.COOKIE_STATE,'',0)]);",
+        "const invalid=(reason='unknown')=>h.redirect(h.baseUrl()+'/rivis-cloud/?auth=failed&reason='+encodeURIComponent(reason),[h.cookie(h.COOKIE_STATE,'',0)]); let stage='initial';")
        .replace("if(event.queryStringParameters?.error)return invalid();",
         "if(event.queryStringParameters?.error)return invalid('google_denied');")
        .replace("if(typeof state!=='string'||!saved||!code)return invalid();",
         "if(typeof state!=='string'||!saved||!code)return invalid('state_cookie_missing');")
+       .replace("const a=Buffer.from(state),b=Buffer.from(saved);",
+        "stage='state_validation'; const a=Buffer.from(state),b=Buffer.from(saved);")
        .replace("if(a.length!==b.length||!crypto.timingSafeEqual(a,b))return invalid();",
         "if(a.length!==b.length||!crypto.timingSafeEqual(a,b))return invalid('state_mismatch');")
+       .replace("const {clientId,clientSecret}=h.tokenEnv();",
+        "stage='oauth_credentials'; const {clientId,clientSecret}=h.tokenEnv();")
+       .replace("const tokens=await h.googleToken(",
+        "stage='token_exchange'; const tokens=await h.googleToken(")
        .replace("if(!tokens.access_token)return invalid();",
         "if(!tokens.access_token)return invalid('no_access_token');")
+       .replace("return h.redirect(h.baseUrl()+'/rivis-cloud/?auth=connected',[h.cookie(h.COOKIE_STATE,'',0),h.sessionCookie(session)]);",
+        "stage='session_encryption'; const savedSession=h.sessionCookie(session); stage='redirect'; return h.redirect(h.baseUrl()+'/rivis-cloud/?auth=connected',[h.cookie(h.COOKIE_STATE,'',0),savedSession]);")
        .replace("}catch(_){return invalid();}",
-        "}catch(e){console.error('RIVIS OAuth callback:',e?.message||e);return invalid(e?.message?.includes('Google token exchange failed')?'token_exchange_failed':e?.message?.includes('RIVIS_SESSION_SECRET')?'session_secret_invalid':'callback_runtime_error');}")
+        "}catch(e){console.error('RIVIS OAuth callback at '+stage+':',e?.message||e);return invalid('callback_'+stage+'_failed');}")
    : name==='auth-start'
     ? legacySource(path.join(source,name+'.js'))
        .replace("crypto.randomBytes(32).toString('base64url')", "Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(32))).toString('base64url')")
