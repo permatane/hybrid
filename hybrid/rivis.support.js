@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.127. Full-image, ratio-aware Cloud Gallery previews. */
+/* RIVIS GitHub Support — v3.4.128. Preserve and hydrate multi-scene Cloud Series manifests. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1740,6 +1740,8 @@ function render(){
  style.textContent='.rv-cloud-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}.rv-cloud-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:nowrap;margin-left:auto;white-space:nowrap;min-width:0}#tabSectionCloudLibrary #rvCloudOpenGateway[data-state=connected]{background:#047857!important;color:#ecfdf5!important;border:1px solid #10b981!important}#tabSectionCloudLibrary #rvCloudOpenGateway[data-state=disconnected]{background:#1d4ed8!important;color:#eff6ff!important}#tabSectionCloudLibrary #rvCloudRefreshGallery:disabled{opacity:.4;cursor:not-allowed}@media(max-width:440px){.rv-cloud-header-actions{gap:6px}#tabSectionCloudLibrary .rv-cloud-header-actions button{padding:8px 9px;font-size:10px}}#tabSectionCloudLibrary{padding:12px;background:rgba(15,23,42,.76);border:1px solid #334155;border-radius:16px}#tabSectionCloudLibrary .rv-cloud-card{padding:14px;border:1px solid #334155;border-radius:12px;background:#02061788}#tabSectionCloudLibrary button{padding:9px 12px;border-radius:8px;background:#1e293b;color:white;font-size:11px;font-weight:800}#tabSectionCloudLibrary .rv-primary{background:#0369a1}#tabSectionCloudLibrary [hidden]{display:none!important}.rv-cloud-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px}.rv-cloud-gallery-card{min-width:0;overflow:hidden;border:1px solid #334155;border-radius:12px;background:#0b1220;display:flex;flex-direction:column}.rv-cloud-gallery-preview{height:170px;background:linear-gradient(135deg,#111827,#1e293b);display:grid;place-items:center;overflow:hidden}.rv-cloud-gallery-preview img{width:100%;height:100%;object-fit:contain;background:#020617}.rv-cloud-gallery-body{padding:11px;display:flex;flex-direction:column;gap:7px;flex:1}.rv-cloud-gallery-prompt{font-size:10px;line-height:1.5;color:#cbd5e1;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.rv-cloud-prompt-preview{height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#c4b5fd;background:radial-gradient(circle at 50% 35%,#312e8166,transparent 60%),#020617}.rv-cloud-prompt-preview span{font-size:28px}.rv-cloud-prompt-preview strong{font-size:10px;letter-spacing:.12em}.rv-cloud-prompt-preview small{font-size:9px;color:#64748b}.rv-cloud-gallery-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 42px;gap:4px;margin-top:auto}.rv-cloud-gallery-actions button{min-width:0;margin-top:0!important;padding:8px 5px!important;font-size:10px!important}.rv-cloud-gallery-explore{background:#312e81!important;color:#ede9fe!important}.rv-cloud-gallery-load{background:#075985!important;color:#e0f2fe!important}.rv-cloud-gallery-delete{background:#3f1720!important;color:#fecaca!important;border:1px solid #7f1d1d!important}.rv-cloud-gallery-delete:hover{background:#7f1d1d!important}.rv-cloud-gallery-body h4{font-size:12px;line-height:1.4;font-weight:800;color:#f8fafc}.rv-cloud-gallery-meta{font-size:10px;color:#94a3b8}.rv-cloud-gallery-load{margin-top:auto;background:#075985!important;color:#e0f2fe!important}.rv-cloud-gallery-pagination{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;padding:7px 0 2px}.rv-cloud-page-info{font-size:10px;color:#94a3b8;margin-right:6px}.rv-cloud-page-btn{min-width:32px;height:30px;padding:0 9px!important;border:1px solid #334155!important;border-radius:7px!important;background:#0f172a!important;color:#cbd5e1!important;font-size:11px!important;font-weight:800}.rv-cloud-page-btn:hover:not(:disabled){background:#1e3a5f!important;border-color:#0ea5e9!important}.rv-cloud-page-btn.is-active{background:#075985!important;border-color:#0ea5e9!important;color:#fff!important}.rv-cloud-page-btn:disabled{opacity:.35;cursor:not-allowed}.rv-cloud-page-ellipsis{padding:0 3px;color:#64748b;font-size:11px}.rv-cloud-empty{grid-column:1/-1;padding:32px 14px;text-align:center;border:1px dashed #475569;border-radius:12px;color:#94a3b8;font-size:11px}.rv-cloud-selection-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 10px;border:1px solid #334155;border-radius:10px;background:#0b1220}.rv-cloud-selection-count{font-size:11px;font-weight:800;color:#cbd5e1}.rv-cloud-selection-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.rv-cloud-selection-actions button{padding:7px 10px!important;font-size:10px!important}.rv-cloud-selection-actions button:disabled{opacity:.38;cursor:not-allowed}.rv-cloud-selection-actions .rv-cloud-download-selected{background:#047857!important;color:#ecfdf5!important}.rv-cloud-gallery-preview.rv-cloud-gallery-selectable{position:relative;cursor:pointer;outline:none;transition:filter .15s ease}.rv-cloud-gallery-preview.rv-cloud-gallery-selectable:hover{filter:brightness(1.12)}.rv-cloud-gallery-preview.rv-cloud-gallery-selectable:focus-visible{outline:2px solid #38bdf8;outline-offset:-3px}.rv-cloud-gallery-preview.rv-cloud-gallery-selectable::after{content:"○";position:absolute;top:9px;right:10px;width:27px;height:27px;display:grid;place-items:center;border-radius:50%;background:#0f172acc;color:#fff;border:1px solid #94a3b8;font-size:19px;font-weight:900;line-height:1;box-shadow:0 2px 8px #0008;pointer-events:none}.rv-cloud-gallery-card.is-selected{border-color:#06b6d4;box-shadow:0 0 0 1px #0891b2,0 8px 24px #0891b21c}.rv-cloud-gallery-card.is-selected .rv-cloud-gallery-preview.rv-cloud-gallery-selectable::after{content:"✓";background:#0284c7;border-color:#7dd3fc;color:#fff;font-size:16px}';
  /* Series mosaic renders every available scene in one Cloud Gallery card. */
  style.textContent+='.rv-cloud-gallery-preview.rv-cloud-series-preview{height:194px;display:block;position:relative}.rv-cloud-series-mosaic{width:100%;height:100%;display:grid;grid-template-columns:repeat(var(--rv-series-columns,3),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:3px;padding:4px 4px 23px;box-sizing:border-box}.rv-cloud-series-tile{position:relative;min-height:0;min-width:0;overflow:hidden;border:1px solid #334155;border-radius:4px;background:#111c2e;display:grid;place-items:center}.rv-cloud-gallery-preview .rv-cloud-series-tile img{display:block;width:100%;height:100%;object-fit:cover;min-width:0;min-height:0;background:#0f172a}.rv-cloud-series-index{position:absolute;bottom:2px;left:3px;padding:1px 3px;border-radius:3px;background:#020617c9;color:#e2e8f0;font-size:8px;line-height:1.1;pointer-events:none}.rv-cloud-series-empty{font-size:14px;color:#475569}.rv-cloud-series-count{position:absolute;bottom:3px;left:0;width:100%;text-align:center;color:#cbd5e1;font-size:9px;font-weight:800;line-height:17px;pointer-events:none}.rv-cloud-thumb-error{opacity:.48}.rv-cloud-gallery-preview.rv-cloud-series-preview.rv-cloud-gallery-selectable::after{top:7px;right:7px}';
+ /* Series missing assets remain visible while detail manifest is retrieved. */
+ style.textContent+='.rv-cloud-series-waiting{height:100%;display:grid;place-items:center;box-sizing:border-box;padding:18px;text-align:center;background:#0f172a;color:#94a3b8;font-size:11px;line-height:1.45}';
  /* Full-frame Cloud Gallery previews: preserve the whole source image for every ratio. */
  style.textContent+='.rv-cloud-gallery-preview:not(.rv-cloud-series-preview){height:auto!important;min-height:0!important;aspect-ratio:var(--rv-cloud-aspect,1);grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}.rv-cloud-gallery-preview:not(.rv-cloud-series-preview)>img{display:block;box-sizing:border-box;min-width:0;min-height:0;max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain!important;object-position:center center!important;background:#020617}.rv-cloud-gallery-preview.rv-cloud-series-preview{height:194px!important;aspect-ratio:auto!important}.rv-cloud-gallery-preview .rv-cloud-series-tile img{object-fit:contain!important;object-position:center center!important;background:#0f172a}.rv-cloud-gallery-preview .rv-cloud-prompt-preview{min-height:170px}';
  /* Cloud Gallery: three selection actions stay on one mobile row. */
@@ -2188,6 +2190,34 @@ async function downloadSelectedCloudResultsZip(btnEl){
   updateCloudGallerySelectionUI();
  }
 }
+function mergeCloudSeriesGalleryItem(incoming,previous){
+ if(!incoming||incoming.productionType!=='series'||!previous||previous.productionType!=='series')return incoming;
+ const currentAssets=Array.isArray(incoming.cloudAssets)?incoming.cloudAssets:[];
+ const previousAssets=Array.isArray(previous.cloudAssets)?previous.cloudAssets:[];
+ const key=a=>a?.sceneId?'scene:'+String(a.sceneId):a?.assetType==='reference'?'reference':'cover';
+ const merged=new Map();
+ for(const asset of previousAssets)if(asset?.driveFileId)merged.set(key(asset),asset);
+ for(const asset of currentAssets)if(asset?.driveFileId)merged.set(key(asset),asset);
+ const currentRefs=incoming.cloudAssetRefs||{},priorRefs=previous.cloudAssetRefs||{};
+ const mergedScenes=new Map();
+ for(const asset of priorRefs.scenes||[])if(asset?.driveFileId&&asset.sceneId)mergedScenes.set(String(asset.sceneId),asset);
+ for(const asset of currentRefs.scenes||[])if(asset?.driveFileId&&asset.sceneId)mergedScenes.set(String(asset.sceneId),asset);
+ // A compact list response must not erase a complete cached Series manifest.
+ const sceneList=Array.isArray(incoming.seriesScenes)?incoming.seriesScenes:[];
+ const oldList=Array.isArray(previous.seriesScenes)?previous.seriesScenes:[];
+ const chosenScenes=sceneList.length>=oldList.length?sceneList:oldList;
+ return {
+  ...incoming,seriesScenes:chosenScenes,
+  cloudAssets:[...merged.values()],
+  cloudAssetRefs:{
+   ...priorRefs,...currentRefs,
+   cover:currentRefs.cover||priorRefs.cover||null,
+   reference:currentRefs.reference||priorRefs.reference||null,
+   scenes:[...mergedScenes.values()]
+  },
+  seriesLength:incoming.seriesLength||previous.seriesLength||chosenScenes.length
+ };
+}
 function cloudSeriesPreviewAssets(idea){
  if(idea?.productionType!=='series')return [];
  const assets=[
@@ -2215,8 +2245,24 @@ function cloudSeriesPreviewAssets(idea){
  });
  return ordered.slice(0,12).map((asset,index)=>({index:index+1,asset}));
 }
+function cloudSeriesPreviewMarkup(idea){
+ const entries=cloudSeriesPreviewAssets(idea);
+ if(!entries.length){
+  return '<div class="rv-cloud-series-waiting">Memuat thumbnail Series dari Cloud…</div>';
+ }
+ const ready=entries.filter(entry=>Boolean(entry.asset?.driveFileId)).length;
+ const columns=entries.length<=4?2:entries.length<=9?3:4;
+ return '<div class="rv-cloud-series-mosaic" style="--rv-series-columns:'+columns+'" aria-label="'+ready+' dari '+entries.length+' scene tersedia">'+
+  entries.map(entry=>'<div class="rv-cloud-series-tile">'+
+   (entry.asset?.driveFileId?'<img loading="lazy" decoding="async" alt="Scene '+entry.index+'" data-cloud-thumb-id="'+cloudEscape(entry.asset.driveFileId)+'" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=">':'<span class="rv-cloud-series-empty">—</span>')+
+   '<span class="rv-cloud-series-index">'+String(entry.index)+'</span></div>').join('')+
+  '</div><span class="rv-cloud-series-count">'+ready+'/'+entries.length+' scenes</span>';
+}
 function renderCloudGallery(ideas,page=1,totalCount=null){
- cloudGalleryItems=Array.isArray(ideas)?ideas:[];
+ const priorItems=new Map();
+ for(const item of readCloudGalleryCache())if(item?.ideaId)priorItems.set(String(item.ideaId),item);
+ for(const item of cloudGalleryItems)if(item?.ideaId)priorItems.set(String(item.ideaId),item);
+ cloudGalleryItems=Array.isArray(ideas)?ideas.map(item=>mergeCloudSeriesGalleryItem(item,priorItems.get(String(item?.ideaId)))):[];
  cloudGalleryTotal=Number.isFinite(Number(totalCount))&&totalCount!==null?Math.max(0,Number(totalCount)):cloudGalleryItems.length;
  const grid=$('rvCloudGalleryGrid'),pager=$('rvCloudGalleryPagination');if(!grid)return;
  persistCloudGalleryCache();
@@ -2248,17 +2294,9 @@ function renderCloudGallery(ideas,page=1,totalCount=null){
    ratioParts&&Number(ratioParts[2])>0?Number(ratioParts[1])/Number(ratioParts[2]):1;
   const safeRatio=Number.isFinite(ratio)&&ratio>=.25&&ratio<=4?ratio:1;
   const previewRatio=String(Number(safeRatio.toFixed(5)));
-  const seriesAssets=cloudSeriesPreviewAssets(idea);
-  const seriesVisible=idea.productionType==='series'&&seriesAssets.length>0;
-  const readyScenes=seriesAssets.filter(entry=>Boolean(entry.asset?.driveFileId)).length;
-  const sceneCols=seriesAssets.length<=4?2:seriesAssets.length<=9?3:4;
-  const preview=seriesVisible
-   ? '<div class="rv-cloud-series-mosaic" style="--rv-series-columns:'+sceneCols+'" aria-label="'+readyScenes+' dari '+seriesAssets.length+' gambar scene tersedia">'+
-     seriesAssets.map(entry=>'<div class="rv-cloud-series-tile">'+
-      (entry.asset?.driveFileId?'<img loading="lazy" decoding="async" alt="Scene '+entry.index+'" data-cloud-thumb-id="'+cloudEscape(entry.asset.driveFileId)+'" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=">':'<span class="rv-cloud-series-empty">—</span>')+
-      '<span class="rv-cloud-series-index">'+String(entry.index)+'</span></div>').join('')+
-     '</div><span class="rv-cloud-series-count">'+readyScenes+'/'+seriesAssets.length+' scenes</span>'
-   : fileId?'<img loading="lazy" decoding="async" alt="" data-cloud-thumb-id="'+cloudEscape(fileId)+'" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=">':'<div class="rv-cloud-prompt-preview"><span>✦</span><strong>PROMPT IDEA</strong><small>No generated image</small></div>';
+  const seriesVisible=idea.productionType==='series';
+  const preview=seriesVisible?cloudSeriesPreviewMarkup(idea):
+   fileId?'<img loading="lazy" decoding="async" alt="" data-cloud-thumb-id="'+cloudEscape(fileId)+'" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=">':'<div class="rv-cloud-prompt-preview"><span>✦</span><strong>PROMPT IDEA</strong><small>No generated image</small></div>';
   const promptText=prompt?'<p class="rv-cloud-gallery-prompt">'+cloudEscape(prompt.slice(0,220))+(prompt.length>220?'…':'')+'</p>':'';
   const selected=cloudGallerySelectedIds.has(String(idea.ideaId));
   return '<article class="rv-cloud-gallery-card'+(selected?' is-selected':'')+'" data-cloud-gallery-id="'+id+'"><div class="rv-cloud-gallery-preview rv-cloud-gallery-selectable'+(seriesVisible?' rv-cloud-series-preview':'')+'" style="--rv-cloud-aspect:'+previewRatio+';" data-cloud-select-id="'+id+'" role="checkbox" tabindex="0" aria-label="Pilih card '+title+'" aria-checked="'+(selected?'true':'false')+'">'+preview+'</div><div class="rv-cloud-gallery-body"><h4>'+title+'</h4><div class="rv-cloud-gallery-meta">'+type+' · '+(score!==undefined?('Score '+cloudEscape(score)):'Score —')+'</div><div class="rv-cloud-gallery-meta">'+cloudEscape(idea.updatedAt||idea.createdAt||'Cloud saved')+'</div>'+promptText+'<div class="rv-cloud-gallery-actions"><button type="button" class="rv-cloud-gallery-explore" onclick="RIVIS_EXPLORE_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Explore Idea</button><button type="button" class="rv-cloud-gallery-load" onclick="RIVIS_LOAD_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Load to Library</button><button type="button" class="rv-cloud-gallery-delete" onclick="RIVIS_DELETE_CLOUD_IDEA(&quot;'+id+'&quot;,this)" title="Hapus dari Cloud Gallery; file Drive tetap tersimpan" aria-label="Hapus item Cloud Gallery">Hapus</button></div></div></article>';
@@ -2283,8 +2321,68 @@ function renderCloudGallery(ideas,page=1,totalCount=null){
  }
  updateCloudGallerySelectionUI();
  loadCloudGalleryThumbnails();
+ hydrateCloudSeriesGalleryManifests();
 }
 
+const cloudSeriesManifestLoaded=new Set();
+const cloudSeriesManifestPending=new Set();
+let cloudSeriesManifestQueue=[],cloudSeriesManifestActive=0;
+function hydrateCloudSeriesGalleryManifests(){
+ if(!gatewayVerified)return;
+ for(const item of cloudGalleryItems){
+  if(item?.productionType!=='series'||!item.ideaId)continue;
+  const id=String(item.ideaId);
+  const available=cloudSeriesPreviewAssets(item).filter(entry=>entry.asset?.driveFileId).length;
+  const expected=Array.isArray(item.seriesScenes)?item.seriesScenes.length:Math.max(0,Number(item.seriesLength)||0);
+  // Compact list items often contain a single cover but no scene assets.
+  if(available>=2&&(expected===0||available>=expected))continue;
+  if(cloudSeriesManifestLoaded.has(id)||cloudSeriesManifestPending.has(id))continue;
+  cloudSeriesManifestPending.add(id);
+  cloudSeriesManifestQueue.push(id);
+ }
+ pumpCloudSeriesGalleryManifests();
+}
+function pumpCloudSeriesGalleryManifests(){
+ while(gatewayVerified&&cloudSeriesManifestActive<2&&cloudSeriesManifestQueue.length){
+  const id=cloudSeriesManifestQueue.shift();
+  cloudSeriesManifestActive++;
+  (async()=>{
+   try{
+    const result=await sendCloudCommand('load',{ideaId:id,mode:'library'});
+    const full=result?.idea||{};
+    const cloudAssets=Array.isArray(result?.assets)&&result.assets.length?result.assets:(full.cloudAssets||[]);
+    const fullIdea={...full,ideaId:id,productionType:'series',cloudAssets};
+    const index=cloudGalleryItems.findIndex(item=>String(item?.ideaId)===id);
+    if(index<0)return;
+    const previous=cloudGalleryItems[index];
+    // The complete load is authoritative; merge it with any earlier scene manifest.
+    const merged=mergeCloudSeriesGalleryItem(fullIdea,previous);
+    cloudGalleryItems[index]={...previous,
+     seriesScenes:merged.seriesScenes,
+     seriesLength:merged.seriesLength,
+     cloudAssets:merged.cloudAssets,
+     cloudAssetRefs:merged.cloudAssetRefs
+    };
+    persistCloudGalleryCache();
+    const grid=$('rvCloudGalleryGrid');
+    const card=Array.from(grid?.querySelectorAll('[data-cloud-gallery-id]')||[]).find(el=>el.dataset.cloudGalleryId===id);
+    const preview=card?.querySelector('.rv-cloud-gallery-preview');
+    if(preview){
+     preview.classList.add('rv-cloud-series-preview');
+     preview.innerHTML=cloudSeriesPreviewMarkup(cloudGalleryItems[index]);
+     loadCloudGalleryThumbnails();
+    }
+    cloudSeriesManifestLoaded.add(id);
+   }catch(err){
+    console.warn('Cloud Series manifest fetch failed:',id,String(err?.message||err).slice(0,130));
+   }finally{
+    cloudSeriesManifestPending.delete(id);
+    cloudSeriesManifestActive--;
+    pumpCloudSeriesGalleryManifests();
+   }
+  })();
+ }
+}
 const cloudThumbnailMemoryCache=new Map();
 let cloudThumbnailObserver=null;
 let cloudThumbnailQueue=[],cloudThumbnailRunning=0;
@@ -2330,6 +2428,8 @@ function queueCloudGalleryThumbnail(img){
 }
 function loadCloudGalleryThumbnails(){
  if(cloudThumbnailObserver){cloudThumbnailObserver.disconnect();cloudThumbnailObserver=null;}
+ // Drop only queued requests; keep in-flight requests, and re-register new DOM images.
+ for(const item of cloudThumbnailQueue)cloudThumbnailPendingIds.delete(item.fileId);
  cloudThumbnailQueue=[];
  const grid=$('rvCloudGalleryGrid');if(!grid||!gatewayVerified)return;
  const images=Array.from(grid.querySelectorAll('[data-cloud-thumb-id]'));
