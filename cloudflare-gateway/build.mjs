@@ -31,8 +31,8 @@ for(const name of ['index.html','gateway.css','gateway.js']){
   c=c.replace('href="/.netlify/functions/auth-start"','href="/api/auth-start"');
   c=c.replace(/Login aman melalui Netlify/g,'Login aman melalui Cloudflare');
   c=c.replace(/di Netlify/g,'di Cloudflare');
-  c=c.replace(/Gateway 1\\.3\\.10/g,'Gateway 1.4.1');
-  c=c.replace(/v1\\.3\\.10/g,'v1.4.1');
+  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.1');
+  c=c.replace(/v1\.3\.10/g,'v1.4.1');
   if(!c.includes('href="/api/auth-start"'))throw Error('Login URL was not patched');
  }
  if(name==='gateway.js'){
