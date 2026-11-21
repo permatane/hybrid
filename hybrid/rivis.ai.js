@@ -1,4 +1,4 @@
-/* RIVIS AI Runtime — v3.4.115. Strict RSI and trustworthy reference-image audit. */
+/* RIVIS AI Runtime — v3.4.116. Editorial style fidelity and smart-repair ranking. */
 function scanIpRisk(value){const text=String(value||'');const issues=[];for(const match of text.matchAll(IP_RISK_PATTERN)){const before=text.slice(Math.max(0,
 match.index-35),match.index);if(/(?:\b(?:no|without|avoid|exclude|never|not|prohibit|remove|jangan|tanpa|hindari)\b|bukan)[^.!?\n]{0,22}$/i.test(before))continue;
 issues.push(match[0]);}if(/\b(?:in the style of|exact (?:replica|copy)|copy (?:the )?(?:character|logo|brand|product|design)|replicate (?:the )?(?:character|logo|brand)|identical to|looks? exactly like|fan art of)\b/i.test(text)){issues.push('instruksi peniruan');
@@ -211,8 +211,8 @@ function categoryFromAI(value){const input=String(value||'').trim().toLowerCase(
 function safeReferenceFingerprint(raw){if(!raw||typeof raw!=='object')return null;
  const clean=v=>String(v||'').replace(/[\r\n<>]/g,' ').trim().slice(0,200);
  const hexes=[...new Set((Array.isArray(raw.paletteHex)?raw.paletteHex:[]).map(v=>String(v||'').toUpperCase()).filter(v=>/^#[0-9A-F]{6}$/.test(v)))].slice(0,8);
- const obj={medium:clean(raw.medium),styleLabel:clean(raw.styleLabel),shapeLanguage:clean(raw.shapeLanguage),
- proportions:clean(raw.proportions),silhouette:clean(raw.silhouette),lineTreatment:clean(raw.lineTreatment),
+ const obj={rsiSchemaVersion:Number(raw.rsiSchemaVersion)||0,medium:clean(raw.medium),styleLabel:clean(raw.styleLabel),shapeLanguage:clean(raw.shapeLanguage),
+ proportions:clean(raw.proportions),silhouette:clean(raw.silhouette),figureGeometry:clean(raw.figureGeometry),poseCadence:clean(raw.poseCadence),detailHierarchy:clean(raw.detailHierarchy),contrastRhythm:clean(raw.contrastRhythm),lineTreatment:clean(raw.lineTreatment),
  patternLanguage:clean(raw.patternLanguage),characterTreatment:clean(raw.characterTreatment),
  colorLogic:clean(raw.colorLogic),paletteHex:hexes,shadingDepth:clean(raw.shadingDepth),
  texture:clean(raw.texture),mood:clean(raw.mood),composition:clean(raw.composition),
@@ -224,7 +224,7 @@ function referenceFingerprintBrief(mode){
  if(mode==='COMPOSITION REFERENCE')return 'Reference composition only: '+String(f.composition||'').slice(0,230)+'. Invent all specific elements.';
  if(mode==='CONCEPT REFERENCE')return 'Reference concept only: use broad subject inspiration and create completely new artistic treatment.';
  const fields=[['Medium',f.medium],['Style',f.styleLabel],['Shapes',f.shapeLanguage],
-  ['Proportions',f.proportions],['Silhouette',f.silhouette],['Linework',f.lineTreatment],
+  ['Proportions',f.proportions],['Silhouette',f.silhouette],['Figure geometry',f.figureGeometry],['Pose cadence',f.poseCadence],['Detail hierarchy',f.detailHierarchy],['Contrast rhythm',f.contrastRhythm],['Linework',f.lineTreatment],
   ['Patterns',f.patternLanguage],['Characters',f.characterTreatment],['Colors',f.colorLogic],
   ['Shading',f.shadingDepth],['Texture',f.texture],['Mood',f.mood]]
   .filter(([,v])=>typeof v==='string'&&v.trim()).map(([k,v])=>k+': '+v.trim());
@@ -320,7 +320,7 @@ function ideaStyleFingerprintBrief(idea){
  if(mode==='CONCEPT REFERENCE'||mode==='COMPOSITION REFERENCE')return '';
  const fields=[['Visual medium',f.medium],['Style family',f.styleLabel],
   ['Shapes',f.shapeLanguage],['Proportions',f.proportions],['Silhouette',f.silhouette],
-  ['Linework',f.lineTreatment],['Pattern rhythm',f.patternLanguage],
+  ['Figure geometry',f.figureGeometry],['Pose cadence',f.poseCadence],['Detail hierarchy',f.detailHierarchy],['Contrast rhythm',f.contrastRhythm],['Linework',f.lineTreatment],['Pattern rhythm',f.patternLanguage],
   ['Characters',f.characterTreatment],['Color blocks',f.colorLogic],
   ['Shading',f.shadingDepth],['Surface treatment',f.texture],['Mood',f.mood]]
   .filter(([,v])=>typeof v==='string'&&v.trim()).map(([k,v])=>k+': '+String(v).slice(0,200));
@@ -330,22 +330,33 @@ function ideaStyleFingerprintBrief(idea){
   (f.negativeStyles?'Avoid unwanted styles: '+f.negativeStyles+'. ':'')+
   'Preserve artistic grammar while creating completely original subjects, garments and compositions.').slice(0,1900);
 }
+function rivisIsEditorialFigureStyle(idea){
+ const f=idea?.referenceStyleFingerprint;
+ if(!f||typeof f!=='object')return false;
+ const dna=[f.styleLabel,f.shapeLanguage,f.proportions,f.silhouette,f.figureGeometry,f.poseCadence,f.patternLanguage,f.characterTreatment].filter(Boolean).join(' ').toLowerCase();
+ const subject=[idea?.mainSubject,idea?.conceptName,idea?.finalGenerationPrompt,...(Array.isArray(idea?.collectionItems)?idea.collectionItems:[])].filter(Boolean).join(' ').toLowerCase();
+ const editorial=/fashion|editorial|streetwear|runway|elongat|garment|couture|illustrat|printmaking|risograph/.test(dna);
+ const figures=/women|woman|female|men|man|male|person|people|human|figure|fashion|model|outfit|coat|clothes|clothing|jacket|garment|wardrobe|streetwear/.test(subject);
+ return editorial&&figures;
+}
 function rivisRsiStyleLock(idea,prompt){
  const f=idea?.referenceStyleFingerprint;
  if(ideaOutputMode(idea)!=='vector'||!f||typeof f!=='object')return prompt;
  const mode=String(idea.referenceMode||'STYLE REFERENCE');
  if(mode==='COMPOSITION REFERENCE'||mode==='CONCEPT REFERENCE')return prompt;
  const fields=[f.styleLabel,f.medium,f.shapeLanguage,f.proportions,f.silhouette,
-   f.lineTreatment,f.patternLanguage,f.characterTreatment,f.colorLogic,f.shadingDepth,f.texture];
+   f.figureGeometry,f.poseCadence,f.detailHierarchy,f.contrastRhythm,f.lineTreatment,f.patternLanguage,f.characterTreatment,f.colorLogic,f.shadingDepth,f.texture];
  const combined=[idea.creativeDirection,...fields].filter(Boolean).join(' ').toLowerCase();
  const fashionEditorial=/fashion|streetwear|outfit|oversized|elongat|runway|garment|wardrobe|textile/.test(combined);
- const features=fields.filter(Boolean).map(String).slice(0,11).join('; ');
+ const features=fields.filter(Boolean).map(String).slice(0,16).join('; ');
  const fashionRules=fashionEditorial?
   'For fashion/people compositions: emphasize elongated mature fashion-figure proportions, asymmetric full-body poses, oversized layered garments, graphic geometric cutouts, simplified mature facial features, contrasting flat color blocks, and sparse controlled decorative textile stripes, grids or hatching where appropriate. Never default to big-headed cute cartoon anatomy.':
   '';
  const negative=[f.negativeStyles,'generic cute cartoon clipart','chibi','mascot anatomy','round bubble limbs','uniform vector avatars'].filter(Boolean).join(', ');
+ const editorialCollection=rivisIsEditorialFigureStyle(idea)&&rivisCollectionCount(idea)>1?
+  'COLLECTION VISUAL DIVERSITY: Use different body-axis angles, silhouettes, gestures, garment volumes and intentional print motifs for every adult figure. No row of near-identical static front-facing mannequins; vary poses and confident editorial figure geometry while preserving the required number and separation of distinct items. Use original outfits and arrangements.':'';
  return prompt+'\n\nRSI STYLE FIDELITY LOCK — FINAL VISUAL PRIORITY: '+ 
-  'Use the analyzed illustration language: '+features+'. '+fashionRules+' AVOID: '+negative+
+  'Use the analyzed illustration language: '+features+'. '+fashionRules+' '+editorialCollection+' AVOID: '+negative+
   '. Technical SVG cleanliness must not erase stylistic irregularity, expressive contours, intentional patterns or sophisticated proportions. Create new original subjects, poses and arrangements rather than copying the reference.'+
   (idea.promptManualOverride===true?' Explicit user-edited style instructions take precedence where they conflict.':'');
 }
@@ -359,16 +370,17 @@ async function rivisEnsureCardRsiStyle(idea,signal=null){
   return;
  }
  const previous=idea.referenceStyleFingerprint;
- if(previous&&String(previous.shapeLanguage||'').trim()&&String(previous.lineTreatment||'').trim()&&
+ if(previous&&Number(previous.rsiSchemaVersion)>=2&&String(previous.figureGeometry||'').trim()&&String(previous.poseCadence||'').trim()&&String(previous.shapeLanguage||'').trim()&&String(previous.lineTreatment||'').trim()&&
   (String(previous.proportions||'').trim()||String(previous.silhouette||'').trim()||String(previous.styleLabel||'').trim()))return;
  const imagePart=await rivisBuildCompactImagePart(source,1536,.9);
- const schema='{"medium":"","styleLabel":"","shapeLanguage":"","proportions":"","silhouette":"","lineTreatment":"","patternLanguage":"","characterTreatment":"","colorLogic":"","paletteHex":["#000000"],"shadingDepth":"","texture":"","mood":"","composition":"","negativeStyles":"","avoidCharacteristics":""}';
- const question='You are an expert visual editorial style analyst. Examine the attached image and return STRICT JSON describing transferable STYLE DNA only. Do not identify people, artists, brands or source identity; do not copy subjects, apparel or exact arrangement. Diagnose visual medium, mature editorial vs cute cartoon anatomy, elongated or rounded proportions, contour rhythm, character face detail, garment/shape layering, intentionally repeated decorative patterns, bold color blocking and sparse print texture ONLY IF visibly present. Avoid broad labels such as generic cartoon unless that is truly what is depicted. JSON schema: '+schema+'. Use concrete, concise phrases for every observed field.';
+ const schema='{"medium":"","styleLabel":"","shapeLanguage":"","proportions":"","silhouette":"","figureGeometry":"","poseCadence":"","detailHierarchy":"","contrastRhythm":"","lineTreatment":"","patternLanguage":"","characterTreatment":"","colorLogic":"","paletteHex":["#000000"],"shadingDepth":"","texture":"","mood":"","composition":"","negativeStyles":"","avoidCharacteristics":""}';
+ const question='You are an expert visual editorial style analyst. Examine the attached image and return STRICT JSON describing transferable STYLE DNA only. Do not identify people, artists, brands or source identity; do not copy subjects, apparel or exact arrangement. Diagnose visual medium, mature editorial vs cute cartoon anatomy, actual body geometry and relative head/body scale, pose cadence and body-axis angles, silhouette asymmetry, large/medium/small detail hierarchy, contrast rhythm, contour line-weight variation, character facial detail, garment/shape layering, intentionally repeated decorative patterns, bold color blocking and sparse print texture ONLY IF visibly present. Fill figureGeometry and poseCadence with concrete observations, not vague generic adjectives. Avoid broad labels such as generic cartoon unless that is truly what is depicted. JSON schema: '+schema+'. Use concrete, concise phrases for every observed field.';
  const result=await callGeminiApi('gemini-3-flash-preview',{contents:[{parts:[{text:question},imagePart]}],generationConfig:{responseMimeType:'application/json'}},signal);
  const raw=(result?.candidates?.[0]?.content?.parts||[]).filter(x=>typeof x.text==='string').map(x=>x.text).join('');
  const parsed=JSON.parse(raw.replace(/^\s*```(?:json)?\s*/i,'').replace(/\s*```\s*$/,''));
  const fingerprint=safeReferenceFingerprint(parsed?.styleFingerprint||parsed);
- if(!fingerprint||!fingerprint.shapeLanguage||!fingerprint.lineTreatment)throw new Error('RSI tidak mendapatkan analisis siluet dan garis dari referensi; gambar belum digenerate supaya tidak menjadi kartun generik.');
+ if(!fingerprint||!fingerprint.shapeLanguage||!fingerprint.lineTreatment||!fingerprint.figureGeometry||!fingerprint.poseCadence)throw new Error('RSI tidak mendapatkan geometri figur dan variasi pose yang cukup spesifik; analisis referensi harus lengkap sebelum generate.');
+ fingerprint.rsiSchemaVersion=2;
  idea.referenceStyleFingerprint=fingerprint;
  const live=state.savedIdeas.find(x=>String(x.ideaId)===String(idea.ideaId));
  if(live){
@@ -839,7 +851,8 @@ async function rivisEnsureCollectionManifest(idea,signal=null){const count=rivis
 function rivisCollectionPrompt(idea){const n=rivisCollectionCount(idea);if(!n)return'';
  const items=Array.isArray(idea.collectionItems)?idea.collectionItems:[];
  const rows=Math.floor(Math.sqrt(n));const cols=Math.ceil(n/Math.max(1,rows));
- return `CRITICAL COLLECTION SHEET REQUIREMENT: Produce ONE IMAGE containing EXACTLY ${n} visually distinct, SEPARATE, complete individual assets. Not a single large object, not a narrative scene, not one icon, not a repeated pattern. Use a clean spacious ${rows}-row by ${cols}-column grid or similarly balanced orderly contact sheet. ALL ${n} assets must be visible in full, evenly spaced and not touching, individually recognizable, with equal visual prominence. Do not repeat or duplicate any object, purpose or visual silhouette. Do not omit items. No bonus decoration, no border, no labels, no numbers, no lettering or typography. STRICT DISTINCT ITEM INVENTORY (${n} separate assets, each one MUST appear once):\n${items.map((x,i)=>`Asset ${i+1}: ${x}`).join('\n')}\nThe numbers above are instructions only; DO NOT render numbers in the image. Use one coordinated palette and one consistent style across all separate items. Count and compare every asset before returning the image.`;
+ const editorialFigureRule=rivisIsEditorialFigureStyle(idea)?'EDITORIAL FIGURE SET: Keep each asset as a distinct full figure with an original asymmetric gesture and silhouette; vary body-axis angle, shoulder line, garment volumes, and reference-appropriate geometric textile treatments. The four-or-more subjects must NOT look like repeated fashion catalogue mannequins in the same frontal standing pose. Use fashion-art editorial rhythm, not generic cartoon clipart. Preserve clean separation and item count.':'';
+ return `CRITICAL COLLECTION SHEET REQUIREMENT: Produce ONE IMAGE containing EXACTLY ${n} visually distinct, SEPARATE, complete individual assets. Not a single large object, not a narrative scene, not one icon, not a repeated pattern. Use a clean spacious ${rows}-row by ${cols}-column grid or similarly balanced orderly contact sheet. ALL ${n} assets must be visible in full, evenly spaced and not touching, individually recognizable, with equal visual prominence. Do not repeat or duplicate any object, purpose or visual silhouette. Do not omit items. No bonus decoration, no border, no labels, no numbers, no lettering or typography. STRICT DISTINCT ITEM INVENTORY (${n} separate assets, each one MUST appear once):\n${items.map((x,i)=>`Asset ${i+1}: ${x}`).join('\n')}\nThe numbers above are instructions only; DO NOT render numbers in the image. Use one coordinated palette and one consistent style across all separate items. ${editorialFigureRule} Count and compare every asset before returning the image.`;
 }
 async function rivisBuildCompactImagePart(url,maxSide=1800,quality=.84){
  const img=await decodedPicture(url);let canvas=null;
@@ -878,7 +891,7 @@ const hasVisualReference=Boolean(idea?.referenceImageUrl||idea?.refImageUrl);
 const referenceGuard=hasVisualReference?'VISUAL STYLE REFERENCE PRESENT: Treat the attached reference as evidence of general illustration language—silhouette rhythm, figure proportions, graphic mark-making, color relationships and intentional pattern density. Preserve sophisticated editorial expression; do not simplify it into generic cute, round cartoon clipart. Create a wholly original subject, wardrobe, poses and layout, never a replica or watermark. Avoid dense raster noise; translate any print-like texture to sparse intentional vector-friendly marks.':'';
 const commercialBrief=subjectPrompt.includes(savedCommercialBrief)||subjectPrompt.includes('Target buyer:')?'':savedCommercialBrief;
 const production=idea?.productionType||state.productionType||'single';negativePromptVal=idea.requestedNegative??negativePromptVal;
-const negative=negativePromptVal?` User exclusions: ${negativePromptVal}.`:'';const pathRules=isRasterMedium(assetType)?assetGuidance(assetType):gradientEnabled?(svgFriendly?'SVG-FIRST GRADIENT CONSTRUCTION: distinctive 2D editorial vector geometry, closed Bézier-friendly shapes, intentional stroke rhythm, controlled layers, 1–3 simple linear or radial gradients with 2–4 coordinated color stops. Preserve style-defining hatch or print layers when practical; no mesh gradients, raster noise, blur or tiny fragmented details.':'GRADIENT COLOR DIRECTION: smooth purposeful color gradients with coordinated stops, clear subject separation and no banding.'):(svgFriendly?'SVG-FIRST CONSTRUCTION: 3–8 coordinated solid colors with readable closed 2D regions and distinct object boundaries. Retain deliberate ink strokes, limited clean geometric hatching and expressive vector contour detail when selected by style; avoid blur, raster grain, accidental glow, photorealism and 3D, not all editorial texture.':'VECTOR-STYLE CONSTRUCTION: keep crisp contours, coherent separable shapes, a deliberate artistic style and controlled meaningful detail.');
+const negative=negativePromptVal?` User exclusions: ${negativePromptVal}.`:'';const pathRules=isRasterMedium(assetType)?assetGuidance(assetType):gradientEnabled?(svgFriendly?'SVG-FIRST GRADIENT CONSTRUCTION: distinctive 2D editorial vector geometry, closed Bézier-friendly shapes, intentional stroke rhythm, controlled layers, 1–3 simple linear or radial gradients with 2–4 coordinated color stops. Preserve style-defining hatch or print layers when practical; no mesh gradients, raster noise, blur or tiny fragmented details.':'GRADIENT COLOR DIRECTION: smooth purposeful color gradients with coordinated stops, clear subject separation and no banding.'):(svgFriendly?'SVG-FIRST CONSTRUCTION: a reference-faithful number of solid-color regions with readable closed 2D shapes and distinct object boundaries. Retain deliberate ink strokes, limited clean geometric hatching and expressive vector contour detail when selected by style; avoid blur, raster grain, accidental glow, photorealism and 3D, not all editorial texture.':'VECTOR-STYLE CONSTRUCTION: keep crisp contours, coherent separable shapes, a deliberate artistic style and controlled meaningful detail.');
 return`Create an original, commercially useful STOCK ${assetType.toUpperCase()} artwork based on this brief: ${subjectPrompt}.
 INTEGRATED ART DIRECTION: visual style ${style}; color palette ${palette}; composition ${composition}; commercial purpose ${purpose}; production format ${production==='collection'?'cohesive collection/set with visually consistent elements':'one coherent finished asset'}.
 ${cleanImagePrompt(commercialBrief)}
@@ -992,9 +1005,14 @@ function refreshRivisStockReadiness(idea){
   return gate;
 }
 function rivisRepairRank(a){
-  const list=(a?.issues||[]).filter(x=>!['Resolusi raster','Ukuran file','Format raster'].includes(String(x.area||'')));
-  const penalty=list.reduce((n,x)=>n+(x.area==='RSI Style Fidelity'?900:x.severity==='critical'?1000:x.severity==='major'?100:x.severity==='minor'?10:0),0);
-  return Number(a?.score||0)*100-penalty;
+ const list=(a?.issues||[]).filter(x=>!['Resolusi raster','Ukuran file','Format raster'].includes(String(x.area||'')));
+ const visual=Number(a?.score||0);
+ const fidelity=a?.styleFidelity;
+ const score=fidelity&&Number.isFinite(Number(fidelity.score))?Number(fidelity.score):null;
+ const penalties=list.reduce((n,x)=>n+(x.area==='RSI Style Fidelity'?0:x.severity==='critical'?1000:x.severity==='major'?100:x.severity==='minor'?10:0),0);
+ // When a reference is active, visual style adherence must beat mere edge cleanliness.
+ if(score!==null)return (fidelity.drift?0:100000)+score*250+visual*10-penalties;
+ return visual*100-penalties;
 }
 async function technicalImageScan(url,idea,{includeAiParts=true}={}){
  const img=await decodedPicture(url),width=img.naturalWidth,height=img.naturalHeight;
@@ -1111,14 +1129,14 @@ async function inspectGeneratedImageQuality(idea,url,signal=null){
 Requested visual brief: ${JSON.stringify(String(idea?.finalGenerationPrompt||'').slice(0,1200))}
 RSI style fingerprint: ${rsiActive?JSON.stringify(idea.referenceStyleFingerprint):'not applicable'}.
 ${rsiReferencePart?'Image 3 is the original STYLE REFERENCE. Compare Image 1 and Image 3 for artistic grammar only, NOT object identity, exact layout, garments, poses or individual illustrations.':''}
-When RSI is active, score stylistic adherence as a SEPARATE dimension: mature vs cute cartoon anatomy, actual silhouette proportions, editorial garment/shape geometry, contour character, flat color-block logic, geometric textile patterns and print-mark density. If the result becomes generic cute cartoon instead of the indicated sophisticated style, set styleFidelity.drift=true and give specific corrections. Do not penalize original new subjects or a different layout.
+When RSI is active, score stylistic adherence as a SEPARATE dimension by comparing Image 1 to Image 3: mature vs cute cartoon anatomy, actual silhouette proportions, visible body-axis angle and posture variety when relevant, editorial garment/shape geometry, contour character, flat color-block logic, geometric textile patterns and mark-making density. Distinguish a crisp technically clean generic stock cartoon from a visually faithful editorial graphic language. If the result substitutes generic cartoon simplification for distinctive reference visual grammar set styleFidelity.genericCartoonSubstitution=true and drift=true, even if edges are clean. If an editorial FIGURE COLLECTION repeats near-identical rigid frontal standing poses despite reference's diverse posture rhythm, set repeatedFigurePoses=true and drift=true. Do not demand pose variation when the original style and requested brief are intentionally uniform or front-facing. Give concise observable corrections; do not penalize new subjects or different specific outfit designs.
 Technical diagnostics (separate from visual score): ${JSON.stringify(technicalSummary)}
 Evaluate the image according to its intended medium and style. Score ONLY visible visual quality, not upload eligibility, file resolution, megapixels, file size, commercial opportunity, metadata, or legal IP status. The technical diagnostic numbers are informational only; do not deduct points from global luminance variance, dark/bright pixel percentages, large clean backgrounds, or simple flat-color regions. Do not penalize intentional white/black backgrounds, copy space, minimalism, stylization, flat fills, gradients, deliberate depth of field outside the focal area, or absence of typography. Judge only genuine visible defects supported by Image 1 or the five crops. Do not invent defects. If an area cannot be judged, state that in manualChecks rather than guessing or lowering a score.
 Score calibration anchors: 95–100 = exceptionally clean, no material defect visible in full image or crops; 90–94 = very clean, at most a few tiny non-disruptive imperfections; 85–89 = good, with only minor localized imperfections; 75–84 = a clearly noticeable defect or several minor defects that merit correction; 60–74 = multiple obvious defects affecting quality; 0–59 = severe defects or unusable structure. Do not award 95+ automatically; cite visible evidence in each reason. Do not score below 85 merely because a design is simple, stylized, or has generous negative space.
 ${criteria}
 Separately note obvious visible brand/logo/character concerns as an issue for manual IP review, but do not include legal IP judgments in any component score. Use Indonesian for all reasons, issues, repairFocus, and manualChecks. If the visual score is below 85, provide a concrete repairFocus based only on visible visual defects.
 Return strict JSON only, using exactly these five component keys and numeric scores:
-{"components":{"c1":{"score":0,"reason":"..."},"c2":{"score":0,"reason":"..."},"c3":{"score":0,"reason":"..."},"c4":{"score":0,"reason":"..."},"c5":{"score":0,"reason":"..."}},"styleFidelity":{"score":0,"drift":false,"reason":"observable visual-style comparison or not applicable","correction":"specific style correction if drift"},"issues":[{"severity":"critical|major|minor","area":"...","text":"..."}],"repairFocus":"...","manualChecks":["..."]}`;
+{"components":{"c1":{"score":0,"reason":"..."},"c2":{"score":0,"reason":"..."},"c3":{"score":0,"reason":"..."},"c4":{"score":0,"reason":"..."},"c5":{"score":0,"reason":"..."}},"styleFidelity":{"score":0,"drift":false,"genericCartoonSubstitution":false,"repeatedFigurePoses":false,"reason":"observable visual-style comparison or not applicable","correction":"specific style correction if drift"},"issues":[{"severity":"critical|major|minor","area":"...","text":"..."}],"repairFocus":"...","manualChecks":["..."]}`;
  const inspectionParts=[{text:rubric},fullPart,cropPart];if(rsiReferencePart)inspectionParts.push(rsiReferencePart);const res=await callGeminiApi('gemini-3-flash-preview',{contents:[{parts:inspectionParts}],generationConfig:{responseMimeType:'application/json'}},signal);rsiReferencePart=null;
  fullPart=null;cropPart=null;
  const rawText=res?.candidates?.[0]?.content?.parts?.filter(p=>typeof p.text==='string'&&!p.thought).map(p=>p.text).join('')||'';
@@ -1141,7 +1159,7 @@ Return strict JSON only, using exactly these five component keys and numeric sco
  }).filter(item=>item.text.trim());
  const fidelity=ai?.styleFidelity&&typeof ai.styleFidelity==='object'?ai.styleFidelity:null;
  const fidelityScore=fidelity&&Number.isFinite(Number(fidelity.score))?Math.max(0,Math.min(100,Number(fidelity.score))):null;
- const styleDrift=rsiActive&&(fidelityScore===null||fidelityScore<80||(fidelity?.drift===true&&fidelityScore<88));
+ const styleDrift=rsiActive&&(fidelityScore===null||fidelityScore<80||fidelity?.genericCartoonSubstitution===true||(rivisIsEditorialFigureStyle(idea)&&rivisCollectionCount(idea)>1&&fidelity?.repeatedFigurePoses===true)||(fidelity?.drift===true&&fidelityScore<90));
  if(styleDrift)aiIssues.push({severity:'major',area:'RSI Style Fidelity',text:String(fidelity.reason||'Generated illustration is less sophisticated than the reference visual grammar.').slice(0,420)});
  const issues=[...aiIssues,...(tech.issues||[])];
  const critical=issues.some(x=>x.severity==='critical'),major=issues.some(x=>x.severity==='major');
@@ -1291,8 +1309,8 @@ if(rivisCollectionCount(idea)){
     const recheck=await rivisAuditCollectionImage(idea,retryUrl,signal);
     if(recheck.pass||(!collectionCheck.pass&&Math.abs(idea.collectionItemCount-recheck.detectedCount)<Math.abs(idea.collectionItemCount-collectionCheck.detectedCount))){
      candidateUrl=retryUrl;collectionCheck=recheck;
-     if(qualityFirstEnabled()){
-      try{preflight=await inspectGeneratedImageQuality(idea,candidateUrl,signal);}catch(e){preflight=null;}
+     if(qualityFirstEnabled()||mustAuditStyle){
+      try{preflight=await inspectGeneratedImageQuality(idea,candidateUrl,signal);}catch(e){if(mustAuditStyle)throw e;preflight=null;}
      }
     }
    }else{retryRes=null;retryPart=null;}
@@ -1301,6 +1319,9 @@ if(rivisCollectionCount(idea)){
   collectionCheck={pass:false,detectedCount:0,missingItems:[],duplicateItems:[],summary:'Audit otomatis belum dapat diselesaikan; cek jumlah dan keunikan secara manual.'};
   console.warn('Collection count verification unavailable:',checkError);
  }
+}
+if(mustAuditStyle&&(!preflight?.styleFidelity||preflight.styleFidelity.drift===true)){
+ throw new Error('RSI: gambar akhir Collection / Set masih tidak mengikuti gaya referensi. Gambar lama tetap aman; coba generate ulang dengan referensi dan instruksi gaya yang lebih terarah.');
 }
 if(signal?.aborted||getCardRevision(ideaId)!==revAtStart)return null;
 const current=isTransient?liveIdea:state.savedIdeas.find(i=>i.ideaId===ideaId);if(!current)return null;
