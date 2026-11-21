@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.125. Multi-scene thumbnails inside Cloud Gallery Series cards. */
+/* RIVIS GitHub Support — v3.4.126. Outside-click-only Library info panel dismissal. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1025,28 +1025,17 @@ btn.classList.remove('bg-red-600','text-white');btn.classList.add('bg-red-950/80
 clearAllSavedArmed=false;state.savedIdeas=[];persistSavedIdeas();updateBadges();renderSavedIdeasGrid();if(btn){btn.innerHTML=` Clear All Cards`;
 btn.classList.remove('bg-red-600','text-white');btn.classList.add('bg-red-950/80','text-red-300');}showToast("All cards cleared from Library.",
 "success");}
-/* The five requested Library info disclosures close after clicking elsewhere or scrolling.
-   Delegation survives re-rendering and does not affect Visual Prompt / Metadata panels. */
+/* Only a completed click/tap outside closes the five Library info disclosures.
+   Do not react to pointerdown, touchstart, scroll, or gestures: users can scroll
+   the page on mobile without losing an expanded panel. */
 (function installRivisLibraryAutoMinimize(){
  const active='#savedIdeasGridContainer details[data-rivis-auto-minimize][open]';
- function minimizeUnlessInside(target){
+ document.addEventListener('click',event=>{
+  const target=event.target;
   document.querySelectorAll(active).forEach(details=>{
-   if(target&&details.contains(target))return;
-   details.open=false;
+   if(!details.contains(target))details.open=false;
   });
- }
- document.addEventListener('pointerdown',event=>{
-  minimizeUnlessInside(event.target);
  },true);
- // Page scroll: always minimize. Inner scrolling inside an open panel is kept usable.
- window.addEventListener('scroll',()=>minimizeUnlessInside(null),{passive:true});
- document.addEventListener('scroll',event=>{
-  if(event.target===document||event.target===document.documentElement||event.target===document.body)return;
-  minimizeUnlessInside(event.target);
- },{capture:true,passive:true});
- document.addEventListener('keydown',event=>{
-  if(event.key==='Escape')minimizeUnlessInside(null);
- });
 })();
 function toggleStatusTile(detailsEl){if(!detailsEl||!detailsEl.open)return;const bar=detailsEl.closest('.rivis-status-bar');
 if(!bar)return;bar.querySelectorAll('details.rivis-status-tile[open]').forEach(other=>{if(other!==detailsEl)other.open=false;
