@@ -27,18 +27,22 @@ for(const name of ['index.html','gateway.css','gateway.js']){
   c=c.replace(marker,"const API = '/api/';");
  }
  if(name==='index.html'){
-  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.3');
+  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.4');
   c=c.replace('href="/.netlify/functions/auth-start"','href="/api/auth-start"');
   c=c.replace(/Login aman melalui Netlify/g,'Login aman melalui Cloudflare');
   c=c.replace(/di Netlify/g,'di Cloudflare');
-  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.3');
-  c=c.replace(/v1\.3\.10/g,'v1.4.3');
+  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.4');
+  c=c.replace(/v1\.3\.10/g,'v1.4.4');
   if(!c.includes('href="/api/auth-start"'))throw Error('Login URL was not patched');
  }
  if(name==='gateway.js'){
   c=c.replace('RIVIS_DRIVE_FOLDER_ID di Netlify Environment Variables','RIVIS_DRIVE_FOLDER_ID di Cloudflare Variables and Secrets');
   c=c.replace('Folder RIVIS sudah ditetapkan di Netlify','Folder RIVIS sudah ditetapkan di Cloudflare');
   c=c.replace('Koneksi ke Netlify gagal.','Koneksi ke Cloudflare gagal.');
+  c=c.replace(
+   "if (auth === 'failed') message('Login belum berhasil. Periksa Google OAuth consent screen, Redirect URI, dan Test Users.');",
+   "if (auth === 'failed') { const reason=params.get('reason')||'unknown'; const messages={google_denied:'Google tidak memberikan izin.',state_cookie_missing:'Cookie OAuth tidak ditemukan. Izinkan cookie untuk situs ini dan ulangi login di browser yang sama.',state_mismatch:'Cookie OAuth tidak cocok. Mulai login ulang dari Gateway.',no_access_token:'Google tidak mengirim access token.',token_exchange_failed:'Pertukaran token Google gagal. Periksa GOOGLE_CLIENT_SECRET dan OAuth Redirect URI.',session_secret_invalid:'Session secret tidak valid.',callback_runtime_error:'Proses callback gagal di Cloudflare. Periksa Workers Logs.'}; message('Login gagal ('+reason+'): '+(messages[reason]||'Periksa log Cloudflare.')); }"
+  );
  }
  fs.writeFileSync(path.join(dist,'rivis-cloud',name),c);
 }
@@ -62,7 +66,23 @@ for(const name of names){
   'function handler_'+name.replace(/-/g,'_')+'(env){',
   ' const process={env}; const h=makeShared(env); const exports={};',
   name==='gateway-config'
-   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.3'")
+   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.4'")
+   : name==='auth-callback'
+    ? legacySource(path.join(source,name+'.js'))
+       .replace(
+        "const invalid=()=>h.redirect(h.baseUrl()+'/rivis-cloud/?auth=failed',[h.cookie(h.COOKIE_STATE,'',0)]);",
+        "const invalid=(reason='unknown')=>h.redirect(h.baseUrl()+'/rivis-cloud/?auth=failed&reason='+encodeURIComponent(reason),[h.cookie(h.COOKIE_STATE,'',0)]);"
+       )
+       .replace("if(event.queryStringParameters?.error)return invalid();",
+        "if(event.queryStringParameters?.error)return invalid('google_denied');")
+       .replace("if(typeof state!=='string'||!saved||!code)return invalid();",
+        "if(typeof state!=='string'||!saved||!code)return invalid('state_cookie_missing');")
+       .replace("if(a.length!==b.length||!crypto.timingSafeEqual(a,b))return invalid();",
+        "if(a.length!==b.length||!crypto.timingSafeEqual(a,b))return invalid('state_mismatch');")
+       .replace("if(!tokens.access_token)return invalid();",
+        "if(!tokens.access_token)return invalid('no_access_token');")
+       .replace("}catch(_){return invalid();}",
+        "}catch(e){console.error('RIVIS OAuth callback:',e?.message||e);return invalid(e?.message?.includes('Google token exchange failed')?'token_exchange_failed':e?.message?.includes('RIVIS_SESSION_SECRET')?'session_secret_invalid':'callback_runtime_error');}")
    : name==='auth-start'
     ? legacySource(path.join(source,name+'.js'))
        .replace("crypto.randomBytes(32).toString('base64url')", "Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(32))).toString('base64url')")
