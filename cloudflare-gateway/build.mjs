@@ -27,12 +27,12 @@ for(const name of ['index.html','gateway.css','gateway.js']){
   c=c.replace(marker,"const API = '/api/';");
  }
  if(name==='index.html'){
-  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.1');
+  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.2');
   c=c.replace('href="/.netlify/functions/auth-start"','href="/api/auth-start"');
   c=c.replace(/Login aman melalui Netlify/g,'Login aman melalui Cloudflare');
   c=c.replace(/di Netlify/g,'di Cloudflare');
-  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.1');
-  c=c.replace(/v1\.3\.10/g,'v1.4.1');
+  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.2');
+  c=c.replace(/v1\.3\.10/g,'v1.4.2');
   if(!c.includes('href="/api/auth-start"'))throw Error('Login URL was not patched');
  }
  if(name==='gateway.js'){
@@ -58,7 +58,14 @@ for(const name of names){
  generated.push(
   'function handler_'+name.replace(/-/g,'_')+'(env){',
   ' const process={env}; const h=makeShared(env); const exports={};',
-  name==='gateway-config' ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.1'") : legacySource(path.join(source,name+'.js')),
+  name==='gateway-config'
+   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.2'")
+   : name==='auth-start'
+    ? legacySource(path.join(source,name+'.js'))
+       .replace("crypto.randomBytes(32).toString('base64url')", "Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(32))).toString('base64url')")
+       .replace("return h.json(500,{error:h.normalizeError(e)});",
+        "return h.json(500,{error: e?.message?.includes('RIVIS_SESSION_SECRET') ? 'RIVIS_SESSION_SECRET invalid: must be 32 random bytes encoded as Base64' : e?.message?.includes('GOOGLE_CLIENT') ? 'Google OAuth client credentials missing' : 'Google OAuth initialization failed',code:'oauth_init_failed'});")
+    : legacySource(path.join(source,name+'.js')),
   " if(typeof exports.handler!=='function')throw Error('Handler missing');",
   ' return exports.handler;',
   '}'
