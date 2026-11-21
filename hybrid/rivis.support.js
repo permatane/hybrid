@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.109. Cloudflare Pages is primary RIVIS Cloud Gateway; Netlify retained as fallback. */
+/* RIVIS GitHub Support — v3.4.110. Repair Library image thumbnails and original-image fallback; Cloudflare primary. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -992,7 +992,7 @@ const backupOk=safeStorageSet(STORAGE_KEYS.SAVED_IDEAS,JSON.stringify(compactLib
 if(idbAvailable){const generation=++writeRev;libraryPersistQueue=libraryPersistQueue.catch(()=>{}).then(async()=>{if(generation!==writeRev)return;
 // Shallow snapshot avoids an extra deep copy of every 4K Base64 image string.
 const latest=state.savedIdeas.map(i=>({...i}));await idbSet(IDB_LIBRARY_KEY,latest);}).catch(err=>{console.warn('IndexedDB save issue:',
-err?.message||err);showToast('Gagal menyimpan Library ke IndexedDB; cadangan ringkas tersedia.','error');});}else if(!backupOk){showToast('Penyimpanan penuh. Unduh ZIP Library sebagai cadangan.',
+err?.message||err);showToast('IndexedDB gagal menyimpan gambar. Simpan card ke Cloud atau unduh ZIP sebelum menutup RIVIS; cadangan lokal hanya berisi metadata.','error');});}else if(!backupOk){showToast('Penyimpanan penuh. Unduh ZIP Library sebagai cadangan.',
 'error');return false;}return true;}catch(err){console.warn('Library save failed',err?.message||err);return false;}}
 function removeSavedIdea(ideaId){state.savedIdeas=state.savedIdeas.filter(i=>i.ideaId!==ideaId);
 persistSavedIdeas();updateBadges();renderSavedIdeasGrid();showToast("Idea removed from Library.","info");}
@@ -1032,10 +1032,10 @@ if(!normalized)continue;const key=prefix+':'+normalized;if(!firstSeen.has(key))f
 duplicates.add(id);}}}return duplicates;}
 const RIVIS_THUMB_PLACEHOLDER='data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 function renderSavedCardHtml(idea,libraryDuplicates){const code=getCardUniqueCode(idea);
-const previewSrc=idea.generatedImagePreviewUrl||RIVIS_THUMB_PLACEHOLDER;
+const previewSrc=(typeof idea.generatedImagePreviewUrl==='string'&&/^(data:image\/|blob:|https?:\/\/)/i.test(idea.generatedImagePreviewUrl))?idea.generatedImagePreviewUrl:RIVIS_THUMB_PLACEHOLDER;
 const nativeWidth=Number(idea.generatedImageWidth||idea.visualPreflight?.technical?.width)||0;
 const nativeHeight=Number(idea.generatedImageHeight||idea.visualPreflight?.technical?.height)||0;
-const thumbReady=Boolean(idea.generatedImagePreviewUrl);
+const thumbReady=previewSrc!==RIVIS_THUMB_PLACEHOLDER;
 const baseName=getCardBaseFilename(idea);const metadataFilename=getMetadataAssetFilename(idea);const audit=auditIdeaQuality(idea);const isDuplicate=libraryDuplicates.has(idea.ideaId);
 const meta=idea.metadata?normalizeAdobeStockMetadata(idea,idea.metadata):null;const titleLength=meta?.stockTitle.length||0;const keywordCount=meta?.keywords.length||0;
 const titleValid=titleLength>0&&titleLength<=70;const keywordsValid=keywordCount>=30&&keywordCount<=40;const csvReady=Boolean(meta&&titleValid&&keywordsValid&&meta.adobeCategoryCode>=1&&meta.adobeCategoryCode<=21);
@@ -1043,7 +1043,7 @@ return`<div data-rivis-card-id="${escapeHtml(String(idea.ideaId))}" class="p-4 r
       ${isDuplicate?`<div class="${uiClasses[1]}"><span class="flex items-center gap-1.5"> Duplicate Warning</span><span class="${uiClasses[2]}">Duplicate in Library</span></div>`:''}
       <div class="space-y-3"> <div class="flex justify-between items-start gap-2"> <div> <div class="flex items-center gap-1.5 mb-0.5"> <span class="text-[9px] font-mono text-purple-400 font-bold tracking-wider">${code.toUpperCase()}</span> <span class="text-[9px] font-bold uppercase bg-slate-900 px-1.5 py-0.2 rounded border border-slate-700 text-slate-300">${idea.productionType==='collection'?'Collection Set'+(Number(idea.collectionItemCount)>0?' · '+Number(idea.collectionItemCount)+' items':''):idea.productionType==='series'?'Series · '+(idea.seriesScenes?.length||idea.seriesLength||5)+' scenes':'Single Asset'}</span> </div> <h4 class="text-sm font-bold text-white leading-snug">${escapeHtml(idea.conceptName)}</h4> <div class="text-[10px] text-cyan-300 font-semibold">${isRasterIdea(idea)?'RASTER · '+escapeHtml(RASTER_MODES[ideaOutputMode(idea)])+' · '+rasterSnapshot(idea).format.toUpperCase():'VECTOR · SVG-Friendly'}</div> </div> <div class="flex items-center gap-1 shrink-0"> <button type="button" onclick="removeSavedIdea('${escapeHtml(idea.ideaId)}')" class="p-1 text-slate-500 hover:text-red-400 transition-colors" title="Remove" aria-label="Hapus kartu">×</button> </div> </div>
         ${libraryStatusToolbar(idea,audit,'library')}
-        ${idea.generatedImageUrl&&idea.productionType!=='series'?`<div class="flex gap-1.5 flex-wrap"><button type="button" onclick="downloadGeneratedImage('${escapeHtml(idea.ideaId)}')" class="flex-1 px-2 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-cyan-200 font-bold text-[10px]">Unduh PNG/JPG Asli</button><button type="button" onclick="RIVIS_VECTOR.open('${escapeHtml(idea.ideaId)}')" class="flex-1 px-2 py-1.5 rounded-lg bg-violet-700 hover:bg-violet-600 text-white font-bold text-[10px]">AI Vector SVG</button></div><div class="relative rounded-xl overflow-hidden border border-slate-700 bg-slate-900 group shadow-inner"> <img loading="lazy" decoding="async" src="${previewSrc}" onload="if(this.dataset.thumbReady==='1')showNativeSize(this)" data-thumb-ready="${thumbReady?'1':'0'}" data-native-width="${nativeWidth}" data-native-height="${nativeHeight}" data-rivis-thumb-id="${escapeHtml(idea.ideaId)}" data-lightbox-id="${escapeHtml(idea.ideaId)}" class="w-full h-48 object-contain bg-slate-950 cursor-zoom-in transition-transform duration-300 group-hover:scale-105" alt="Generated stock preview" /> <div class="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none"> <span class="px-3 py-1.5 bg-purple-600/90 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-lg"> Zoom Preview</span> </div> ${idea.imageGeneratedOn?`<span class="absolute left-2 bottom-2 z-20 pointer-events-none bg-slate-950/80 border border-slate-600/50 text-slate-100 text-[9px] font-semibold px-2 py-1 rounded-md shadow" aria-label="Tanggal generate">Generated: ${escapeHtml(rivisDisplayDate(idea.imageGeneratedOn))}</span>`:''} </div> <p class="mt-1 text-xs text-slate-400">Memeriksa dimensi gambar…</p>`:''}
+        ${idea.generatedImageUrl&&idea.productionType!=='series'?`<div class="flex gap-1.5 flex-wrap"><button type="button" onclick="downloadGeneratedImage('${escapeHtml(idea.ideaId)}')" class="flex-1 px-2 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-cyan-200 font-bold text-[10px]">Unduh PNG/JPG Asli</button><button type="button" onclick="RIVIS_VECTOR.open('${escapeHtml(idea.ideaId)}')" class="flex-1 px-2 py-1.5 rounded-lg bg-violet-700 hover:bg-violet-600 text-white font-bold text-[10px]">AI Vector SVG</button></div><div class="relative rounded-xl overflow-hidden border border-slate-700 bg-slate-900 group shadow-inner"> <img loading="lazy" decoding="async" src="${previewSrc}" onload="if(this.dataset.thumbReady==='1')showNativeSize(this)" onerror="rivisRecoverLibraryImage(this)" data-thumb-ready="${thumbReady?'1':'0'}" data-native-width="${nativeWidth}" data-native-height="${nativeHeight}" data-rivis-thumb-id="${escapeHtml(idea.ideaId)}" data-lightbox-id="${escapeHtml(idea.ideaId)}" class="w-full h-48 object-contain bg-slate-950 cursor-zoom-in transition-transform duration-300 group-hover:scale-105" alt="Generated stock preview" /> <div class="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none"> <span class="px-3 py-1.5 bg-purple-600/90 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-lg"> Zoom Preview</span> </div> ${idea.imageGeneratedOn?`<span class="absolute left-2 bottom-2 z-20 pointer-events-none bg-slate-950/80 border border-slate-600/50 text-slate-100 text-[9px] font-semibold px-2 py-1 rounded-md shadow" aria-label="Tanggal generate">Generated: ${escapeHtml(rivisDisplayDate(idea.imageGeneratedOn))}</span>`:''} </div> <p class="mt-1 text-xs text-slate-400">Memeriksa dimensi gambar…</p>`:''}
         ${renderSeriesSceneGallery(idea)}
         ${idea.generatedImageUrl?(idea.visualPreflight?`<div class="rivis-preflight-row"> <details class="rounded-lg bg-slate-900/80 border border-slate-800 text-[10px]"> <summary class="rivis-preflight-summary cursor-pointer font-bold ${idea.visualPreflight.status==='PASS'?'text-emerald-400':idea.visualPreflight.status==='REVIEW'?'text-amber-400':'text-rose-400'}"> <span class="rivis-preflight-title">Visual Preflight: ${idea.visualPreflight.score}/100</span> <span class="rivis-preflight-status shrink-0">(${idea.visualPreflight.status})</span> </summary> <div class="space-y-1.5 px-2.5 pb-2.5 pt-2 border-t border-slate-800/80">
               ${idea.visualPreflight.technical?`<p class="text-[10px] text-cyan-300">Teknis: ${idea.visualPreflight.technical.width}×${idea.visualPreflight.technical.height} px (<span class="font-bold ${Number(idea.visualPreflight.technical.mp)>=4?'text-emerald-400':'text-rose-400'}">${idea.visualPreflight.technical.mp} MP</span>) · Kontras ${idea.visualPreflight.technical.lumaStd}</p>`:''}
@@ -1101,6 +1101,24 @@ existing.replaceWith(replacement);}}else{
   }
 }libraryPaintDirty=false;libraryRenderedDuplicateIds=duplicates;observeMissingLibraryThumbnails();}
 let libraryThumbObserver=null,libraryThumbQueue=[],libraryThumbQueued=new Set(),libraryThumbWorker=false;
+function rivisRecoverLibraryImage(img){
+ if(!img)return;
+ const id=img.dataset.rivisThumbId;
+ const idea=state.savedIdeas.find(item=>String(item.ideaId)===String(id));
+ const source=idea?.generatedImageUrl;
+ if(!source||img.dataset.rivisFallbackSource==='attempted'){
+  img.removeAttribute('onerror');
+  img.removeAttribute('src');
+  img.alt='Gambar tidak dapat dibaca. Muat ulang card dari Cloud Gallery jika tersedia.';
+  img.closest('[data-rivis-card-id]')?.setAttribute('data-rivis-image-error','1');
+  console.warn('RIVIS Library image unavailable:',id);
+  return;
+ }
+ img.dataset.rivisFallbackSource='attempted';
+ img.dataset.thumbReady='1';
+ img.src=source;
+}
+
 function observeMissingLibraryThumbnails(){
  const root=byId('savedIdeasGridContainer');if(!root)return;
  const imgs=root.querySelectorAll('img[data-rivis-thumb-id][data-thumb-ready="0"]');
@@ -1122,18 +1140,28 @@ async function processLibraryThumbnailQueue(){
   while(libraryThumbQueue.length){
    const id=libraryThumbQueue.shift();libraryThumbQueued.delete(id);
    const idea=state.savedIdeas.find(item=>String(item.ideaId)===String(id));
-   const img=document.querySelector(`img[data-rivis-thumb-id="${CSS.escape(String(id))}"]`);
+   const img=Array.from(byId('savedIdeasGridContainer')?.querySelectorAll('img[data-rivis-thumb-id]')||[]).find(el=>el.dataset.rivisThumbId===String(id));
    if(!idea?.generatedImageUrl||idea.generatedImagePreviewUrl||!img)continue;
    const source=idea.generatedImageUrl;
+   // Show the original immediately. Thumbnail generation is an optimization,
+   // not a prerequisite for displaying a saved image.
+   if(img.getAttribute('src')===RIVIS_THUMB_PLACEHOLDER){
+    img.dataset.thumbReady='1';
+    img.src=source;
+   }
    try{
     const thumb=await rivisCreateLibraryThumbnail(source);
     const current=state.savedIdeas.find(item=>String(item.ideaId)===String(id));
     if(!current||current.generatedImageUrl!==source)continue;
     current.generatedImagePreviewUrl=thumb.url;current.generatedImageWidth=thumb.width;current.generatedImageHeight=thumb.height;
-    img.dataset.thumbReady='1';img.dataset.nativeWidth=String(thumb.width);img.dataset.nativeHeight=String(thumb.height);img.src=thumb.url;
+    const live=Array.from(byId('savedIdeasGridContainer')?.querySelectorAll('img[data-rivis-thumb-id]')||[]).find(el=>el.dataset.rivisThumbId===String(id));
+    if(live){
+     live.dataset.thumbReady='1';live.dataset.nativeWidth=String(thumb.width);live.dataset.nativeHeight=String(thumb.height);
+     live.dataset.rivisFallbackSource='';live.src=thumb.url;
+    }
     if(img.complete)showNativeSize(img);changed=true;
-   }catch(error){console.warn('Library thumbnail skipped:',id,error?.message||error);}
-   await new Promise(resolve=>requestAnimationFrame(resolve));
+   }catch(error){console.warn('Library thumbnail skipped; original remains visible:',id,error?.message||error);if(img.isConnected&&img.getAttribute('src')===RIVIS_THUMB_PLACEHOLDER)rivisRecoverLibraryImage(img);}
+   await new Promise(resolve=>setTimeout(resolve,0));
   }
   if(changed)persistSavedIdeas();
  }finally{libraryThumbWorker=false;if(libraryThumbQueue.length)processLibraryThumbnailQueue();}
