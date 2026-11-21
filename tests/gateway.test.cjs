@@ -575,7 +575,8 @@ test('RIVIS source bridge accepts numeric chunk IDs and rejects invalid IDs and 
  const start=source.indexOf(" if(d.type==='RIVIS_CLOUD_BLOB_REQUEST'){");
  const end=source.indexOf(" if(d.type==='RIVIS_CLOUD_PROGRESS'){",start);
  assert.ok(start>=0&&end>start,'Cloud Blob bridge handler missing');
- const messages=[],blob=new Blob([Buffer.alloc(1024*1024+8,31)],{type:'image/jpeg'});
+ const maxChunk=2*1024*1024;
+ const messages=[],blob=new Blob([Buffer.alloc(maxChunk+8,31)],{type:'image/jpeg'});
  const pending=new Map([['req_ok',{blob,renew(){}}]]);
  const popup={closed:false,postMessage(message){messages.push(message);}};
  const handle=vm.runInNewContext('(function(d){'+source.slice(start,end)+'})',{
@@ -589,14 +590,14 @@ test('RIVIS source bridge accepts numeric chunk IDs and rejects invalid IDs and 
   assert.equal(messages.length,before+1,'Bridge did not reply to requested chunk');
   return messages.at(-1);
  };
- const first=await ask('1',0,1024*1024);
+ const first=await ask('1',0,maxChunk);
  assert.equal(first.error,null,'Numeric chunkId must be accepted');
- assert.equal(first.buffer.byteLength,1024*1024);
- const last=await ask('2',1024*1024,blob.size);
+ assert.equal(first.buffer.byteLength,maxChunk);
+ const last=await ask('2',maxChunk,blob.size);
  assert.equal(last.error,null,'Last partial chunk must be accepted');
  assert.equal(last.buffer.byteLength,8);
  assert.match((await ask('abc',0,64)).error,/tidak valid/i,'Non-numeric ID must fail');
- assert.match((await ask('3',0,1024*1024+1)).error,/tidak valid/i,'Oversize chunk must fail');
+ assert.match((await ask('3',0,maxChunk+1)).error,/tidak valid/i,'Oversize chunk must fail');
  assert.match((await ask('4',0,blob.size+1)).error,/tidak valid/i,'Out-of-bounds chunk must fail');
 });
 
