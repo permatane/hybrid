@@ -988,7 +988,7 @@ function refreshRivisStockReadiness(idea){
 }
 function rivisRepairRank(a){
   const list=(a?.issues||[]).filter(x=>!['Resolusi raster','Ukuran file','Format raster'].includes(String(x.area||'')));
-  const penalty=list.reduce((n,x)=>n+(x.severity==='critical'?1000:x.severity==='major'?100:x.severity==='minor'?10:0),0);
+  const penalty=list.reduce((n,x)=>n+(x.area==='RSI Style Fidelity'?900:x.severity==='critical'?1000:x.severity==='major'?100:x.severity==='minor'?10:0),0);
   return Number(a?.score||0)*100-penalty;
 }
 async function technicalImageScan(url,idea,{includeAiParts=true}={}){
@@ -1078,6 +1078,13 @@ async function inspectGeneratedImageQuality(idea,url,signal=null){
   return simulated;
  }
  const isRaster=isRasterIdea(idea);
+ const rsiActive=!isRaster&&Boolean(idea?.referenceStyleFingerprint)&&!['COMPOSITION REFERENCE','CONCEPT REFERENCE'].includes(String(idea.referenceMode||'STYLE REFERENCE'));
+ let rsiReferencePart=null;
+ const source=idea?.referenceImageUrl||idea?.refImageUrl;
+ if(rsiActive&&source){
+  try{rsiReferencePart=await rivisBuildCompactImagePart(source,1200,.84);}
+  catch(error){console.warn('RSI audit reference could not be read:',error?.message||error);}
+ }
  const definitions=isRaster?[
   {key:'c1',label:'Anatomy & Object Integrity',weight:30,rule:'Nilai anatomi manusia/hewan bila ada, tangan dan jari bila terlihat, wajah, proporsi, sambungan, perspektif, serta bentuk dan interaksi objek. Jangan menghukum gambar yang tidak menampilkan manusia atau tangan.'},
   {key:'c2',label:'Sharpness & Detail Quality',weight:25,rule:'Periksa crop 100% untuk blur yang tidak disengaja, noise nyata, detail meleleh, tekstur plastik, oversharpening, halo, dan artefak render/kompresi. Jangan menghukum depth of field yang disengaja di luar area fokus.'},
@@ -1096,14 +1103,17 @@ async function inspectGeneratedImageQuality(idea,url,signal=null){
   eligibility:tech.eligibility,lumaStd:tech.lumaStd,darkPixelPct:tech.darkClipPct,brightPixelPct:tech.brightClipPct};
  const rubric=`Act as a calibrated, evidence-based stock asset visual quality reviewer. Inspect BOTH attached images: Image 1 is the complete generated asset. Image 2 is a five-crop inspection sheet at native pixel scale: top-left, top-right, center, bottom-left, bottom-right.
 Requested visual brief: ${JSON.stringify(String(idea?.finalGenerationPrompt||'').slice(0,1200))}
+RSI style fingerprint: ${rsiActive?JSON.stringify(idea.referenceStyleFingerprint):'not applicable'}.
+${rsiReferencePart?'Image 3 is the original STYLE REFERENCE. Compare Image 1 and Image 3 for artistic grammar only, NOT object identity, exact layout, garments, poses or individual illustrations.':''}
+When RSI is active, score stylistic adherence as a SEPARATE dimension: mature vs cute cartoon anatomy, actual silhouette proportions, editorial garment/shape geometry, contour character, flat color-block logic, geometric textile patterns and print-mark density. If the result becomes generic cute cartoon instead of the indicated sophisticated style, set styleFidelity.drift=true and give specific corrections. Do not penalize original new subjects or a different layout.
 Technical diagnostics (separate from visual score): ${JSON.stringify(technicalSummary)}
 Evaluate the image according to its intended medium and style. Score ONLY visible visual quality, not upload eligibility, file resolution, megapixels, file size, commercial opportunity, metadata, or legal IP status. The technical diagnostic numbers are informational only; do not deduct points from global luminance variance, dark/bright pixel percentages, large clean backgrounds, or simple flat-color regions. Do not penalize intentional white/black backgrounds, copy space, minimalism, stylization, flat fills, gradients, deliberate depth of field outside the focal area, or absence of typography. Judge only genuine visible defects supported by Image 1 or the five crops. Do not invent defects. If an area cannot be judged, state that in manualChecks rather than guessing or lowering a score.
 Score calibration anchors: 95–100 = exceptionally clean, no material defect visible in full image or crops; 90–94 = very clean, at most a few tiny non-disruptive imperfections; 85–89 = good, with only minor localized imperfections; 75–84 = a clearly noticeable defect or several minor defects that merit correction; 60–74 = multiple obvious defects affecting quality; 0–59 = severe defects or unusable structure. Do not award 95+ automatically; cite visible evidence in each reason. Do not score below 85 merely because a design is simple, stylized, or has generous negative space.
 ${criteria}
 Separately note obvious visible brand/logo/character concerns as an issue for manual IP review, but do not include legal IP judgments in any component score. Use Indonesian for all reasons, issues, repairFocus, and manualChecks. If the visual score is below 85, provide a concrete repairFocus based only on visible visual defects.
 Return strict JSON only, using exactly these five component keys and numeric scores:
-{"components":{"c1":{"score":0,"reason":"..."},"c2":{"score":0,"reason":"..."},"c3":{"score":0,"reason":"..."},"c4":{"score":0,"reason":"..."},"c5":{"score":0,"reason":"..."}},"issues":[{"severity":"critical|major|minor","area":"...","text":"..."}],"repairFocus":"...","manualChecks":["..."]}`;
- const res=await callGeminiApi('gemini-3-flash-preview',{contents:[{parts:[{text:rubric},fullPart,cropPart]}],generationConfig:{responseMimeType:'application/json'}},signal);
+{"components":{"c1":{"score":0,"reason":"..."},"c2":{"score":0,"reason":"..."},"c3":{"score":0,"reason":"..."},"c4":{"score":0,"reason":"..."},"c5":{"score":0,"reason":"..."}},"styleFidelity":{"score":0,"drift":false,"reason":"observable visual-style comparison or not applicable","correction":"specific style correction if drift"},"issues":[{"severity":"critical|major|minor","area":"...","text":"..."}],"repairFocus":"...","manualChecks":["..."]}`;
+ const inspectionParts=[{text:rubric},fullPart,cropPart];if(rsiReferencePart)inspectionParts.push(rsiReferencePart);const res=await callGeminiApi('gemini-3-flash-preview',{contents:[{parts:inspectionParts}],generationConfig:{responseMimeType:'application/json'}},signal);rsiReferencePart=null;
  fullPart=null;cropPart=null;
  const rawText=res?.candidates?.[0]?.content?.parts?.filter(p=>typeof p.text==='string'&&!p.thought).map(p=>p.text).join('')||'';
  const cleaned=rawText.replace(/^\s*`{3}(?:json)?\s*/i,'').replace(/\s*`{3}\s*$/,'');
@@ -1123,16 +1133,20 @@ Return strict JSON only, using exactly these five component keys and numeric sco
   const severity=String(item?.severity||'minor').toLowerCase();
   return{severity:['critical','major','minor'].includes(severity)?severity:'minor',area:String(item?.area||'Visual'),text:String(item?.text||'Perlu pemeriksaan visual.')};
  }).filter(item=>item.text.trim());
+ const fidelity=ai?.styleFidelity&&typeof ai.styleFidelity==='object'?ai.styleFidelity:null;
+ const fidelityScore=fidelity&&Number.isFinite(Number(fidelity.score))?Math.max(0,Math.min(100,Number(fidelity.score))):null;
+ const styleDrift=rsiActive&&fidelity?.drift===true&&fidelityScore!==null&&fidelityScore<78;
+ if(styleDrift)aiIssues.push({severity:'major',area:'RSI Style Fidelity',text:String(fidelity.reason||'Generated illustration is less sophisticated than the reference visual grammar.').slice(0,420)});
  const issues=[...aiIssues,...(tech.issues||[])];
  const critical=issues.some(x=>x.severity==='critical'),major=issues.some(x=>x.severity==='major');
  const technicalFail=tech.eligibility==='FAIL',technicalReview=tech.eligibility==='REVIEW';
  const status=critical||technicalFail||score<70?'FAIL':score<85||major||technicalReview?'REVIEW':'PASS';
- const repairFocus=String(ai?.repairFocus||'').trim()||(score<85?aiIssues.slice(0,3).map(x=>x.area+': '+x.text).join('; '):'');
+ const repairFocus=(styleDrift?'RSI STYLE CORRECTION: '+String(fidelity?.correction||fidelity?.reason||'Rebuild illustration shapes and line treatment to match style DNA')+'; ':'')+String(ai?.repairFocus||'').trim()||(score<85?aiIssues.slice(0,3).map(x=>x.area+': '+x.text).join('; '):'');
  const visualRepairNeeded=(score<85||aiIssues.some(x=>x.severity==='critical'||x.severity==='major'))&&(aiIssues.length>0||Boolean(repairFocus));
  const manualChecks=Array.isArray(ai?.manualChecks)?ai.manualChecks.map(String):['Periksa zoom 100% sebelum submission.'];
  manualChecks.push('Pemeriksaan legal IP/hak cipta tidak dapat dipastikan hanya dari inspeksi visual; verifikasi prompt dan hak penggunaan aset.');
  manualChecks.push(isRaster?'Pastikan file ekspor final memenuhi 4–100 MP dan ukuran maksimum 45 MB.':'Mode Vector: batas minimum 4 MP tidak diterapkan pada skor gambar sumber; periksa kualitas SVG final setelah vectorization.');
- const result={score,status,technical:tech,components,issues,repairFocus,manualChecks,visualRepairNeeded,previewUrl,
+ const result={score,status,technical:tech,components,issues,repairFocus,manualChecks,visualRepairNeeded,styleFidelity:rsiActive?{score:fidelityScore,drift:styleDrift,reason:String(fidelity?.reason||'Tidak dapat dinilai').slice(0,280)}:null,previewUrl,
   inspectedAt:new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})};
  result.stockReadiness=rivisStockReadinessGate(idea,result);
  manualChecks.push('Stock Readiness: '+result.stockReadiness.label+'. '+result.stockReadiness.summary);
