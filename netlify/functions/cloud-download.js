@@ -1,6 +1,6 @@
 'use strict';
 const h=require('./_shared.cjs');
-const MAX_CHUNK=1024*1024;
+const MAX_CHUNK=2*1024*1024;
 exports.handler=async(event)=>{
  if(event.httpMethod!=='GET')return h.json(405,{error:'Method not allowed'});
  const origin=event.headers?.origin||event.headers?.Origin||'';
