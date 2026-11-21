@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.129. Restore Series identity with compact cloud-list metadata. */
+/* RIVIS GitHub Support — v3.4.130. Reconcile partial Series scene lists with all cloud assets. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -2229,43 +2229,41 @@ function mergeCloudSeriesGalleryItem(incoming,previous){
 }
 function cloudSeriesPreviewAssets(idea){
  if(idea?.productionType!=='series')return [];
- const assets=[
+ const rawAssets=[
   ...(Array.isArray(idea.cloudAssets)?idea.cloudAssets:[]),
   ...(Array.isArray(idea.cloudAssetRefs?.scenes)?idea.cloudAssetRefs.scenes:[])
  ];
  const byScene=new Map();
- for(const asset of assets){
+ for(const asset of rawAssets){
   if(!asset?.driveFileId||!asset.sceneId||asset.assetType==='reference'||String(asset.isActive).toLowerCase()==='false')continue;
   const id=String(asset.sceneId);
   const prior=byScene.get(id);
   if(!prior||prior.assetId===asset.assetId)byScene.set(id,asset);
  }
  const scenes=Array.isArray(idea.seriesScenes)?idea.seriesScenes:[];
- if(scenes.length){
-  const available=[...byScene.values()];
-  const used=new Set();
-  return scenes.slice(0,12).map((scene,index)=>{
-   const id=String(scene.sceneId||idea.ideaId+'_scene_'+(index+1));
-   let asset=byScene.get(id)||null;
-   if(!asset){
-    // Older cloud records may have different sceneId formats: match by scene ordinal.
-    const ordinal=index+1;
-    asset=available.find(a=>{
-     if(used.has(String(a.sceneId)))return false;
-     const trailing=String(a.sceneId||'').match(/(?:scene[_-]?)(\d+)$/i);
-     return trailing&&Number(trailing[1])===ordinal;
-    })||null;
-   }
-   if(asset)used.add(String(asset.sceneId));
-   return {index:index+1,asset};
-  });
- }
+ const planned=Number(idea.seriesLength)||0;
+ const count=Math.min(12,Math.max(scenes.length,byScene.size,Number.isFinite(planned)?Math.max(0,Math.min(12,planned)):0));
+ if(count===0)return [];
+ const ordinal=value=>{
+  const match=String(value||'').match(/(?:scene[_-]?)(\d+)$/i);
+  return match?Number(match[1]):0;
+ };
  const ordered=[...byScene.values()].sort((a,b)=>{
-  const number=id=>Number(/(?:scene[_-]?)(\d+)$/i.exec(String(id||''))?.[1])||0;
-  const aIndex=number(a.sceneId),bIndex=number(b.sceneId);
-  return aIndex&&bIndex?aIndex-bIndex:String(a.sceneId).localeCompare(String(b.sceneId),undefined,{numeric:true});
+  const numA=ordinal(a.sceneId),numB=ordinal(b.sceneId);
+  if(numA&&numB)return numA-numB;
+  return String(a.sceneId||'').localeCompare(String(b.sceneId||''),undefined,{numeric:true});
  });
- return ordered.slice(0,12).map((asset,index)=>({index:index+1,asset}));
+ const used=new Set();
+ return Array.from({length:count},(_,index)=>{
+  const scene=scenes[index]||{};
+  const id=String(scene.sceneId||idea.ideaId+'_scene_'+(index+1));
+  let asset=byScene.get(id)||null;
+  if(asset&&used.has(String(asset.sceneId)))asset=null;
+  if(!asset)asset=ordered.find(item=>!used.has(String(item.sceneId))&&ordinal(item.sceneId)===index+1)||null;
+  if(!asset)asset=ordered.find(item=>!used.has(String(item.sceneId)))||null;
+  if(asset)used.add(String(asset.sceneId));
+  return {index:index+1,asset};
+ });
 }
 function cloudSeriesPreviewMarkup(idea){
  const entries=cloudSeriesPreviewAssets(idea);
