@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.135. Open VectorichQC on its standalone address. */
+/* RIVIS GitHub Support — v3.4.136. Restore reliable Cloud Gateway opening and handshake. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1614,18 +1614,34 @@ function openCloudGateway(event){
   return;
  }
  const bytes=new Uint8Array(24);
- if(!window.crypto?.getRandomValues){status('Browser tidak mendukung secure random generator.','error');event.preventDefault();return;}
+ if(!window.crypto?.getRandomValues){
+  status('Browser tidak mendukung secure random generator.','error');
+  event.preventDefault();
+  return;
+ }
  window.crypto.getRandomValues(bytes);
- gatewayChannel=Array.from(bytes,n=>n.toString(16).padStart(2,'0')).join('');
- event.currentTarget.href=GATEWAY_ORIGIN+'/rivis-cloud/?channel='+encodeURIComponent(gatewayChannel);
- gatewayPopup=null;
+ const channel=Array.from(bytes,n=>n.toString(16).padStart(2,'0')).join('');
+ const url=GATEWAY_ORIGIN+'/rivis-cloud/?channel='+encodeURIComponent(channel);
+ event.currentTarget.href=url;
+ // Direct, synchronous popup keeps a usable window.opener for the Cloud Gallery bridge.
+ // If scripting is blocked, preserve the anchor's native new-tab navigation.
+ let popup=null;
+ try{popup=window.open(url,'rivis_cloud_gateway','width=680,height=790,resizable=yes,scrollbars=yes');}catch(_){}
+ gatewayChannel=channel;
+ gatewayPopup=popup&&!popup.closed?popup:null;
  gatewayConnected=false;
  gatewayVerified=false;
- const channel= gatewayChannel;
- status('Membuka Cloud Gateway. Pilih Connect Google jika diminta.','info');
+ if(gatewayPopup){
+  event.preventDefault();
+  try{gatewayPopup.focus();}catch(_){}
+  status('Cloud Gateway dibuka. Klik Connect Google jika diminta.','info');
+ }else{
+  status('Mencoba membuka Cloud Gateway lewat tautan browser. Jika tidak terbuka, gunakan Chrome.','warning');
+ }
  window.setTimeout(()=>{
-  if(gatewayChannel===channel&&!gatewayPopup)status('Tab Cloud Gateway belum tersambung. Jika memakai browser dalam aplikasi, buka RIVIS dan Cloud Gateway di Chrome.','warning');
- },12000);
+  if(gatewayChannel===channel&&!gatewayVerified&&!gatewayPopup)
+   status('Gateway belum tersambung. Buka RIVIS langsung di Chrome dan klik Reconnect Cloud lagi.','warning');
+ },10000);
 }
 window.addEventListener('message',event=>{
  if(event.origin!==GATEWAY_ORIGIN || !event.source || !gatewayChannel)return;
