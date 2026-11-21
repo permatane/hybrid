@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.110. Repair Library image thumbnails and original-image fallback; Cloudflare primary. */
+/* RIVIS GitHub Support — v3.4.111. Cloud Save/Load caching, memory and reliability fixes. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1493,6 +1493,10 @@ window.RIVIS_VECTOR=Object.freeze({open,close,convert,downloadSVG:downloadSvg});
 
 window.RIVIS_LIBRARY_BRIDGE=Object.freeze({
  getIdeas:()=>state.savedIdeas.map(item=>JSON.parse(JSON.stringify(item))),
+ // Cloud transfer consumes live source only; avoid duplicating every 4K Base64 image
+ // and persist upload fingerprints back to the original IndexedDB record.
+ getCloudSource:id=>state.savedIdeas.find(x=>String(x.ideaId)===String(id))||null,
+ getCloudSourceIds:()=>state.savedIdeas.map(x=>String(x.ideaId)),
  getIdea:id=>{const item=state.savedIdeas.find(x=>String(x.ideaId)===String(id));return item?JSON.parse(JSON.stringify(item)):null;},
  upsertIdea:idea=>{
   if(!idea||typeof idea!=='object'||!idea.ideaId)throw new Error('Data ide atau ideaId tidak valid.');
@@ -1588,7 +1592,7 @@ window.addEventListener('message',event=>{
     try{gatewayPopup.postMessage(response,GATEWAY_ORIGIN,[buffer]);return;}catch(_){gatewayPopup.postMessage(response,GATEWAY_ORIGIN);}
    }else gatewayPopup.postMessage(response,GATEWAY_ORIGIN);
   };
-  if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start||end>pending.blob.size||end-start>1024*1024||!/^\d{1,10}$/.test(chunkId)){
+  if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start||end>pending.blob.size||end-start>2*1024*1024||!/^\d{1,10}$/.test(chunkId)){
    reply('Rentang potongan gambar tidak valid.',null);return;
   }
   pending.blob.slice(start,end).arrayBuffer().then(buffer=>reply(null,buffer)).catch(error=>reply(String(error?.message||error),null));
@@ -1852,7 +1856,7 @@ function updateCloudGalleryCache(idea){
 
 async function saveIdeaToCloud(sourceIdea,referenceSourceOverride=null){
  const referenceSource=referenceSourceOverride||sourceIdea.referenceImageBlob||sourceIdea.referenceImageFile||sourceIdea.referenceImageUrl||sourceIdea.refImageUrl||sourceIdea.referenceImageDataUrl||null;
- const idea=JSON.parse(JSON.stringify(sourceIdea)),old=idea.cloudAssetRefs||{};
+ const idea={...sourceIdea,seriesScenes:Array.isArray(sourceIdea.seriesScenes)?sourceIdea.seriesScenes.map(scene=>({...scene})):sourceIdea.seriesScenes},old=idea.cloudAssetRefs||{};
  delete idea.referenceImageBlob;delete idea.referenceImageFile;
  const refs={cover:old.cover||null,reference:old.reference||null,scenes:[]};
  const base=(idea.conceptName||idea.ideaId||'rivis').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50)||'rivis';
@@ -1897,6 +1901,7 @@ async function saveIdeaToCloud(sourceIdea,referenceSourceOverride=null){
  const safe=cloudSafeIdea(idea);
  const saved=await sendCloudCommand('save',{idea:safe,prompts:promptRows,assets:idea.cloudAssets||[],groups:idea.cloudGroups||[],groupItems:idea.cloudGroupItems||[],generationLogs:idea.cloudGenerationLogs||[]});
  Object.assign(sourceIdea,{cloudAssetRefs:refs,cloudAssets:idea.cloudAssets,coverAssetId:idea.coverAssetId,activePromptId:idea.activePromptId,cloudSavedAt:new Date().toISOString(),cloudMetadataPending:false});
+ if(state.savedIdeas.some(item=>item===sourceIdea))persistSavedIdeas();
  updateCloudGalleryCache(idea);
  return saved;
 }
@@ -1921,7 +1926,7 @@ window.RIVIS_SYNC_IDEA_METADATA_TO_CLOUD=syncIdeaMetadataToCloud;
 async function downloadCloudAsset(fileId){
  const parts=[];let start=0,total=0,mimeType='image/png',done=false;
  while(!done){
-  const chunk=await sendCloudCommand('download',{fileId,start,chunkSize:1024*1024});
+  const chunk=await sendCloudCommand('download',{fileId,start,chunkSize:2*1024*1024});
   if(!chunk?.base64)throw new Error('Chunk gambar dari Drive kosong.');
   mimeType=chunk.mimeType||mimeType;total=Number(chunk.totalBytes)||total;
   const binary=atob(chunk.base64),bytes=new Uint8Array(binary.length);
@@ -2292,18 +2297,18 @@ async function deleteCloudGalleryIdea(ideaId,button){
 
 async function saveCardToCloud(ideaId,button){
  if(!gatewayVerified){cloudSyncStatus('Klik Connect Google terlebih dahulu.');showToast('Hubungkan Google melalui Cloud Gallery sebelum menyimpan ke cloud.','error');return;}
- const idea=window.RIVIS_LIBRARY_BRIDGE?.getIdea(ideaId);if(!idea){cloudSyncStatus('Card lokal tidak ditemukan.');showToast('Card lokal tidak ditemukan.','error');return;}
+ const idea=window.RIVIS_LIBRARY_BRIDGE?.getCloudSource?.(ideaId);if(!idea){cloudSyncStatus('Card lokal tidak ditemukan.');showToast('Card lokal tidak ditemukan.','error');return;}
  const old=button?.textContent||'Save to Cloud';if(button){button.disabled=true;button.textContent='Saving...';}
- try{await saveIdeaToCloud(idea);cloudSyncStatus('Berhasil disimpan ke Cloud Gallery: '+(idea.conceptName||idea.ideaId));showToast('Berhasil disimpan ke Cloud: '+(idea.conceptName||idea.ideaId),'success');try{await refreshCloudGallery(1);}catch(refreshError){cloudSyncStatus('Card tersimpan, tetapi Gallery belum diperbarui: '+refreshError.message);}}
+ try{await saveIdeaToCloud(idea);cloudSyncStatus('Berhasil disimpan ke Cloud Gallery: '+(idea.conceptName||idea.ideaId));showToast('Berhasil disimpan ke Cloud: '+(idea.conceptName||idea.ideaId),'success');}
  catch(error){cloudSyncStatus('Gagal menyimpan '+(idea.conceptName||idea.ideaId)+': '+error.message);showToast('Gagal menyimpan ke Cloud: '+error.message,'error');}
  finally{if(button){button.disabled=false;button.textContent=old;}}
 }
 async function saveAllToCloud(button){
  if(!gatewayVerified){cloudSyncStatus('Klik Reconnect Google terlebih dahulu.');showToast('Hubungkan Google melalui Cloud Gallery sebelum menyimpan semua card.','error');return;}
- const ideas=window.RIVIS_LIBRARY_BRIDGE?.getIdeas()||[];
- if(!ideas.length){cloudSyncStatus('Library lokal masih kosong.');showToast('Library lokal masih kosong.','info');return;}
+ const ideaIds=window.RIVIS_LIBRARY_BRIDGE?.getCloudSourceIds?.()||[];
+ if(!ideaIds.length){cloudSyncStatus('Library lokal masih kosong.');showToast('Library lokal masih kosong.','info');return;}
  if(cloudBulkProgress){showToast('Save All to Cloud sedang berlangsung.','info');return;}
- const total=ideas.length,old=button?.textContent||'Save All to Cloud';
+ const total=ideaIds.length,old=button?.textContent||'Save All to Cloud';
  let saved=0,progressPercent=0,cursor=0;
  const failures=[];
  const transferProgress=new Map();
@@ -2335,7 +2340,8 @@ async function saveAllToCloud(button){
   while(true){
    const index=cursor++;
    if(index>=total)return;
-   const idea=ideas[index];
+   const idea=window.RIVIS_LIBRARY_BRIDGE?.getCloudSource?.(ideaIds[index]);
+   if(!idea){failures.push({name:ideaIds[index],error:'Card tidak ditemukan di Library.'});paint(((saved+failures.length)/total)*100);continue;}
    cloudSyncStatus('Menyimpan '+(index+1)+'/'+total+' · '+(idea.conceptName||idea.ideaId));
    try{await saveIdeaToCloud(idea);saved++;}
    catch(error){failures.push({name:idea.conceptName||idea.ideaId,error:String(error?.message||error)});}
@@ -2343,8 +2349,9 @@ async function saveAllToCloud(button){
   }
  };
  try{
-  // Two cards at a time; each card already limits its own image uploads to two workers.
-  await Promise.all(Array.from({length:Math.min(2,total)},worker));
+  // Drive JSON catalog is one shared file: serialize card saves to avoid 409 conflicts.
+  // Image uploads within each card may still run concurrently.
+  await worker();
   if(saved){
    try{await refreshCloudGallery(1);}
    catch(error){cloudSyncStatus(saved+' card tersimpan, tetapi daftar gallery belum berhasil diperbarui: '+error.message);}
