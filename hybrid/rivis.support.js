@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.128. Preserve and hydrate multi-scene Cloud Series manifests. */
+/* RIVIS GitHub Support — v3.4.129. Restore Series identity with compact cloud-list metadata. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -2191,7 +2191,16 @@ async function downloadSelectedCloudResultsZip(btnEl){
  }
 }
 function mergeCloudSeriesGalleryItem(incoming,previous){
- if(!incoming||incoming.productionType!=='series'||!previous||previous.productionType!=='series')return incoming;
+ if(!incoming)return incoming;
+ const incomingScenes=Array.isArray(incoming.seriesScenes)?incoming.seriesScenes:[];
+ const incomingAssets=Array.isArray(incoming.cloudAssets)?incoming.cloudAssets:[];
+ const hasSceneEvidence=incomingScenes.length>1||incomingAssets.some(a=>a?.sceneId)||
+  (Array.isArray(incoming.cloudAssetRefs?.scenes)&&incoming.cloudAssetRefs.scenes.length>0);
+ const priorSeries=previous?.productionType==='series';
+ if(incoming.productionType!=='series'&&!priorSeries&&!hasSceneEvidence)return incoming;
+ // Incomplete list responses may omit productionType or provide a generic type.
+ incoming={...incoming,productionType:'series'};
+ if(!previous||previous.productionType!=='series')return incoming;
  const currentAssets=Array.isArray(incoming.cloudAssets)?incoming.cloudAssets:[];
  const previousAssets=Array.isArray(previous.cloudAssets)?previous.cloudAssets:[];
  const key=a=>a?.sceneId?'scene:'+String(a.sceneId):a?.assetType==='reference'?'reference':'cover';
@@ -2233,9 +2242,22 @@ function cloudSeriesPreviewAssets(idea){
  }
  const scenes=Array.isArray(idea.seriesScenes)?idea.seriesScenes:[];
  if(scenes.length){
+  const available=[...byScene.values()];
+  const used=new Set();
   return scenes.slice(0,12).map((scene,index)=>{
    const id=String(scene.sceneId||idea.ideaId+'_scene_'+(index+1));
-   return {index:index+1,asset:byScene.get(id)||null};
+   let asset=byScene.get(id)||null;
+   if(!asset){
+    // Older cloud records may have different sceneId formats: match by scene ordinal.
+    const ordinal=index+1;
+    asset=available.find(a=>{
+     if(used.has(String(a.sceneId)))return false;
+     const trailing=String(a.sceneId||'').match(/(?:scene[_-]?)(\d+)$/i);
+     return trailing&&Number(trailing[1])===ordinal;
+    })||null;
+   }
+   if(asset)used.add(String(asset.sceneId));
+   return {index:index+1,asset};
   });
  }
  const ordered=[...byScene.values()].sort((a,b)=>{
