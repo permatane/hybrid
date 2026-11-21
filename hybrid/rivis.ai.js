@@ -1,4 +1,4 @@
-/* RIVIS AI Runtime — v3.4.113. Restore RSI Visual Style Intelligence. */
+/* RIVIS AI Runtime — v3.4.114. Strict RSI reference fidelity and guarded image generation. */
 function scanIpRisk(value){const text=String(value||'');const issues=[];for(const match of text.matchAll(IP_RISK_PATTERN)){const before=text.slice(Math.max(0,
 match.index-35),match.index);if(/(?:\b(?:no|without|avoid|exclude|never|not|prohibit|remove|jangan|tanpa|hindari)\b|bukan)[^.!?\n]{0,22}$/i.test(before))continue;
 issues.push(match[0]);}if(/\b(?:in the style of|exact (?:replica|copy)|copy (?:the )?(?:character|logo|brand|product|design)|replicate (?:the )?(?:character|logo|brand)|identical to|looks? exactly like|fan art of)\b/i.test(text)){issues.push('instruksi peniruan');
@@ -353,9 +353,14 @@ function rivisRsiStyleLock(idea,prompt){
 async function rivisEnsureCardRsiStyle(idea,signal=null){
  if(offlineTestMode||ideaOutputMode(idea)!=='vector'||!idea)return;
  if(idea.referenceMode==='COMPOSITION REFERENCE'||idea.referenceMode==='CONCEPT REFERENCE')return;
- if(idea.referenceStyleFingerprint)return;
  const source=idea.referenceImageUrl||idea.refImageUrl;
- if(!source)return;
+ if(!source){
+  if(idea.referenceStyleFingerprint)throw new Error('RSI STYLE REFERENCE: Gambar referensi pada card tidak tersedia. Load ulang referensi dari Cloud atau unggah kembali gambar asli; generate dihentikan agar tidak menjadi kartun generik.');
+  return;
+ }
+ const previous=idea.referenceStyleFingerprint;
+ if(previous&&String(previous.shapeLanguage||'').trim()&&String(previous.lineTreatment||'').trim()&&
+  (String(previous.proportions||'').trim()||String(previous.silhouette||'').trim()||String(previous.styleLabel||'').trim()))return;
  const imagePart=await rivisBuildCompactImagePart(source,1536,.9);
  const schema='{"medium":"","styleLabel":"","shapeLanguage":"","proportions":"","silhouette":"","lineTreatment":"","patternLanguage":"","characterTreatment":"","colorLogic":"","paletteHex":["#000000"],"shadingDepth":"","texture":"","mood":"","composition":"","negativeStyles":"","avoidCharacteristics":""}';
  const question='You are an expert visual editorial style analyst. Examine the attached image and return STRICT JSON describing transferable STYLE DNA only. Do not identify people, artists, brands or source identity; do not copy subjects, apparel or exact arrangement. Diagnose visual medium, mature editorial vs cute cartoon anatomy, elongated or rounded proportions, contour rhythm, character face detail, garment/shape layering, intentionally repeated decorative patterns, bold color blocking and sparse print texture ONLY IF visibly present. Avoid broad labels such as generic cartoon unless that is truly what is depicted. JSON schema: '+schema+'. Use concrete, concise phrases for every observed field.';
@@ -1135,7 +1140,7 @@ Return strict JSON only, using exactly these five component keys and numeric sco
  }).filter(item=>item.text.trim());
  const fidelity=ai?.styleFidelity&&typeof ai.styleFidelity==='object'?ai.styleFidelity:null;
  const fidelityScore=fidelity&&Number.isFinite(Number(fidelity.score))?Math.max(0,Math.min(100,Number(fidelity.score))):null;
- const styleDrift=rsiActive&&fidelityScore!==null&&(fidelityScore<65||(fidelity?.drift===true&&fidelityScore<84));
+ const styleDrift=rsiActive&&(fidelityScore===null||fidelityScore<80||(fidelity?.drift===true&&fidelityScore<88));
  if(styleDrift)aiIssues.push({severity:'major',area:'RSI Style Fidelity',text:String(fidelity.reason||'Generated illustration is less sophisticated than the reference visual grammar.').slice(0,420)});
  const issues=[...aiIssues,...(tech.issues||[])];
  const critical=issues.some(x=>x.severity==='critical'),major=issues.some(x=>x.severity==='major');
@@ -1187,17 +1192,26 @@ true);},800);try{const negPrompt=idea.negativePrompt??byId('negativePromptInput'
 }await rivisEnsureCollectionManifest(idea,signal);await rivisEnsureCardRsiStyle(idea,signal);const basePrompt=buildStockImagePrompt(idea,negPrompt);const collectionDirective=rivisCollectionPrompt(idea);
 const effectivePrompt=collectionDirective?basePrompt+'\n'+collectionDirective:basePrompt;const qualityDirective=qualityFirstPrompt(idea);const qualityBase=qualityDirective?`${effectivePrompt}\n${qualityDirective}`:effectivePrompt;const promptOptimization=rivisSmartPromptOptimize(idea,qualityBase);const preGenerationGuard=rivisPreGenerationGuard(idea,promptOptimization.prompt);if(!preGenerationGuard.ok)throw new Error('Pre-Generation Guard: '+preGenerationGuard.issues.filter(x=>x.severity==='critical').map(x=>x.text).join(' '));const fullPrompt=rivisRsiStyleLock(idea,preGenerationGuard.prompt);
 const styleSource=idea.referenceImageUrl||idea.refImageUrl||null;
+const referenceMode=String(idea.referenceMode||'STYLE REFERENCE');
+const mustAuditStyle=!offlineTestMode&&ideaOutputMode(idea)==='vector'&&
+ !['COMPOSITION REFERENCE','CONCEPT REFERENCE'].includes(referenceMode)&&
+ Boolean(styleSource||idea.referenceStyleFingerprint);
+if(mustAuditStyle&&!styleSource)throw new Error('RSI STYLE REFERENCE hilang dari card. Load ulang referensi dari Cloud atau upload kembali gambar sumber sebelum generate.');
 let styleReferencePart=null;
 if(styleSource&&!offlineTestMode){
  try{styleReferencePart=await rivisBuildCompactImagePart(styleSource,1536,.9);}
  catch(error){
   console.warn('RIVIS style reference preparation failed:',error?.message||error);
-  if(!silent)showToast('Gambar referensi tidak dapat dibaca; generate memakai deskripsi gaya saja.','info');
+  if(mustAuditStyle)throw new Error('RSI: Gambar referensi gagal diproses; generate tanpa gambar tidak diizinkan. '+String(error?.message||error));
+  if(!silent)showToast('Referensi tidak dapat dibaca; gunakan gambar baru bila gaya harus dicocokkan.','info');
  }
 }
 const requestImage=async(prompt,referencePart=null)=>{
  if(offlineTestMode)return offlineImageResponse(idea,ratio,signal);
- const parts=[{text:prompt}];
+ const visualPriority=mustAuditStyle&&styleReferencePart
+  ? 'VISUAL STYLE AUTHORITY — ATTACHED IMAGE 1: Generate a new original subject following the reference\'s transferable illustration grammar, not its objects. Prioritize observed silhouette ratios and asymmetry, mature vs mascot character proportions, contour and line-weight rhythm, geometric and organic shape mix, garment or object layering where appropriate, print-pattern density and flat color-block relationships. Preserve those style-defining decisions over generic stock clipart, simplified bubble shapes or default cute-cartoon anatomy. The new subject, pose, clothing designs, layout and all identifying elements must remain original. The reference image is an actual visual input, not merely an optional mood suggestion.\n\n'
+  : '';
+ const parts=[{text:visualPriority+prompt}];
  if(styleReferencePart){
   const refMode=String(idea.referenceMode||'STYLE REFERENCE');
   const instructions=refMode==='COMPOSITION REFERENCE'
@@ -1219,11 +1233,11 @@ if(!imgBase64){const candidate=res?.candidates?.[0];const detail=candidate?.cont
 throw new Error(String(detail).slice(0,300));}let candidateUrl=`data:${imgMime};base64,${imgBase64}`;
 res=null;imgPart=null;imgBase64='';
 let preflight=null;let repairAttempts=0;
-let repairMessage='';if(qualityFirstEnabled()){
+let repairMessage='';if(qualityFirstEnabled()||mustAuditStyle){
  try{
   preflight=await inspectGeneratedImageQuality(idea,candidateUrl,signal);if(signal?.aborted)return null;
   if(qualityFirstPrefs.repair&&preflight.visualRepairNeeded){
-   const maxRepairCycles=1;
+   const maxRepairCycles=mustAuditStyle?2:1;
    for(let cycle=1;cycle<=maxRepairCycles;cycle++){
     if(signal?.aborted)return null;
     const repairableIssues=(preflight.issues||[]).filter(x=>!['Resolusi raster','Ukuran file','Format raster'].includes(String(x.area||'')));
@@ -1250,8 +1264,17 @@ let repairMessage='';if(qualityFirstEnabled()){
     }
    }
   }
- }catch(auditErr){console.warn('Quality First audit skipped:',auditErr);repairMessage='Gambar awal dipertahankan; pemeriksaan/perbaikan AI tidak berhasil: '+(auditErr?.message||'kesalahan pemeriksaan');}
-}let collectionCheck=null;
+  }catch(auditErr){
+  console.warn('Quality First audit skipped:',auditErr);
+  if(mustAuditStyle)throw new Error('RSI: Audit kesesuaian gaya gagal, sehingga hasil tidak disimpan sebagai cocok referensi. '+String(auditErr?.message||auditErr));
+  repairMessage='Gambar awal dipertahankan; pemeriksaan/perbaikan AI tidak berhasil: '+(auditErr?.message||'kesalahan pemeriksaan');
+ }
+}
+if(mustAuditStyle&&(!preflight?.styleFidelity||preflight.styleFidelity.drift===true)){
+ const score=preflight?.styleFidelity?.score;
+ throw new Error('RSI STYLE FIDELITY: Hasil masih menyimpang dari gaya referensi'+(Number.isFinite(Number(score))?' (skor '+score+'/100)':'')+'. Card lama dipertahankan; coba generasi ulang dengan referensi yang sama atau edit Image Prompt untuk memperjelas bahasa visual.');
+}
+let collectionCheck=null;
 if(rivisCollectionCount(idea)){
  try{
   collectionCheck=await rivisAuditCollectionImage(idea,candidateUrl,signal);
@@ -1291,7 +1314,7 @@ current.generatedImageWidth=previewInfo.width;
 current.generatedImageHeight=previewInfo.height;
 current.imageGeneratedOn=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'});
  current.collectionItemCount=idea.collectionItemCount||null;current.collectionItems=Array.isArray(idea.collectionItems)?[...idea.collectionItems]:undefined;current.collectionCheck=collectionCheck;
- current.imagePromptOutdated=false;current.visualPreflight=preflight;current.qualityRepairAttempts=repairAttempts;current.qualityRepairMessage=repairMessage;current.promptQualityOptimization={ruleCount:promptOptimization.added.length,mode:promptOptimization.mode,version:'3.4.69',guardCount:preGenerationGuard.added.length,guardIssues:preGenerationGuard.issues};current.stockReadiness=preflight?refreshRivisStockReadiness(current):null;
+ current.imagePromptOutdated=false;current.referenceStyleApplied=mustAuditStyle;current.visualPreflight=preflight;current.qualityRepairAttempts=repairAttempts;current.qualityRepairMessage=repairMessage;current.promptQualityOptimization={ruleCount:promptOptimization.added.length,mode:promptOptimization.mode,version:'3.4.69',guardCount:preGenerationGuard.added.length,guardIssues:preGenerationGuard.issues};current.stockReadiness=preflight?refreshRivisStockReadiness(current):null;
 const extractedColors=await extractImagePalette(current.generatedImageUrl,5);if(extractedColors&&getCardRevision(ideaId)===revAtStart)current.colorPaletteHex=extractedColors;
 if(!isTransient){await persistSavedIdeas();if(typeof collapseLibraryPromptAfterImage==='function')collapseLibraryPromptAfterImage(ideaId);renderSavedIdeasGrid(ideaId);}imageSucceeded=true;if(!silent){const note=preflight?` · Preflight ${preflight.score}/100 (${preflight.status})`:'';
 showToast("High-Res Image Generated!"+note,preflight&&preflight.status==='FAIL'?'info':'success');}return current;}catch(err){if(signal?.aborted||err?.name==='AbortError')return null;
