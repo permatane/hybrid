@@ -314,11 +314,42 @@ const paletteIssues=paletteConflicts([brief,v.palette].join(' '));return[{label:
 {label:'Visual Detail',ok:hasEnough,detail:hasEnough?'Subjek dan detail visual cukup terarah':'Perlu subjek, aktivitas/setting, dan deskripsi adegan lebih spesifik'}];
 }
 
-function ideaStyleFingerprintBrief(idea){const f=idea?.referenceStyleFingerprint;if(!f||typeof f!=='object')return'';
- const facets=[f.medium,f.shapeLanguage,f.lineTreatment,f.colorLogic,f.shadingDepth,f.texture,f.mood,f.composition].filter(v=>typeof v==='string'&&v.trim());
- const palette=Array.isArray(f.paletteHex)?f.paletteHex.filter(v=>/^#[0-9A-Fa-f]{6}$/.test(v)).slice(0,8):[];
- const clause='Reference-derived general visual principles (not the original subject or exact layout): '+facets.map(v=>String(v).slice(0,140)).join('; ')+'.'+(palette.length?' Relative palette HEX: '+palette.join(', ')+'.':'');
- return clause.slice(0,850);}
+function ideaStyleFingerprintBrief(idea){
+ const f=idea?.referenceStyleFingerprint;if(!f||typeof f!=='object')return'';
+ const mode=String(idea.referenceMode||'STYLE REFERENCE');
+ if(mode==='CONCEPT REFERENCE'||mode==='COMPOSITION REFERENCE')return '';
+ const fields=[['Visual medium',f.medium],['Style family',f.styleLabel],
+  ['Shapes',f.shapeLanguage],['Proportions',f.proportions],['Silhouette',f.silhouette],
+  ['Linework',f.lineTreatment],['Pattern rhythm',f.patternLanguage],
+  ['Characters',f.characterTreatment],['Color blocks',f.colorLogic],
+  ['Shading',f.shadingDepth],['Surface treatment',f.texture],['Mood',f.mood]]
+  .filter(([,v])=>typeof v==='string'&&v.trim()).map(([k,v])=>k+': '+String(v).slice(0,200));
+ const hex=Array.isArray(f.paletteHex)?f.paletteHex.filter(x=>/^#[0-9a-fA-F]{6}$/.test(x)).slice(0,8):[];
+ return ('RSI STYLE FINGERPRINT: '+fields.join('; ')+'. '+
+  (hex.length?'Palette relationships '+hex.join(', ')+'. ':'')+
+  (f.negativeStyles?'Avoid unwanted styles: '+f.negativeStyles+'. ':'')+
+  'Preserve artistic grammar while creating completely original subjects, garments and compositions.').slice(0,1900);
+}
+function rivisRsiStyleLock(idea,prompt){
+ const f=idea?.referenceStyleFingerprint;
+ if(ideaOutputMode(idea)!=='vector'||!f||typeof f!=='object')return prompt;
+ const mode=String(idea.referenceMode||'STYLE REFERENCE');
+ if(mode==='COMPOSITION REFERENCE'||mode==='CONCEPT REFERENCE')return prompt;
+ const fields=[f.styleLabel,f.medium,f.shapeLanguage,f.proportions,f.silhouette,
+   f.lineTreatment,f.patternLanguage,f.characterTreatment,f.colorLogic,f.shadingDepth,f.texture];
+ const combined=[idea.creativeDirection,...fields].filter(Boolean).join(' ').toLowerCase();
+ const fashionEditorial=/fashion|streetwear|outfit|oversized|elongat|runway|garment|wardrobe|textile/.test(combined);
+ const features=fields.filter(Boolean).map(String).slice(0,11).join('; ');
+ const fashionRules=fashionEditorial?
+  'For fashion/people compositions: emphasize elongated mature fashion-figure proportions, asymmetric full-body poses, oversized layered garments, graphic geometric cutouts, simplified mature facial features, contrasting flat color blocks, and sparse controlled decorative textile stripes, grids or hatching where appropriate. Never default to big-headed cute cartoon anatomy.':
+  '';
+ const negative=[f.negativeStyles,'generic cute cartoon clipart','chibi','mascot anatomy','round bubble limbs','uniform vector avatars'].filter(Boolean).join(', ');
+ return prompt+'\n\nRSI STYLE FIDELITY LOCK — FINAL VISUAL PRIORITY: '+ 
+  'Use the analyzed illustration language: '+features+'. '+fashionRules+' AVOID: '+negative+
+  '. Technical SVG cleanliness must not erase stylistic irregularity, expressive contours, intentional patterns or sophisticated proportions. Create new original subjects, poses and arrangements rather than copying the reference.'+
+  (idea.promptManualOverride===true?' Explicit user-edited style instructions take precedence where they conflict.':'');
+}
+
 function editorialStyleGuidance(idea,style){const name=String(style||idea?.creativeDirection||'');
  const hand=/engraving|woodcut|risograph|screen print|ink|mid-century|editorial|collage|folk art|illustration/i.test(name);
  return 'STYLE FIDELITY: Use the chosen '+name+' visual grammar and preserve distinct contour shapes, meaningful line rhythms and intended geometric details; do not automatically render generic cute cartoon clipart.'+(hand?' For SVG-friendliness use sparse clean vector hatching, geometric halftone or separated print-style layers only where essential; avoid raster grain and microscopic marks.':'');}
