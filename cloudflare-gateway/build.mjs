@@ -26,7 +26,20 @@ for(const name of ['index.html','gateway.css','gateway.js']){
   if(!c.includes(marker))throw Error('Gateway API marker changed');
   c=c.replace(marker,"const API = '/api/';");
  }
- if(name==='index.html')c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1');
+ if(name==='index.html'){
+  c=c.replace(/gateway\\.js\\?v=[^"']+/g,'gateway.js?v=cf-1.4.1');
+  c=c.replace('href="/.netlify/functions/auth-start"','href="/api/auth-start"');
+  c=c.replace(/Login aman melalui Netlify/g,'Login aman melalui Cloudflare');
+  c=c.replace(/di Netlify/g,'di Cloudflare');
+  c=c.replace(/Gateway 1\\.3\\.10/g,'Gateway 1.4.1');
+  c=c.replace(/v1\\.3\\.10/g,'v1.4.1');
+  if(!c.includes('href="/api/auth-start"'))throw Error('Login URL was not patched');
+ }
+ if(name==='gateway.js'){
+  c=c.replace('RIVIS_DRIVE_FOLDER_ID di Netlify Environment Variables','RIVIS_DRIVE_FOLDER_ID di Cloudflare Variables and Secrets');
+  c=c.replace('Folder RIVIS sudah ditetapkan di Netlify','Folder RIVIS sudah ditetapkan di Cloudflare');
+  c=c.replace('Koneksi ke Netlify gagal.','Koneksi ke Cloudflare gagal.');
+ }
  fs.writeFileSync(path.join(dist,'rivis-cloud',name),c);
 }
 fs.writeFileSync(path.join(dist,'index.html'), '<!doctype html><html lang="en"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/rivis-cloud/"><title>RIVIS Cloud Gateway</title><a href="/rivis-cloud/">Open RIVIS Gateway</a></html>');
@@ -45,7 +58,7 @@ for(const name of names){
  generated.push(
   'function handler_'+name.replace(/-/g,'_')+'(env){',
   ' const process={env}; const h=makeShared(env); const exports={};',
-  name==='gateway-config' ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.0'") : legacySource(path.join(source,name+'.js')),
+  name==='gateway-config' ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.1'") : legacySource(path.join(source,name+'.js')),
   " if(typeof exports.handler!=='function')throw Error('Handler missing');",
   ' return exports.handler;',
   '}'
