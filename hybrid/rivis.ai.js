@@ -1,4 +1,4 @@
-/* RIVIS AI Runtime — v3.4.96. Manual scene direction and isolated scene regeneration. */
+/* RIVIS AI Runtime — v3.4.111. Visible Re Metadata progress and nonblocking Cloud sync. */
 function scanIpRisk(value){const text=String(value||'');const issues=[];for(const match of text.matchAll(IP_RISK_PATTERN)){const before=text.slice(Math.max(0,
 match.index-35),match.index);if(/(?:\b(?:no|without|avoid|exclude|never|not|prohibit|remove|jangan|tanpa|hindari)\b|bukan)[^.!?\n]{0,22}$/i.test(before))continue;
 issues.push(match[0]);}if(/\b(?:in the style of|exact (?:replica|copy)|copy (?:the )?(?:character|logo|brand|product|design)|replicate (?:the )?(?:character|logo|brand)|identical to|looks? exactly like|fan art of)\b/i.test(text)){issues.push('instruksi peniruan');
@@ -1199,13 +1199,25 @@ generationConfig:{responseMimeType:"application/json"}};const res=await callGemi
 const jsonText=res?.candidates?.[0]?.content?.parts?.[0]?.text;const parsed=JSON.parse(jsonText);return normalizeAdobeStockMetadata(idea,
 {...parsed,aiDisclosure:true});}
 function startRivisMetadataProgress(btn,label='Re Metadata...'){
-if(!btn)return null;const originalHTML=btn.innerHTML;let percent=0,finished=false;
-btn.disabled=true;btn.classList.add('opacity-80','cursor-not-allowed');btn.innerHTML=` <span>${label}</span>`;
-btn.title='Estimasi progres pembuatan metadata';setInnerProgress(btn,0,true);
-const timer=setInterval(()=>{percent=Math.min(92,percent+Math.max(1,(92-percent)*0.04));setInnerProgress(btn,percent,true);},800);
-return async(success=true)=>{if(finished)return;finished=true;clearInterval(timer);
-if(success){setInnerProgress(btn,100);await new Promise(resolve=>setTimeout(resolve,350));}
-clearInnerProgress(btn);btn.removeAttribute('title');btn.disabled=false;btn.classList.remove('opacity-80','cursor-not-allowed');btn.innerHTML=originalHTML;};}
+ if(!btn)return null;
+ const originalHTML=btn.innerHTML;let percent=0,finished=false;
+ btn.disabled=true;btn.classList.add('opacity-80','cursor-not-allowed');
+ btn.innerHTML='<span>'+label+'</span> <span data-rivis-meta-percent class="ml-1 text-[10px] font-bold tabular-nums text-cyan-100">0%</span>';
+ btn.title='Estimasi progres pembuatan metadata';
+ const paint=pct=>{
+  setInnerProgress(btn,pct,true);
+  const value=btn.querySelector('[data-rivis-meta-percent]');
+  if(value)value.textContent='~'+Math.round(pct)+'%';
+ };
+ paint(0);
+ const timer=setInterval(()=>{percent=Math.min(92,percent+Math.max(1,(92-percent)*0.055));paint(percent);},550);
+ return async(success=true)=>{
+  if(finished)return;finished=true;clearInterval(timer);
+  if(success){setInnerProgress(btn,100);const value=btn.querySelector('[data-rivis-meta-percent]');if(value)value.textContent='100%';await new Promise(resolve=>setTimeout(resolve,260));}
+  clearInnerProgress(btn);btn.removeAttribute('title');btn.disabled=false;
+  btn.classList.remove('opacity-80','cursor-not-allowed');btn.innerHTML=originalHTML;
+ };
+}
 async function syncGeneratedMetadataToCloud(idea){
  const sync=window.RIVIS_SYNC_IDEA_METADATA_TO_CLOUD;
  if(typeof sync!=='function'||!idea)return false;
@@ -1218,11 +1230,21 @@ async function syncGeneratedMetadataToCloud(idea){
   return false;
  }
 }
-async function generateSeriesMetadataForIdea(idea,signal=null){if(!idea||idea.productionType!=='series'||!Array.isArray(idea.seriesScenes))return 0;let generated=0;for(let i=0;i<idea.seriesScenes.length;i++){if(signal?.aborted)break;const scene=idea.seriesScenes[i];if(scene.metadata&&!scene.metadataOutdated&&!idea.metadataOutdated)continue;const sceneIdea=seriesSceneAssetIdea(idea,scene,i);const metadata=await requestSeoMetadata(sceneIdea,signal);if(signal?.aborted)break;scene.metadata=metadata;scene.metadataOutdated=false;generated++;await persistSavedIdeas();renderSavedIdeasGrid(idea.ideaId);if(i<idea.seriesScenes.length-1)await new Promise(resolve=>setTimeout(resolve,180));}idea.metadataOutdated=false;if(generated>0&&!signal?.aborted)await syncGeneratedMetadataToCloud(idea);return generated;}
+let rivisMetadataCloudQueue=Promise.resolve();
+function queueGeneratedMetadataCloudSync(idea){
+ if(!idea||(!idea.cloudSavedAt&&!idea.cloudAssetRefs))return;
+ idea.cloudMetadataPending=true;
+ rivisMetadataCloudQueue=rivisMetadataCloudQueue.catch(()=>{}).then(async()=>{
+  const ok=await syncGeneratedMetadataToCloud(idea);
+  idea.cloudMetadataPending=!ok;
+  if(typeof persistSavedIdeas==='function')persistSavedIdeas();
+ });
+}
+async function generateSeriesMetadataForIdea(idea,signal=null){if(!idea||idea.productionType!=='series'||!Array.isArray(idea.seriesScenes))return 0;let generated=0;for(let i=0;i<idea.seriesScenes.length;i++){if(signal?.aborted)break;const scene=idea.seriesScenes[i];if(scene.metadata&&!scene.metadataOutdated&&!idea.metadataOutdated)continue;const sceneIdea=seriesSceneAssetIdea(idea,scene,i);const metadata=await requestSeoMetadata(sceneIdea,signal);if(signal?.aborted)break;scene.metadata=metadata;scene.metadataOutdated=false;generated++;await persistSavedIdeas();renderSavedIdeasGrid(idea.ideaId);if(i<idea.seriesScenes.length-1)await new Promise(resolve=>setTimeout(resolve,180));}idea.metadataOutdated=false;if(generated>0&&!signal?.aborted)queueGeneratedMetadataCloudSync(idea);return generated;}
 async function handleGenerateMetadataForIdea(ideaId,btnEl){const idea=state.savedIdeas.find(i=>i.ideaId===ideaId);
 if(!idea)return;const owner=Symbol('meta');if(!claimCardJob(ideaId,'meta',owner)){showToast('Metadata kartu ini sedang diproses.',
 'info');return;}const rev=getCardRevision(ideaId),snapshot=structuredClone(idea);const finishProgress=startRivisMetadataProgress(btnEl,'Re Metadata...');let succeeded=false;
-try{const current=state.savedIdeas.find(i=>i.ideaId===ideaId);if(snapshot.productionType==='series'){const made=await generateSeriesMetadataForIdea(current);if(current&&getCardRevision(ideaId)===rev){current.metadataOutdated=false;await persistSavedIdeas();renderSavedIdeasGrid(ideaId);succeeded=made>0||!seriesNeedsMetadata(current);showToast(`Metadata Series: ${current.seriesScenes.filter(x=>x.metadata).length}/${current.seriesScenes.length} scene siap.`,'success');}}else{const metadata=await requestSeoMetadata(snapshot);if(current&&getCardRevision(ideaId)===rev){current.metadata=metadata;current.metadataOutdated=false;refreshRivisStockReadiness(current);await persistSavedIdeas();await syncGeneratedMetadataToCloud(current);renderSavedIdeasGrid(ideaId);succeeded=true;showToast('SEO Metadata berhasil dibuat.','success');}}}catch(err){showToast('Metadata gagal: '+sanitizeApiErrorText(err?.message),'error');}finally{releaseCardJob(ideaId,'meta',owner);if(finishProgress)await finishProgress(succeeded);}}
+try{const current=state.savedIdeas.find(i=>i.ideaId===ideaId);if(snapshot.productionType==='series'){const made=await generateSeriesMetadataForIdea(current);if(current&&getCardRevision(ideaId)===rev){current.metadataOutdated=false;await persistSavedIdeas();renderSavedIdeasGrid(ideaId);succeeded=made>0||!seriesNeedsMetadata(current);showToast(`Metadata Series: ${current.seriesScenes.filter(x=>x.metadata).length}/${current.seriesScenes.length} scene siap.`,'success');}}else{const metadata=await requestSeoMetadata(snapshot);if(current&&getCardRevision(ideaId)===rev){current.metadata=metadata;current.metadataOutdated=false;refreshRivisStockReadiness(current);await persistSavedIdeas();queueGeneratedMetadataCloudSync(current);renderSavedIdeasGrid(ideaId);succeeded=true;showToast('SEO Metadata berhasil dibuat.','success');}}}catch(err){showToast('Metadata gagal: '+sanitizeApiErrorText(err?.message),'error');}finally{releaseCardJob(ideaId,'meta',owner);if(finishProgress)await finishProgress(succeeded);}}
 async function handleGenerateAllImages(btnEl,onlySeries=false){const btn=btnEl||byId('generateAllImagesBtn');
 if(toggleBatchCancellation('images',btn,'Image All'))return;const targets=state.savedIdeas.filter(i=>(!onlySeries||i.productionType==='series')&&seriesNeedsImages(i));
 if(!targets.length){showToast("All saved cards already have images!","info");return;}const controller=new AbortController();batchState.images=controller;RIVIS_BATCH_PROGRESS.begin('images',targets);
@@ -1249,7 +1271,7 @@ btn.classList.remove('from-blue-600','to-cyan-600','hover:from-blue-500','hover:
 if(!idea){queueDone++;continue;}const owner=Symbol('batch-meta');if(!claimCardJob(idea.ideaId,'meta',owner)){queueDone++;continue;
 }const revision=getCardRevision(idea.ideaId);const snapshot=structuredClone(idea);const cardBtn=document.querySelector(`[data-card-meta-btn="${CSS.escape(idea.ideaId)}"]`);
 const finishCardProgress=startRivisMetadataProgress(cardBtn,'Re Metadata...');let cardSucceeded=false;
-try{const current=state.savedIdeas.find(i=>i.ideaId===idea.ideaId);if(snapshot.productionType==='series'){const made=await generateSeriesMetadataForIdea(current,controller.signal);if(current&&!controller.signal.aborted&&getCardRevision(idea.ideaId)===revision){current.metadataOutdated=false;generatedCount+=Math.max(0,made);await persistSavedIdeas();RIVIS_BATCH_PROGRESS.mark('meta',idea.ideaId,true);renderSavedIdeasGrid(idea.ideaId);cardSucceeded=made>0||!seriesNeedsMetadata(current);}}else{const resultMeta=await requestSeoMetadata(snapshot,controller.signal);if(current&&!controller.signal.aborted&&getCardRevision(idea.ideaId)===revision){current.metadata=resultMeta;current.metadataOutdated=false;refreshRivisStockReadiness(current);generatedCount++;await persistSavedIdeas();await syncGeneratedMetadataToCloud(current);RIVIS_BATCH_PROGRESS.mark('meta',idea.ideaId,true);renderSavedIdeasGrid(idea.ideaId);cardSucceeded=true;}}}catch(err){if(controller.signal.aborted||err?.name==='AbortError')break;
+try{const current=state.savedIdeas.find(i=>i.ideaId===idea.ideaId);if(snapshot.productionType==='series'){const made=await generateSeriesMetadataForIdea(current,controller.signal);if(current&&!controller.signal.aborted&&getCardRevision(idea.ideaId)===revision){current.metadataOutdated=false;generatedCount+=Math.max(0,made);await persistSavedIdeas();RIVIS_BATCH_PROGRESS.mark('meta',idea.ideaId,true);renderSavedIdeasGrid(idea.ideaId);cardSucceeded=made>0||!seriesNeedsMetadata(current);}}else{const resultMeta=await requestSeoMetadata(snapshot,controller.signal);if(current&&!controller.signal.aborted&&getCardRevision(idea.ideaId)===revision){current.metadata=resultMeta;current.metadataOutdated=false;refreshRivisStockReadiness(current);generatedCount++;await persistSavedIdeas();queueGeneratedMetadataCloudSync(current);RIVIS_BATCH_PROGRESS.mark('meta',idea.ideaId,true);renderSavedIdeasGrid(idea.ideaId);cardSucceeded=true;}}}catch(err){if(controller.signal.aborted||err?.name==='AbortError')break;
 failedCount++;RIVIS_BATCH_PROGRESS.mark('meta',idea.ideaId,false);console.warn(`Batch metadata generation failed for ${idea.ideaId}:`,err);}finally{releaseCardJob(idea.ideaId,'meta',
 owner);if(finishCardProgress)await finishCardProgress(cardSucceeded);}queueDone++;if(btn&&!controller.signal.aborted){btn.innerHTML=` ${batchProgressLabel(queueDone,total)}`;}updateBatchPanel('meta',
 queueDone,total);if(!controller.signal.aborted&&idx<targets.length-1){await new Promise(resolve=>setTimeout(resolve,300));}}if(controller.signal.aborted)showToast(`Meta All stopped (${generatedCount}/${totalMetadataWork} assets/scenes generated).`,"info");else if(failedCount===0)showToast(`Generated SEO metadata for ${generatedCount}/${totalMetadataWork} assets/scenes!`,"success");else showToast(`Generated SEO metadata for ${generatedCount}/${totalMetadataWork} assets/scenes (${failedCount} card failures).`,"info");}finally{RIVIS_BATCH_PROGRESS.end('meta',controller.signal.aborted);batchState.meta=null;updateBatchPanel('meta',0,0);if(btn){btn.disabled=false;btn.classList.remove('bg-red-900',
