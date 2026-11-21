@@ -1,4 +1,4 @@
-/* RIVIS AI Runtime — v3.4.117. Editorial fidelity with non-figurative style protection. */
+/* RIVIS AI Runtime — v3.4.118. Generated ideas go directly to Library. */
 function scanIpRisk(value){const text=String(value||'');const issues=[];for(const match of text.matchAll(IP_RISK_PATTERN)){const before=text.slice(Math.max(0,
 match.index-35),match.index);if(/(?:\b(?:no|without|avoid|exclude|never|not|prohibit|remove|jangan|tanpa|hindari)\b|bukan)[^.!?\n]{0,22}$/i.test(before))continue;
 issues.push(match[0]);}if(/\b(?:in the style of|exact (?:replica|copy)|copy (?:the )?(?:character|logo|brand|product|design)|replicate (?:the )?(?:character|logo|brand)|identical to|looks? exactly like|fan art of)\b/i.test(text)){issues.push('instruksi peniruan');
@@ -779,18 +779,20 @@ ideaId:`IDEA-${Date.now().toString(36)}-${idx+1}`,shortCode,productionType:state
 categoryName:effectiveCatName,subcategory:effectiveSubcat,aspectRatio:state.ideaStudioSizeId==='custom'?state.ideaCustomWidth+':'+state.ideaCustomHeight:state.ideaStudioSizeId,
 opportunityScore:scoreData.totalScore,scoreBreakdown:scoreData.breakdown,scoreReasoning:scoreData.reasoning};});
 if(!validatedIdeas.length)throw new Error('IP Risk Guard: semua konsep AI perlu direvisi. Hasil sebelumnya dipertahankan.');
-state.discoveredIdeas=validatedIdeas;state.discoveredIdeas.forEach(activateHybridForIdea);
-discoverSucceeded=true;renderDiscoveredIdeas();
-showToast(`Discovered ${state.discoveredIdeas.length} commercial stock concepts!`,"success");}catch(err){if(controller.signal.aborted||err?.name==='AbortError'){showToast('Generating ide dihentikan.',
+validatedIdeas.forEach(activateHybridForIdea);
+if(controller.signal.aborted)return;
+const savedCount=saveGeneratedIdeasToLibrary(validatedIdeas);
+discoverSucceeded=true;
+showToast(savedCount+' ide berhasil dibuat dan disimpan otomatis ke Library.','success');}catch(err){if(controller.signal.aborted||err?.name==='AbortError'){showToast('Generating ide dihentikan.',
  'info');return;}
  console.error('Discover Ideas Error:',err);
  const detail=String(err?.message||'Permintaan AI gagal').slice(0,220);
- showToast('Discover Ideas gagal: '+detail+' Hasil sebelumnya tetap tersimpan; tidak memuat template offline.','error');
+ showToast('Generate Ide gagal: '+detail+' Hasil Library sebelumnya tetap aman.','error');
  }finally{clearInterval(discoverTimer);
 if(discoverSucceeded&&!controller.signal.aborted){setInnerProgress(btn,100);await new Promise(resolve=>setTimeout(resolve,350));
 }clearInnerProgress(btn);btn.removeAttribute('title');discoverIdeasController=null;btn.removeAttribute('aria-busy');btn.setAttribute('aria-label',
-'Discover ideas');btn.disabled=false;btn.classList.remove('opacity-80','cursor-not-allowed');btn.innerHTML=` <span id="discoverIdeasBtnText">DISCOVER IDEAS</span>`;
-if(discoverSucceeded&&!controller.signal.aborted&&state.discoveredIdeas.length>0)setDiscoverBarCollapsed(true);}}
+'Generate ideas langsung ke Library');btn.disabled=false;btn.classList.remove('opacity-80','cursor-not-allowed');btn.innerHTML=` <span id="discoverIdeasBtnText">GENERATE IDEAS</span>`;
+if(discoverSucceeded&&!controller.signal.aborted)setDiscoverBarCollapsed(true);}}
 async function selectGeneratedImagePart(result){
  const images=(result?.candidates?.[0]?.content?.parts||[]).filter(p=>p?.inlineData?.data&&String(p.inlineData.mimeType||'image/png').startsWith('image/'));
  if(images.length<2)return images[0]||null;
