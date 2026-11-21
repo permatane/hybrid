@@ -1,4 +1,4 @@
-/* RIVIS AI Runtime — v3.4.112. Apply uploaded style references directly to image generation, preserve original design. */
+/* RIVIS AI Runtime — v3.4.113. Restore RSI Visual Style Intelligence. */
 function scanIpRisk(value){const text=String(value||'');const issues=[];for(const match of text.matchAll(IP_RISK_PATTERN)){const before=text.slice(Math.max(0,
 match.index-35),match.index);if(/(?:\b(?:no|without|avoid|exclude|never|not|prohibit|remove|jangan|tanpa|hindari)\b|bukan)[^.!?\n]{0,22}$/i.test(before))continue;
 issues.push(match[0]);}if(/\b(?:in the style of|exact (?:replica|copy)|copy (?:the )?(?:character|logo|brand|product|design)|replicate (?:the )?(?:character|logo|brand)|identical to|looks? exactly like|fan art of)\b/i.test(text)){issues.push('instruksi peniruan');
@@ -211,16 +211,29 @@ function categoryFromAI(value){const input=String(value||'').trim().toLowerCase(
 function safeReferenceFingerprint(raw){if(!raw||typeof raw!=='object')return null;
  const clean=v=>String(v||'').replace(/[\r\n<>]/g,' ').trim().slice(0,200);
  const hexes=[...new Set((Array.isArray(raw.paletteHex)?raw.paletteHex:[]).map(v=>String(v||'').toUpperCase()).filter(v=>/^#[0-9A-F]{6}$/.test(v)))].slice(0,8);
- const obj={medium:clean(raw.medium),shapeLanguage:clean(raw.shapeLanguage),lineTreatment:clean(raw.lineTreatment),colorLogic:clean(raw.colorLogic),paletteHex:hexes,shadingDepth:clean(raw.shadingDepth),texture:clean(raw.texture),mood:clean(raw.mood),composition:clean(raw.composition),avoidCharacteristics:clean(raw.avoidCharacteristics)};
+ const obj={medium:clean(raw.medium),styleLabel:clean(raw.styleLabel),shapeLanguage:clean(raw.shapeLanguage),
+ proportions:clean(raw.proportions),silhouette:clean(raw.silhouette),lineTreatment:clean(raw.lineTreatment),
+ patternLanguage:clean(raw.patternLanguage),characterTreatment:clean(raw.characterTreatment),
+ colorLogic:clean(raw.colorLogic),paletteHex:hexes,shadingDepth:clean(raw.shadingDepth),
+ texture:clean(raw.texture),mood:clean(raw.mood),composition:clean(raw.composition),
+ negativeStyles:clean(raw.negativeStyles),avoidCharacteristics:clean(raw.avoidCharacteristics)};
  return Object.values(obj).some(v=>Array.isArray(v)?v.length:Boolean(v))?obj:null;}
-function referenceFingerprintBrief(mode){const fingerprint=state.referenceFingerprint;
- if(!state.refImageUrl||!fingerprint)return '';
- const parts=[fingerprint.medium,fingerprint.shapeLanguage,fingerprint.lineTreatment,fingerprint.colorLogic,fingerprint.shadingDepth,fingerprint.texture,fingerprint.mood,fingerprint.composition].filter(Boolean).map(x=>String(x).slice(0,180));
- const palette=fingerprint.paletteHex?.length?'Reference color family (HEX): '+fingerprint.paletteHex.join(', ')+'.':'';
- const exclusion=fingerprint.avoidCharacteristics?' Avoid distinctive protected or directly identifiable elements: '+fingerprint.avoidCharacteristics+'.':'';
- if(mode==='COMPOSITION REFERENCE')return 'Reference composition guide: '+fingerprint.composition+'. Redesign all specific objects and stylistic signatures.';
- if(mode==='CONCEPT REFERENCE')return 'Reference inspires the broad creative concept only; develop entirely new objects, activity and composition. '+exclusion;
- return 'STYLE FINGERPRINT (general visual principles, no copying): '+parts.join('; ')+'. '+palette+' Apply shape language, contour rhythm, tonal treatment and visual density consistently. Keep all subjects, marks and compositions original.'+exclusion;}
+function referenceFingerprintBrief(mode){
+ const f=state.referenceFingerprint;
+ if(!state.refImageUrl||!f)return '';
+ if(mode==='COMPOSITION REFERENCE')return 'Reference composition only: '+String(f.composition||'').slice(0,230)+'. Invent all specific elements.';
+ if(mode==='CONCEPT REFERENCE')return 'Reference concept only: use broad subject inspiration and create completely new artistic treatment.';
+ const fields=[['Medium',f.medium],['Style',f.styleLabel],['Shapes',f.shapeLanguage],
+  ['Proportions',f.proportions],['Silhouette',f.silhouette],['Linework',f.lineTreatment],
+  ['Patterns',f.patternLanguage],['Characters',f.characterTreatment],['Colors',f.colorLogic],
+  ['Shading',f.shadingDepth],['Texture',f.texture],['Mood',f.mood]]
+  .filter(([,v])=>typeof v==='string'&&v.trim()).map(([k,v])=>k+': '+v.trim());
+ const palette=Array.isArray(f.paletteHex)&&f.paletteHex.length?' Palette: '+f.paletteHex.join(', ')+'.':'';
+ const avoid=[f.negativeStyles,f.avoidCharacteristics].filter(Boolean).join('; ');
+ return 'RSI STYLE DNA — use this general visual language, not the depicted subjects: '+fields.join('; ')+'.'+palette+
+  (avoid?' AVOID: '+avoid+'.':'')+
+  ' Do not simplify sophisticated editorial illustration into generic cartoon clipart.';
+}
 function referencePaletteBrief(){if(state.paletteMode!=='auto'||!state.refImageUrl)return '';
  const colors=state.referenceFingerprint?.paletteHex||[];
  return colors.length?'AUTO PALETTE: Prefer reference-derived color relationships with these approximate HEX anchors: '+colors.join(', ')+'. Modify only as needed for legibility.':'';}
