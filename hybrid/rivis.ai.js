@@ -1135,7 +1135,7 @@ Return strict JSON only, using exactly these five component keys and numeric sco
  }).filter(item=>item.text.trim());
  const fidelity=ai?.styleFidelity&&typeof ai.styleFidelity==='object'?ai.styleFidelity:null;
  const fidelityScore=fidelity&&Number.isFinite(Number(fidelity.score))?Math.max(0,Math.min(100,Number(fidelity.score))):null;
- const styleDrift=rsiActive&&fidelity?.drift===true&&fidelityScore!==null&&fidelityScore<78;
+ const styleDrift=rsiActive&&fidelityScore!==null&&(fidelityScore<65||(fidelity?.drift===true&&fidelityScore<84));
  if(styleDrift)aiIssues.push({severity:'major',area:'RSI Style Fidelity',text:String(fidelity.reason||'Generated illustration is less sophisticated than the reference visual grammar.').slice(0,420)});
  const issues=[...aiIssues,...(tech.issues||[])];
  const critical=issues.some(x=>x.severity==='critical'),major=issues.some(x=>x.severity==='major');
