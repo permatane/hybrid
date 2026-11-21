@@ -6,7 +6,7 @@ const MAX_CHUNK_BYTES = 2 * 1024 * 1024;
 const DRIVE_CHUNK_QUANTUM = 256 * 1024;
 const MAX_ASSET_BYTES = 100 * 1024 * 1024;
 const MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml']);
-const DRIVE_TIMEOUT_MS = 23000;
+const DRIVE_TIMEOUT_MS = 30000;
 
 function uploadSessionUrl(value) {
   try {
@@ -68,7 +68,7 @@ exports.handler = async (event) => {
     if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||!Number.isSafeInteger(total)||start<0||end<start||total<1||total>MAX_ASSET_BYTES||end>=total)return h.json(416,{error:'Upload range outside asset size'},headers);
     const bytes=event.isBase64Encoded?Buffer.from(event.body||'','base64'):Buffer.from(event.body||'','binary');
     if(!bytes.length||bytes.length!==end-start+1)return h.json(400,{error:'Chunk byte count differs from Content-Range',expectedBytes:end-start+1,receivedBytes:bytes.length},headers);
-    if(bytes.length>MAX_CHUNK_BYTES)return h.json(413,{error:'Image upload chunk exceeds 1 MB'},headers);
+    if(bytes.length>MAX_CHUNK_BYTES)return h.json(413,{error:'Image upload chunk exceeds 2 MB'},headers);
     if(end<total-1 && bytes.length%DRIVE_CHUNK_QUANTUM!==0)return h.json(400,{error:'Non-final chunk must be a multiple of 256 KB'},headers);
     const response=await driveRequest(uploadUrl,{method:'PUT',headers:{...auth,'Content-Length':String(bytes.length),'Content-Range':`bytes ${start}-${end}/${total}`},body:bytes});
     const raw=await response.text();const data=parsedBody(raw);
@@ -81,6 +81,6 @@ exports.handler = async (event) => {
     return h.json(502,{error:`Google Drive upload chunk rejected (${response.status}): ${responseError(data,data.raw)}`,googleStatus:response.status},headers);
   }catch(error){
     const timedOut=error?.name==='AbortError'||error?.name==='TimeoutError';
-    return h.json(504,{error:timedOut?'Google Drive upload timed out after 23 seconds. Session can be resumed.':`Google Drive proxy error: ${String(error?.message||error)}`},headers);
+    return h.json(504,{error:timedOut?'Google Drive upload timed out after 30 seconds. Session can be resumed.':`Google Drive proxy error: ${String(error?.message||error)}`},headers);
   }
 };
