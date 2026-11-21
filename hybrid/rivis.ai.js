@@ -1,4 +1,4 @@
-/* RIVIS AI Runtime — v3.4.114. Strict RSI reference fidelity and guarded image generation. */
+/* RIVIS AI Runtime — v3.4.115. Strict RSI and trustworthy reference-image audit. */
 function scanIpRisk(value){const text=String(value||'');const issues=[];for(const match of text.matchAll(IP_RISK_PATTERN)){const before=text.slice(Math.max(0,
 match.index-35),match.index);if(/(?:\b(?:no|without|avoid|exclude|never|not|prohibit|remove|jangan|tanpa|hindari)\b|bukan)[^.!?\n]{0,22}$/i.test(before))continue;
 issues.push(match[0]);}if(/\b(?:in the style of|exact (?:replica|copy)|copy (?:the )?(?:character|logo|brand|product|design)|replicate (?:the )?(?:character|logo|brand)|identical to|looks? exactly like|fan art of)\b/i.test(text)){issues.push('instruksi peniruan');
@@ -371,7 +371,7 @@ async function rivisEnsureCardRsiStyle(idea,signal=null){
  if(!fingerprint||!fingerprint.shapeLanguage||!fingerprint.lineTreatment)throw new Error('RSI tidak mendapatkan analisis siluet dan garis dari referensi; gambar belum digenerate supaya tidak menjadi kartun generik.');
  idea.referenceStyleFingerprint=fingerprint;
  const live=state.savedIdeas.find(x=>String(x.ideaId)===String(idea.ideaId));
- if(live&&!live.referenceStyleFingerprint){
+ if(live){
   live.referenceStyleFingerprint={...fingerprint};
   persistSavedIdeas();
  }
@@ -1090,6 +1090,7 @@ async function inspectGeneratedImageQuality(idea,url,signal=null){
   try{rsiReferencePart=await rivisBuildCompactImagePart(source,1200,.84);}
   catch(error){console.warn('RSI audit reference could not be read:',error?.message||error);}
  }
+ if(rsiActive&&source&&!rsiReferencePart)throw new Error('RSI: visual audit membutuhkan gambar referensi asli; referensi tidak dapat dibaca.');
  const definitions=isRaster?[
   {key:'c1',label:'Anatomy & Object Integrity',weight:30,rule:'Nilai anatomi manusia/hewan bila ada, tangan dan jari bila terlihat, wajah, proporsi, sambungan, perspektif, serta bentuk dan interaksi objek. Jangan menghukum gambar yang tidak menampilkan manusia atau tangan.'},
   {key:'c2',label:'Sharpness & Detail Quality',weight:25,rule:'Periksa crop 100% untuk blur yang tidak disengaja, noise nyata, detail meleleh, tekstur plastik, oversharpening, halo, dan artefak render/kompresi. Jangan menghukum depth of field yang disengaja di luar area fokus.'},
