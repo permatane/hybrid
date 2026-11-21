@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.130. Reconcile partial Series scene lists with all cloud assets. */
+/* RIVIS GitHub Support — v3.4.131. Cached Cloud Gallery pagination and per-card image refresh. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1583,15 +1583,30 @@ const GATEWAY_FALLBACK_ORIGIN='https://vectorichqc2026.netlify.app';
 let gatewayPopup=null,gatewayChannel='',gatewayConnected=false,gatewayVerified=false;
 let cloudGalleryItems=[],cloudGalleryPage=1,cloudGalleryTotal=0;
 let cloudGallerySelectedIds=new Set();
-let cloudBulkProgress=null,cloudGalleryRefreshPromise=null;
+let cloudBulkProgress=null;
 const CLOUD_GALLERY_CACHE_KEY='rivis.cloud.gallery.cache.v1';
-function readCloudGalleryCache(){
- try{const cached=JSON.parse(localStorage.getItem(CLOUD_GALLERY_CACHE_KEY)||'null');return Array.isArray(cached?.items)?cached.items:[];}catch(_){return [];}
+const CLOUD_GALLERY_PAGE_SIZE=20;
+const cloudGalleryPageCache=new Map(),cloudGalleryPageRequests=new Map();
+let cloudGalleryNavigationId=0,cloudGalleryPrefetchTimer=null;
+function readCloudGalleryCache(page=1){
+ try{
+  const cached=JSON.parse(localStorage.getItem(CLOUD_GALLERY_CACHE_KEY)||'null');
+  return (Number(cached?.page)||1)===Number(page)&&Array.isArray(cached.items)?cached.items:[];
+ }catch(_){return [];}
+}
+function cloudRememberPage(page,items,total){
+ if(!Array.isArray(items))return;
+ const p=Math.max(1,Number(page)||1);
+ cloudGalleryPageCache.delete(p);
+ cloudGalleryPageCache.set(p,{ideas:items.slice(0,CLOUD_GALLERY_PAGE_SIZE),total:Math.max(0,Number(total)||0)});
+ while(cloudGalleryPageCache.size>12)cloudGalleryPageCache.delete(cloudGalleryPageCache.keys().next().value);
 }
 function persistCloudGalleryCache(){
- try{localStorage.setItem(CLOUD_GALLERY_CACHE_KEY,JSON.stringify({savedAt:Date.now(),items:cloudGalleryItems.slice(0,500)}));}catch(_){}
+ if(!cloudGalleryItems.length)return;
+ try{localStorage.setItem(CLOUD_GALLERY_CACHE_KEY,JSON.stringify({
+  page:cloudGalleryPage,total:cloudGalleryTotal,savedAt:Date.now(),items:cloudGalleryItems.slice(0,CLOUD_GALLERY_PAGE_SIZE)
+ }));}catch(_){}
 }
-const CLOUD_GALLERY_PAGE_SIZE=20;
 function openCloudGateway(){
  const bytes=new Uint8Array(24);
  if(!window.crypto?.getRandomValues){status('Browser tidak mendukung secure random generator.','error');return;}
@@ -1744,20 +1759,25 @@ function render(){
  style.textContent+='.rv-cloud-series-waiting{height:100%;display:grid;place-items:center;box-sizing:border-box;padding:18px;text-align:center;background:#0f172a;color:#94a3b8;font-size:11px;line-height:1.45}';
  /* Full-frame Cloud Gallery previews: preserve the whole source image for every ratio. */
  style.textContent+='.rv-cloud-gallery-preview:not(.rv-cloud-series-preview){height:auto!important;min-height:0!important;aspect-ratio:var(--rv-cloud-aspect,1);grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}.rv-cloud-gallery-preview:not(.rv-cloud-series-preview)>img{display:block;box-sizing:border-box;min-width:0;min-height:0;max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain!important;object-position:center center!important;background:#020617}.rv-cloud-gallery-preview.rv-cloud-series-preview{height:194px!important;aspect-ratio:auto!important}.rv-cloud-gallery-preview .rv-cloud-series-tile img{object-fit:contain!important;object-position:center center!important;background:#0f172a}.rv-cloud-gallery-preview .rv-cloud-prompt-preview{min-height:170px}';
+ /* No selection circle; selected border is the sole visual state. */
+ style.textContent+='#tabSectionCloudLibrary .rv-cloud-gallery-preview.rv-cloud-gallery-selectable::after{display:none!important}#tabSectionCloudLibrary .rv-cloud-thumb-retry{position:absolute!important;right:8px;top:8px;z-index:5;display:grid;place-items:center;width:34px;height:34px;min-width:34px;min-height:34px;margin:0!important;padding:0!important;border-radius:50%!important;border:1px solid #94a3b8!important;background:#0f172ae8!important;color:#f8fafc!important;box-shadow:0 3px 11px #0008;cursor:pointer;touch-action:manipulation}#tabSectionCloudLibrary .rv-cloud-thumb-retry:focus-visible{outline:2px solid #67e8f9;outline-offset:2px}#tabSectionCloudLibrary .rv-cloud-thumb-retry.is-loading svg{animation:rvThumbSpin 1s linear infinite}@keyframes rvThumbSpin{to{transform:rotate(360deg)}}';
  /* Cloud Gallery: three selection actions stay on one mobile row. */
  style.textContent+='@media(max-width:639px){#tabSectionCloudLibrary .rv-cloud-selection-toolbar{display:flex;flex-direction:column;align-items:stretch;gap:7px}#tabSectionCloudLibrary .rv-cloud-selection-actions{display:grid!important;grid-template-columns:minmax(0,.95fr) minmax(0,1.35fr) minmax(0,1.75fr);gap:4px!important;width:100%;min-width:0;align-items:stretch;flex-wrap:nowrap!important}#tabSectionCloudLibrary .rv-cloud-selection-actions>button{box-sizing:border-box;display:flex;align-items:center;justify-content:center;min-width:0;width:100%;margin:0!important;padding:8px 2px!important;font-size:clamp(8px,2.45vw,10px)!important;line-height:1.15;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;text-align:center}}';
  document.head.appendChild(style);
  const after=$('tabSectionMetaGen')||$('tabSectionSavedIdeas');if(after)after.insertAdjacentElement('afterend',sec);
  $('rvCloudOpenGateway').addEventListener('click',openCloudGateway);
- $('rvCloudRefreshGallery').addEventListener('click',refreshCloudGallery);
+ $('rvCloudRefreshGallery').addEventListener('click',()=>refreshCloudGallery(cloudGalleryPage,true));
  $('rvCloudSelectAll').addEventListener('click',selectAllCloudGalleryCards);
  $('rvCloudClearSelection').addEventListener('click',clearCloudGallerySelection);
  $('rvCloudDownloadSelected').addEventListener('click',()=>downloadSelectedCloudResultsZip($('rvCloudDownloadSelected')));
  $('rvCloudGalleryGrid').addEventListener('click',event=>{
-  const preview=event.target?.closest?.('.rv-cloud-gallery-selectable');if(!preview)return;
-  toggleCloudGalleryCardSelection(preview.dataset.cloudSelectId);
+  const retry=event.target?.closest?.('.rv-cloud-thumb-retry');
+  if(retry){event.preventDefault();event.stopPropagation();retryCloudGalleryCardThumbnails(retry);return;}
+  const preview=event.target?.closest?.('.rv-cloud-gallery-selectable');
+  if(preview)toggleCloudGalleryCardSelection(preview.dataset.cloudSelectId);
  });
  $('rvCloudGalleryGrid').addEventListener('keydown',event=>{
+  if(event.target?.closest?.('button'))return;
   const preview=event.target?.closest?.('.rv-cloud-gallery-selectable');
   if(!preview||!['Enter',' '].includes(event.key))return;
   event.preventDefault();toggleCloudGalleryCardSelection(preview.dataset.cloudSelectId);
@@ -1891,6 +1911,7 @@ async function uploadCloudImage(idea,source,assetType,sceneId,fileName,existingR
 }
 
 function updateCloudGalleryCache(idea){
+ cloudGalleryPageCache.clear();clearTimeout(cloudGalleryPrefetchTimer);
  const safe=cloudSafeIdea({...idea,updatedAt:new Date().toISOString()});
  cloudGalleryItems=[safe,...cloudGalleryItems.filter(item=>String(item.ideaId)!==String(safe.ideaId))];
  if($('rvCloudGalleryGrid')&&!cloudBulkProgress)renderCloudGallery(cloudGalleryItems.slice(0,CLOUD_GALLERY_PAGE_SIZE),1,Math.max(cloudGalleryTotal,cloudGalleryItems.length));
@@ -2280,14 +2301,17 @@ function cloudSeriesPreviewMarkup(idea){
 }
 function renderCloudGallery(ideas,page=1,totalCount=null){
  const priorItems=new Map();
- for(const item of readCloudGalleryCache())if(item?.ideaId)priorItems.set(String(item.ideaId),item);
+ const cachedPage=Math.max(1,Number(page)||1);
+ for(const item of readCloudGalleryCache(cachedPage))if(item?.ideaId)priorItems.set(String(item.ideaId),item);
+ for(const cached of cloudGalleryPageCache.values())
+  for(const item of cached.ideas||[])if(item?.ideaId)priorItems.set(String(item.ideaId),item);
  for(const item of cloudGalleryItems)if(item?.ideaId)priorItems.set(String(item.ideaId),item);
  cloudGalleryItems=Array.isArray(ideas)?ideas.map(item=>mergeCloudSeriesGalleryItem(item,priorItems.get(String(item?.ideaId)))):[];
  cloudGalleryTotal=Number.isFinite(Number(totalCount))&&totalCount!==null?Math.max(0,Number(totalCount)):cloudGalleryItems.length;
  const grid=$('rvCloudGalleryGrid'),pager=$('rvCloudGalleryPagination');if(!grid)return;
- persistCloudGalleryCache();
  const total=cloudGalleryTotal,totalPages=Math.max(1,Math.ceil(total/CLOUD_GALLERY_PAGE_SIZE));
- cloudGalleryPage=Math.max(1,Math.min(totalPages,Number(page)||1));
+ cloudGalleryPage=Math.max(1,Math.min(totalPages,cachedPage));
+ if(cloudGalleryItems.length){cloudRememberPage(cloudGalleryPage,cloudGalleryItems,total);persistCloudGalleryCache();}
  if(!total){
   grid.innerHTML='<div class="rv-cloud-empty">Belum ada item di Cloud Gallery. Simpan card dari Library atau gunakan Save Idea di Idea Studio.</div>';
   if(pager){pager.hidden=true;pager.innerHTML='';}
@@ -2319,7 +2343,8 @@ function renderCloudGallery(ideas,page=1,totalCount=null){
    fileId?'<img loading="lazy" decoding="async" alt="" data-cloud-thumb-id="'+cloudEscape(fileId)+'" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=">':'<div class="rv-cloud-prompt-preview"><span>✦</span><strong>PROMPT IDEA</strong><small>No generated image</small></div>';
   const promptText=prompt?'<p class="rv-cloud-gallery-prompt">'+cloudEscape(prompt.slice(0,220))+(prompt.length>220?'…':'')+'</p>':'';
   const selected=cloudGallerySelectedIds.has(String(idea.ideaId));
-  return '<article class="rv-cloud-gallery-card'+(selected?' is-selected':'')+'" data-cloud-gallery-id="'+id+'"><div class="rv-cloud-gallery-preview rv-cloud-gallery-selectable'+(seriesVisible?' rv-cloud-series-preview':'')+'" style="--rv-cloud-aspect:'+previewRatio+';" data-cloud-select-id="'+id+'" role="checkbox" tabindex="0" aria-label="Pilih card '+title+'" aria-checked="'+(selected?'true':'false')+'">'+preview+'</div><div class="rv-cloud-gallery-body"><h4>'+title+'</h4><div class="rv-cloud-gallery-meta">'+type+' · '+(score!==undefined?('Score '+cloudEscape(score)):'Score —')+'</div><div class="rv-cloud-gallery-meta">'+cloudEscape(idea.updatedAt||idea.createdAt||'Cloud saved')+'</div>'+promptText+'<div class="rv-cloud-gallery-actions"><button type="button" class="rv-cloud-gallery-explore" onclick="RIVIS_EXPLORE_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Explore Idea</button><button type="button" class="rv-cloud-gallery-load" onclick="RIVIS_LOAD_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Load to Library</button><button type="button" class="rv-cloud-gallery-delete" onclick="RIVIS_DELETE_CLOUD_IDEA(&quot;'+id+'&quot;,this)" title="Hapus dari Cloud Gallery; file Drive tetap tersimpan" aria-label="Hapus item Cloud Gallery">Hapus</button></div></div></article>';
+  const retry='<button type="button" class="rv-cloud-thumb-retry" title="Refresh thumbnail gambar" aria-label="Refresh thumbnail '+title+'"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.7 6"/><path d="M20 4v7h-7"/></svg></button>';
+  return '<article class="rv-cloud-gallery-card'+(selected?' is-selected':'')+'" data-cloud-gallery-id="'+id+'"><div class="rv-cloud-gallery-preview rv-cloud-gallery-selectable'+(seriesVisible?' rv-cloud-series-preview':'')+'" style="--rv-cloud-aspect:'+previewRatio+';" data-cloud-select-id="'+id+'" role="checkbox" tabindex="0" aria-label="Pilih card '+title+'" aria-checked="'+(selected?'true':'false')+'">'+preview+retry+'</div><div class="rv-cloud-gallery-body"><h4>'+title+'</h4><div class="rv-cloud-gallery-meta">'+type+' · '+(score!==undefined?('Score '+cloudEscape(score)):'Score —')+'</div><div class="rv-cloud-gallery-meta">'+cloudEscape(idea.updatedAt||idea.createdAt||'Cloud saved')+'</div>'+promptText+'<div class="rv-cloud-gallery-actions"><button type="button" class="rv-cloud-gallery-explore" onclick="RIVIS_EXPLORE_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Explore Idea</button><button type="button" class="rv-cloud-gallery-load" onclick="RIVIS_LOAD_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Load to Library</button><button type="button" class="rv-cloud-gallery-delete" onclick="RIVIS_DELETE_CLOUD_IDEA(&quot;'+id+'&quot;,this)" title="Hapus dari Cloud Gallery; file Drive tetap tersimpan" aria-label="Hapus item Cloud Gallery">Hapus</button></div></div></article>';
  }).join('');
  if(pager){
   const button=(label,target,disabled=false,active=false)=>'<button type="button" class="rv-cloud-page-btn'+(active?' is-active':'')+'" data-cloud-page="'+target+'"'+(disabled?' disabled':'')+(active?' aria-current="page"':'')+'>'+label+'</button>';
@@ -2383,6 +2408,7 @@ function pumpCloudSeriesGalleryManifests(){
      cloudAssets:merged.cloudAssets,
      cloudAssetRefs:merged.cloudAssetRefs
     };
+    cloudRememberPage(cloudGalleryPage,cloudGalleryItems,cloudGalleryTotal);
     persistCloudGalleryCache();
     const grid=$('rvCloudGalleryGrid');
     const card=Array.from(grid?.querySelectorAll('[data-cloud-gallery-id]')||[]).find(el=>el.dataset.cloudGalleryId===id);
@@ -2470,25 +2496,103 @@ function loadCloudGalleryThumbnails(){
   observer.observe(img);
  }
 }
-async function refreshCloudGallery(page=cloudGalleryPage){
+async function retryCloudGalleryCardThumbnails(button){
+ if(!gatewayVerified){showToast('Reconnect Cloud untuk mengunduh thumbnail.','info');return;}
+ if(!button||button.disabled)return;
+ const card=button.closest('.rv-cloud-gallery-card'),preview=button.closest('.rv-cloud-gallery-preview');
+ const id=String(card?.dataset.cloudGalleryId||'');
+ if(!card||!preview||!id)return;
+ const idea=cloudGalleryItems.find(x=>String(x.ideaId)===id);
+ if(!idea)return;
+ button.disabled=true;button.classList.add('is-loading');
+ button.setAttribute('aria-busy','true');
+ try{
+  const images=[...preview.querySelectorAll('img[data-cloud-thumb-id]')];
+  const missing=images.filter(img=>!img.complete||img.naturalWidth<=1||img.getAttribute('src')?.includes('R0lGODlh'));
+  const targets=missing.length?missing:images;
+  let success=0;
+  for(let i=0;i<targets.length;i+=3){
+   await Promise.all(targets.slice(i,i+3).map(async img=>{
+    const fileId=String(img.dataset.cloudThumbId||'');
+    if(!fileId)return;
+    cloudThumbnailMemoryCache.delete(fileId);
+    try{
+     const res=await sendCloudCommand('thumbnail',{fileId});
+     if(!res?.base64)throw new Error('Empty thumbnail response');
+     const mime=String(res.mimeType||'image/jpeg');
+     if(!/^image\/(?:jpeg|png|webp|gif)$/i.test(mime))throw new Error('Unsupported thumbnail type');
+     const data='data:'+mime+';base64,'+res.base64;
+     if(data.length<400000)cloudThumbnailMemoryCache.set(fileId,data);
+     if(img.isConnected&&img.dataset.cloudThumbId===fileId){
+      img.src=data;img.closest('.rv-cloud-series-tile,.rv-cloud-gallery-preview')?.classList.remove('rv-cloud-thumb-error');success++;
+     }
+    }catch(err){
+     img.closest('.rv-cloud-series-tile,.rv-cloud-gallery-preview')?.classList.add('rv-cloud-thumb-error');
+     console.warn('Cloud image retry failed',fileId,String(err?.message||err).slice(0,120));
+    }
+   }));
+  }
+  if(idea.productionType==='series'&&(images.length<Math.max(1,Number(idea.seriesLength)||0)||!success)){
+   cloudSeriesManifestLoaded.delete(id);
+   hydrateCloudSeriesGalleryManifests();
+  }
+  showToast(success?success+' thumbnail berhasil dimuat ulang.':idea.productionType==='series'?'Memeriksa ulang thumbnail Series.':'Thumbnail cloud belum tersedia.','info');
+ }finally{
+  if(button.isConnected){button.disabled=false;button.classList.remove('is-loading');button.removeAttribute('aria-busy');}
+ }
+}
+function cloudPageRequest(page){
+ const p=Math.max(1,Number(page)||1);
+ if(cloudGalleryPageRequests.has(p))return cloudGalleryPageRequests.get(p);
+ const task=sendCloudCommand('list',{page:p,pageSize:CLOUD_GALLERY_PAGE_SIZE});
+ cloudGalleryPageRequests.set(p,task);
+ task.then(()=>{if(cloudGalleryPageRequests.get(p)===task)cloudGalleryPageRequests.delete(p);},
+           ()=>{if(cloudGalleryPageRequests.get(p)===task)cloudGalleryPageRequests.delete(p);});
+ return task;
+}
+function cloudPrefetchNextPage(page,total){
+ clearTimeout(cloudGalleryPrefetchTimer);
+ const next=page+1;
+ if(!gatewayVerified||next>Math.ceil(total/CLOUD_GALLERY_PAGE_SIZE)||cloudGalleryPageCache.has(next))return;
+ cloudGalleryPrefetchTimer=setTimeout(()=>{
+  if(!gatewayVerified||cloudGalleryPageRequests.size||cloudGalleryPageCache.has(next))return;
+  cloudPageRequest(next).then(r=>cloudRememberPage(Number(r.page)||next,r.ideas||[],Number(r.total)||0)).catch(()=>{});
+ },700);
+}
+async function refreshCloudGallery(page=cloudGalleryPage,force=false){
  if(!gatewayVerified){cloudSyncStatus('Hubungkan Google terlebih dahulu untuk membuka Cloud Gallery.');return;}
- if(cloudGalleryRefreshPromise)return cloudGalleryRefreshPromise;
- const requestedPage=Math.max(1,Number(page)||1);
- if(!cloudGalleryItems.length&&requestedPage===1){const cached=readCloudGalleryCache();if(cached.length)renderCloudGallery(cached.slice(0,CLOUD_GALLERY_PAGE_SIZE),1,cached.length);}
- const task=(async()=>{
-  const button=$('rvCloudRefreshGallery'),old=button?.textContent||'Refresh Gallery';
-  if(button){button.disabled=true;button.textContent='Loading...';}
-  try{
-   cloudSyncStatus('Mengambil halaman '+requestedPage+' dari Cloud Gallery...');
-   const result=await sendCloudCommand('list',{page:requestedPage,pageSize:CLOUD_GALLERY_PAGE_SIZE});
-   renderCloudGallery(result.ideas||[],Number(result.page)||requestedPage,Number(result.total)||0);
-   cloudSyncStatus((Number(result.total)||0)+' card tersedia · halaman '+(Number(result.page)||requestedPage)+'/'+(Number(result.totalPages)||1)+'.');
-   return result;
-  }catch(error){cloudSyncStatus('Gagal memuat Cloud Gallery: '+error.message);throw error;}
-  finally{if(button){button.disabled=false;button.textContent=old;}}
- })();
- cloudGalleryRefreshPromise=task;
- try{return await task;}finally{if(cloudGalleryRefreshPromise===task)cloudGalleryRefreshPromise=null;}
+ const requested=Math.max(1,Number(page)||1),nav=++cloudGalleryNavigationId;
+ clearTimeout(cloudGalleryPrefetchTimer);
+ const cached=cloudGalleryPageCache.get(requested);
+ const saved=cached?[]:readCloudGalleryCache(requested);
+ if(!force&&(cached||saved.length)){
+  const ideas=cached?.ideas||saved,total=cached?.total??Math.max(ideas.length,cloudGalleryTotal);
+  renderCloudGallery(ideas,requested,total);
+  cloudSyncStatus('Halaman '+requested+' dari cache. Klik Refresh Gallery untuk sinkronisasi terbaru.');
+  cloudPrefetchNextPage(requested,total);
+  return {ideas,page:requested,total,fromCache:true};
+ }
+ const btn=$('rvCloudRefreshGallery'),textBefore=btn?.textContent||'Refresh Gallery';
+ if(btn){btn.disabled=true;btn.textContent='Loading...';}
+ if(!cached&&!saved.length){
+  const grid=$('rvCloudGalleryGrid');if(grid)grid.innerHTML='<div class="rv-cloud-empty">Memuat halaman '+requested+'…</div>';
+ }
+ try{
+  cloudSyncStatus('Mengambil halaman '+requested+' dari Cloud Gallery...');
+  const result=await cloudPageRequest(requested);
+  const loaded=Math.max(1,Number(result.page)||requested),total=Number(result.total)||0;
+  cloudRememberPage(loaded,result.ideas||[],total);
+  if(nav!==cloudGalleryNavigationId)return result;
+  renderCloudGallery(result.ideas||[],loaded,total);
+  cloudSyncStatus(total+' card tersedia · halaman '+loaded+'/'+(Number(result.totalPages)||Math.max(1,Math.ceil(total/CLOUD_GALLERY_PAGE_SIZE)))+'.');
+  cloudPrefetchNextPage(loaded,total);
+  return result;
+ }catch(err){
+  if(nav===cloudGalleryNavigationId)cloudSyncStatus('Gagal memuat halaman '+requested+': '+err.message);
+  throw err;
+ }finally{
+  if(btn&&nav===cloudGalleryNavigationId){btn.disabled=false;btn.textContent=textBefore;}
+ }
 }
 async function loadCloudGalleryIdea(ideaId,button,mode='library'){
  if(!gatewayVerified){cloudSyncStatus('Hubungkan Google terlebih dahulu.');return;}
@@ -2544,8 +2648,9 @@ async function deleteCloudGalleryIdea(ideaId,button){
   const result=await sendCloudCommand('delete',{ideaId});
   if(result?.ok!==true)throw new Error('Gateway tidak mengonfirmasi penghapusan.');
   cloudGallerySelectedIds.delete(String(ideaId));
+  cloudGalleryPageCache.clear();
   cloudSyncStatus('Item dihapus dari Cloud Gallery: '+title+'. File Drive tetap aman.');
-  await refreshCloudGallery(cloudGalleryPage);
+  await refreshCloudGallery(cloudGalleryPage,true);
   showToast('Item berhasil dihapus dari Cloud Gallery.','success');
   return true;
  }catch(error){
