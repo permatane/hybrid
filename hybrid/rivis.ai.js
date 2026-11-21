@@ -1,4 +1,4 @@
-/* RIVIS AI Runtime — v3.4.118. Generated ideas go directly to Library. */
+/* RIVIS AI Runtime — v3.4.121. Populate Style Reference Simple Prompt without overwriting user text. */
 function scanIpRisk(value){const text=String(value||'');const issues=[];for(const match of text.matchAll(IP_RISK_PATTERN)){const before=text.slice(Math.max(0,
 match.index-35),match.index);if(/(?:\b(?:no|without|avoid|exclude|never|not|prohibit|remove|jangan|tanpa|hindari)\b|bukan)[^.!?\n]{0,22}$/i.test(before))continue;
 issues.push(match[0]);}if(/\b(?:in the style of|exact (?:replica|copy)|copy (?:the )?(?:character|logo|brand|product|design)|replicate (?:the )?(?:character|logo|brand)|identical to|looks? exactly like|fan art of)\b/i.test(text)){issues.push('instruksi peniruan');
@@ -580,13 +580,28 @@ async function referenceVisionDataUrl(source){
  context.drawImage(image,0,0,canvas.width,canvas.height);
  return canvas.toDataURL('image/png');
 }
+function rivisStyleReferencePromptFallback(fingerprint,outputMode,categoryName){
+ const f=fingerprint&&typeof fingerprint==='object'?fingerprint:{};
+ const focus=String(categoryName||'an everyday commercial theme').replace(/[\r\n<>]/g,' ').trim().slice(0,100);
+ const medium=outputMode==='vector'?'commercial vector-style illustration':outputMode==='3d'?'original 3D commercial artwork':'commercial raster artwork';
+ const dna=[f.styleLabel,f.medium,f.shapeLanguage,f.proportions,f.figureGeometry,f.poseCadence,f.lineTreatment,f.patternLanguage,f.colorLogic].filter(x=>typeof x==='string'&&x.trim()).slice(0,8).join('; ');
+ return ('Create an original '+medium+' about '+focus+' with a clearly defined new subject, useful action, distinctive silhouette and purposeful composition. Apply the reference image only as visual style guidance: '+(dna||'intentional shape language, contours, color relationships and visual detail hierarchy')+'. Create original objects, poses, arrangements and details. Do not reproduce the reference image, its identifiable subjects, logos, character designs, outfits, or exact layout. Avoid generic stock cartoon substitution.').slice(0,1800);
+}
 async function handleAnalyzeReferenceImageWithAI(){if(!state.refImageUrl)return;
 const btn=byId('analyzeRefAiBtn');if(!btn)return;state.refMode=byId('refModeSelect')?.value||state.refMode;btn.disabled=true;btn.classList.add('opacity-80','cursor-not-allowed');btn.textContent='Analyzing...';
 const imageAtStart=state.refImageUrl;
+const modeAtStart=state.refMode;
+const simplePromptAtStart=String(byId('simplePromptInput')?.value||'').trim();
 try{
  const outputMode=getOutputMode();const allowedAssets=ASSET_TYPES_BY_MODE[outputMode]||ASSET_TYPES_BY_MODE.vector;
  const allowedStyles=VISUAL_STYLES_BY_MODE[outputMode]||VISUAL_STYLES_BY_MODE.vector;
- const instructions=`Analyze the uploaded image for non-identifying visual principles useful for creating ORIGINAL commercial stock artwork. Do not identify or copy brands, copyrighted characters, logos, existing artist signatures or distinctive compositions. Current output mode: ${outputMode}. REFERENCE MODE: ${state.refMode}. STYLE REFERENCE means extract visual technique only, not subject or original clothing design. Return STRICT JSON with:
+ const selectedCategory=STOCK_CATEGORIES.find(c=>c.id===byId('stockCategorySelect')?.value);
+ const selectedCategoryName=selectedCategory?.id==='custom'?(byId('customCategoryInput')?.value||'original commercial topic'):(selectedCategory?.name||'original commercial topic');
+ const selectedNeed=String(byId('designNeedInput')?.value||'').trim().slice(0,300);
+ const referencePromptDirection=modeAtStart==='STYLE REFERENCE'
+  ? 'STYLE REFERENCE PROMPT REQUIREMENT: Always return a non-empty suggestedSimplePrompt (at least 25 words) for a NEW original, commercially usable image concept. The user-existing subject or topic, if provided, is primary and must not be replaced: '+JSON.stringify(simplePromptAtStart||'(empty; invent an original commercially useful subject)')+'. If no user topic was given, invent a distinct new subject and action in this selected category: '+JSON.stringify(selectedCategoryName)+'. Buyer need: '+JSON.stringify(selectedNeed||'general commercial use')+'. Describe how to transfer the observed visual medium, silhouette proportions, contour language, meaningful pattern rhythm and color relationships. Do NOT depict or re-create the attached image subjects, clothing design, poses, brand identity or exact arrangement. Return the prompt in English, without placeholder phrases.'
+  : 'Write a concrete original suggestedSimplePrompt appropriate to the selected reference mode.';
+ const instructions=`Analyze the uploaded image for non-identifying visual principles useful for creating ORIGINAL commercial stock artwork. Do not identify or copy brands, copyrighted characters, logos, existing artist signatures or distinctive compositions. Current output mode: ${outputMode}. REFERENCE MODE: ${modeAtStart}. STYLE REFERENCE means extract visual technique only, not subject or original clothing design. ${referencePromptDirection} Return STRICT JSON with:
  {"suggestedSimplePrompt":"concrete original visual idea using broad qualities of reference","suggestions":["up to 5 concise optional creative suggestions"],"category":"best matching category id","subcategory":"exact available subcategory name or empty","style":"exact allowed visual style or empty","purpose":"exact allowed commercial purpose or empty","palette":"exact allowed palette name or empty","composition":"exact allowed composition or empty","assetType":"exact allowed asset type or empty","size":"1:1|2:3|3:2|16:9 or empty","styleFingerprint":{"medium":"precise print, editorial, vector or photographic visual medium","styleLabel":"specific general artistic style name","shapeLanguage":"concrete angular, organic and geometric vocabulary","proportions":"figure elongation, size ratios and posture rhythm","silhouette":"silhouette complexity, layers and asymmetry","lineTreatment":"stroke width and hand-drawn contour features","patternLanguage":"stripes, checks, stitching, geometric hatch, print dots or none","characterTreatment":"adult/editorial vs mascot facial detail and expression","colorLogic":"flat-block contrast and palette relationship","paletteHex":["#RRGGBB"],"shadingDepth":"flat or subtle tonal treatment","texture":"purposeful controlled decorative surface or none","mood":"overall tone","composition":"general focal hierarchy and spacing","negativeStyles":"unwanted generic visual styles and cartoon substitutions","avoidCharacteristics":"identifiable elements not to copy"}}.
  CATEGORY IDS AND SUBCATEGORIES: ${JSON.stringify(STOCK_CATEGORIES.filter(c=>c.id!=='custom').map(c=>({id:c.id,subcategories:c.subcategories})))}.
  ALLOWED STYLE: ${JSON.stringify(allowedStyles)}. ALLOWED ASSET TYPES: ${JSON.stringify(allowedAssets)}.
@@ -599,13 +614,26 @@ try{
  const res=await callGeminiApi('gemini-3-flash-preview',payload);
  const raw=res?.candidates?.[0]?.content?.parts?.filter(p=>typeof p.text==='string').map(p=>p.text).join('')||'';
  const parsed=JSON.parse(raw.replace(/^\s*```(?:json)?\s*/i,'').replace(/\s*```\s*$/,''));
- if(state.refImageUrl!==imageAtStart)return;
+ if(state.refImageUrl!==imageAtStart||(byId('refModeSelect')?.value||state.refMode)!==modeAtStart)return false;
  if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw new Error('Analisis tidak menghasilkan data valid.');
  state.referenceFingerprint=safeReferenceFingerprint(parsed.styleFingerprint);
  if(state.referenceFingerprint&&!state.referenceFingerprint.paletteHex?.length){const extracted=await extractImagePalette(imageAtStart,5);if(state.refImageUrl===imageAtStart&&extracted?.length)state.referenceFingerprint.paletteHex=extracted.filter(x=>/^#[0-9A-Fa-f]{6}$/.test(x)).slice(0,8);}
- state.referenceAnalysis={category:parsed.category||'',style:parsed.style||'',analyzedAt:new Date().toISOString()};
- if(state.refMode!=='STYLE REFERENCE'&&parsed.suggestedSimplePrompt&&typeof parsed.suggestedSimplePrompt==='string'){
-  const prompt=byId('simplePromptInput');if(prompt){prompt.value=parsed.suggestedSimplePrompt.slice(0,1800);prompt.dispatchEvent(new Event('input',{bubbles:true}));}}
+ const suggestedPrompt=String(parsed.suggestedSimplePrompt||'').trim().slice(0,1800);
+ const stylePrompt=modeAtStart==='STYLE REFERENCE'
+  ? (suggestedPrompt.length>=50?suggestedPrompt:rivisStyleReferencePromptFallback(state.referenceFingerprint,outputMode,selectedCategoryName))
+  : suggestedPrompt;
+ state.referenceAnalysis={category:parsed.category||'',style:parsed.style||'',mode:modeAtStart,suggestedSimplePrompt:stylePrompt,analyzedAt:new Date().toISOString()};
+ const prompt=byId('simplePromptInput');
+ if(modeAtStart==='STYLE REFERENCE'){
+  // Style reference never overwrites a user-written subject. Empty field gets an original suggestion.
+  if(prompt&&!String(prompt.value||'').trim()&&stylePrompt){
+   prompt.value=stylePrompt;
+   prompt.dispatchEvent(new Event('input',{bubbles:true}));
+  }
+ }else if(prompt&&suggestedPrompt){
+  prompt.value=suggestedPrompt;
+  prompt.dispatchEvent(new Event('input',{bubbles:true}));
+ }
  if(state.refMode!=='STYLE REFERENCE'){
   const category=categoryFromAI(parsed.category);
   if(category){const el=byId('stockCategorySelect');if(el){el.value=category.id;handleCategoryChange(category.id);}}
@@ -653,6 +681,18 @@ if(state.productionType==='collection'){
  field?.removeAttribute('aria-invalid');
 }
 if(state.productionType==='series'){const length=currentSeriesLength();const field=byId('seriesLengthCustomInput');const isCustom=byId('seriesLengthSelect')?.value==='custom';if(!Number.isInteger(length)||length<2||length>12||(isCustom&&(!field?.value||Number(field.value)<2||Number(field.value)>12))){if(field){field.setAttribute('aria-invalid','true');field.focus();}showToast('Series Length harus 2–12 scene.','error');return;}field?.removeAttribute('aria-invalid');state.seriesLength=length;state.seriesCreationMode=currentSeriesCreationMode();if(state.seriesCreationMode==='manual'){const scenes=currentManualSeriesScenes();const missing=scenes.findIndex(text=>text.length<8);if(missing>=0){const input=byId('seriesManualSceneInput'+missing);if(input){input.setAttribute('aria-invalid','true');input.focus();}showToast('Isi deskripsi Scene '+(missing+1)+' (minimal 8 karakter).','error');return;}const normalized=scenes.map(x=>x.toLowerCase().replace(/\s+/g,' ').trim());if(new Set(normalized).size!==scenes.length){showToast('Adegan manual tidak boleh sama. Buat aktivitas/interaksi berbeda untuk setiap scene.','error');return;}if(scenes.some(x=>scanIpRisk(x).length)){showToast('Manual scene mengandung instruksi meniru merek atau karakter terlindungi.','error');return;}state.seriesManualScenes=scenes;}state.seriesContinuityLock=byId('seriesContinuityLockCheckbox')?.checked!==false;state.seriesAnchorReference=byId('seriesAnchorReferenceCheckbox')?.checked!==false;state.seriesAutoGenerate=Boolean(byId('seriesAutoGenerateCheckbox')?.checked);}
+// Style Reference can start with an empty Simple Prompt: analyze the image first.
+ if(!String(byId('simplePromptInput')?.value||'').trim()&&state.refImageUrl&&
+  (byId('refModeSelect')?.value||state.refMode)==='STYLE REFERENCE'&&!offlineTestMode){
+  const cached=state.referenceAnalysis?.mode==='STYLE REFERENCE'?String(state.referenceAnalysis.suggestedSimplePrompt||'').trim():'';
+  if(cached){
+   byId('simplePromptInput').value=cached.slice(0,1800);
+   byId('simplePromptInput').dispatchEvent(new Event('input',{bubbles:true}));
+  }else{
+   const analyzed=await handleAnalyzeReferenceImageWithAI();
+   if(!analyzed)return;
+  }
+ }
 const providedPrompt=byId('simplePromptInput').value.trim();const chosenOutputMode=getOutputMode();const rasterSettings=readRasterSettings();
 const simplePrompt=providedPrompt||(chosenOutputMode!=='vector'?'Develop an original commercially useful real-world scene with clear human activity, practical purpose and credible setting':'');
 if(!simplePrompt){showToast("Please enter a Simple Prompt first.","error");return;}if(state.refImageUrl&&!state.referenceFingerprint&&!offlineTestMode){
