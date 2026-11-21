@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.111. Cloud Save/Load caching, memory and reliability fixes. */
+/* RIVIS GitHub Support — v3.4.112. Restore consistent 4K raster default and persist style references on Library cards. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -562,7 +562,7 @@ function handleIdeaSizeChange(val){state.ideaStudioSizeId=val;studioModeRatios[g
 const box=byId('customSizeDimensionsBox');if(box){if(val==='custom')box.classList.remove('hidden');else box.classList.add('hidden');
 }}
 const MODE_RESOLUTION_KEYS={vector:'rvis_vector_image_resolution_v1',raster:'rvis_raster_image_resolution_v1'};
-function loadModeResolution(mode){const raster=mode!=='vector';const key=MODE_RESOLUTION_KEYS[raster?'raster':'vector'];const fallback=raster?safeStorageGet(STORAGE_KEYS.IMAGE_RESOLUTION,'2K'):'1K';return validImageResolution(safeStorageGet(key,fallback));}
+function loadModeResolution(mode){const raster=mode!=='vector';const key=MODE_RESOLUTION_KEYS[raster?'raster':'vector'];const fallback=raster?'4K':'1K';return validImageResolution(safeStorageGet(key,fallback));}
 function syncModeResolution(mode){const resolution=loadModeResolution(mode);state.imageResolution=resolution;const control=byId('imageResolutionSelect');if(control)control.value=resolution;}
 function handleImageResolutionChange(value){state.imageResolution=validImageResolution(value);const mode=getOutputMode();safeStorageSet(MODE_RESOLUTION_KEYS[mode==='vector'?'vector':'raster'],state.imageResolution);if(mode!=='vector')safeStorageSet(STORAGE_KEYS.IMAGE_RESOLUTION,state.imageResolution);updateRatioHint();}
 const PRODUCTION_BUTTON_ACTIVE="p-2.5 rounded-lg border text-left transition-all flex flex-col gap-1 bg-purple-600/20 border-purple-500 text-white shadow";
@@ -692,7 +692,7 @@ async function saveSimplePromptIdea(btnEl){
  const title=prompt.split(/[.!?\n]/)[0].trim().slice(0,68)||'Saved Prompt Idea';
  const now=new Date().toISOString(),ideaId='prompt_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
  const promptId=ideaId+'_p1';
- const idea={ideaId,shortCode:ideaId.slice(-4),conceptName:title,productionType:state.productionType||'single',dataType:'prompt',activePromptId:promptId,categoryId:state.selectedCategory?.id||'custom',categoryName:label(state.selectedCategory)||'Custom',subcategory:state.selectedSubcategory||'',mainSubject:prompt.slice(0,700),simplePrompt:prompt,visualPrompt:prompt,finalGenerationPrompt:prompt,outputMode:getOutputMode(),aspectRatio:state.ideaStudioSizeId||'1:1',creativeDirection:label(state.selectedStyle),commercialUseCase:label(state.selectedPurpose),targetBuyer:state.selectedPurpose?.targetBuyer||state.selectedPurpose?.buyer||'',designNeed:state.selectedPurpose?.designNeed||'',suggestedAssetType:label(state.selectedAssetType),suggestedComposition:label(state.selectedComposition),suggestedColorPalette:label(state.selectedPalette),colorPaletteHex:Array.isArray(state.selectedPalette?.hex)?state.selectedPalette.hex.slice():[],status:'Draft',createdAt:now,updatedAt:now,generatedImageUrl:null,generatedImagePreviewUrl:null,metadata:null,referenceImageUrl:state.refImageUrl||null,referenceMode:state.refMode||'',prompts:[{promptId,ideaId,promptType:'simple',version:1,simplePrompt:prompt,visualPrompt:prompt,finalPrompt:prompt,referenceAssetId:'',activeVersion:true,createdAt:now,updatedAt:now,notes:'Saved from Idea Studio'}]};
+ const idea={ideaId,shortCode:ideaId.slice(-4),conceptName:title,productionType:state.productionType||'single',dataType:'prompt',activePromptId:promptId,categoryId:state.selectedCategory?.id||'custom',categoryName:label(state.selectedCategory)||'Custom',subcategory:state.selectedSubcategory||'',mainSubject:prompt.slice(0,700),simplePrompt:prompt,visualPrompt:prompt,finalGenerationPrompt:prompt,outputMode:getOutputMode(),aspectRatio:state.ideaStudioSizeId||'1:1',creativeDirection:label(state.selectedStyle),commercialUseCase:label(state.selectedPurpose),targetBuyer:state.selectedPurpose?.targetBuyer||state.selectedPurpose?.buyer||'',designNeed:state.selectedPurpose?.designNeed||'',suggestedAssetType:label(state.selectedAssetType),suggestedComposition:label(state.selectedComposition),suggestedColorPalette:label(state.selectedPalette),colorPaletteHex:Array.isArray(state.selectedPalette?.hex)?state.selectedPalette.hex.slice():[],status:'Draft',createdAt:now,updatedAt:now,generatedImageUrl:null,generatedImagePreviewUrl:null,metadata:null,referenceImageUrl:state.refImageUrl||null,referenceMode:state.refMode||'',referenceStyleFingerprint:state.referenceFingerprint?{...state.referenceFingerprint}:null,imageResolution:state.imageResolution,prompts:[{promptId,ideaId,promptType:'simple',version:1,simplePrompt:prompt,visualPrompt:prompt,finalPrompt:prompt,referenceAssetId:'',activeVersion:true,createdAt:now,updatedAt:now,notes:'Saved from Idea Studio'}]};
  try{ensureConceptBlueprint(idea);}catch(error){console.warn('Prompt idea blueprint initialization:',error);}
  const referenceSource=state.refImageFile instanceof Blob?state.refImageFile:(state.refImageUrl||null);
  const oldText=btnEl?.textContent||'Save Idea';
@@ -713,11 +713,17 @@ async function saveSimplePromptIdea(btnEl){
 }
 
 function saveIdeaToLibrary(ideaId,btnEl){const idea=state.discoveredIdeas.find(i=>i.ideaId===ideaId);
-if(idea&&!state.savedIdeas.some(i=>i.ideaId===idea.ideaId)){const saved=JSON.parse(JSON.stringify(idea));if(state.refImageUrl&&!saved.referenceImageUrl)saved.referenceImageUrl=state.refImageUrl;saved.referenceMode=state.refMode;state.savedIdeas.unshift(saved);persistSavedIdeas();
+if(idea&&!state.savedIdeas.some(i=>i.ideaId===idea.ideaId)){const saved=JSON.parse(JSON.stringify(idea));if(state.refImageUrl&&!saved.referenceImageUrl)saved.referenceImageUrl=state.refImageUrl;saved.referenceMode=saved.referenceMode||state.refMode;
+if(!saved.imageResolution)saved.imageResolution=state.imageResolution;
+if(state.referenceFingerprint&&!saved.referenceStyleFingerprint)saved.referenceStyleFingerprint={...state.referenceFingerprint};
+state.savedIdeas.unshift(saved);persistSavedIdeas();
 updateBadges();showToast(`Idea "${escapeHtml(idea.conceptName)}" saved to Library!`,"success");if(btnEl){btnEl.innerHTML=` Saved`;
 }}}
 function handleSaveAllDiscoveredIdeas(btnEl){if(!state.discoveredIdeas.length)return;const autoSeriesGenerate=state.productionType==='series'&&Boolean(byId('seriesAutoGenerateCheckbox')?.checked);if(btnEl){btnEl.disabled=true;btnEl.innerHTML=` Saving...`;}
-const discoveredSnapshot=state.discoveredIdeas.map(idea=>{const copy=JSON.parse(JSON.stringify(idea));if(state.refImageUrl&&!copy.referenceImageUrl)copy.referenceImageUrl=state.refImageUrl;copy.referenceMode=state.refMode;return copy;});const savedIdeasBeforeSave=state.savedIdeas.map(idea=>JSON.parse(JSON.stringify(idea)));
+const discoveredSnapshot=state.discoveredIdeas.map(idea=>{const copy=JSON.parse(JSON.stringify(idea));if(state.refImageUrl&&!copy.referenceImageUrl)copy.referenceImageUrl=state.refImageUrl;copy.referenceMode=copy.referenceMode||state.refMode;
+if(!copy.imageResolution)copy.imageResolution=state.imageResolution;
+if(state.referenceFingerprint&&!copy.referenceStyleFingerprint)copy.referenceStyleFingerprint={...state.referenceFingerprint};
+return copy;});const savedIdeasBeforeSave=state.savedIdeas.map(idea=>JSON.parse(JSON.stringify(idea)));
 let addedCount=0;discoveredSnapshot.forEach(idea=>{if(!state.savedIdeas.some(saved=>saved.ideaId===idea.ideaId)){state.savedIdeas.unshift(idea);
 addedCount++;}});setTimeout(()=>{const persisted=persistSavedIdeas();if(!persisted){state.savedIdeas=savedIdeasBeforeSave;if(btnEl){btnEl.disabled=false;
 btnEl.innerHTML=` Save All`;}return;}updateBadges();state.discoveredIdeas=[];renderDiscoveredIdeas();if(addedCount>0){showToast(`Saved ${addedCount} idea(s) to Library. Discovered cards cleared.`,
