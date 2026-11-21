@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {execFileSync} from 'node:child_process';
 // Cloudflare Pages build: reuse the maintained Netlify business logic,
 // but isolate environment variables and session state for every request.
 const here=path.dirname(fileURLToPath(import.meta.url));
@@ -28,6 +29,7 @@ for(const name of ['index.html','gateway.css','gateway.js']){
  if(name==='index.html')c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1');
  fs.writeFileSync(path.join(dist,'rivis-cloud',name),c);
 }
+fs.writeFileSync(path.join(dist,'index.html'), '<!doctype html><html lang="en"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/rivis-cloud/"><title>RIVIS Cloud Gateway</title><a href="/rivis-cloud/">Open RIVIS Gateway</a></html>');
 fs.mkdirSync(path.join(functions,'api'),{recursive:true});
 fs.mkdirSync(path.join(functions,'rivis-cloud'),{recursive:true});
 const generated=[
@@ -61,4 +63,5 @@ fs.writeFileSync(path.join(functions,'rivis-cloud','callback.js'),
  "import {dispatch} from '../../legacy-runtime.generated.js';\nexport const onRequest=ctx=>dispatch(ctx,'auth-callback');\n");
 fs.writeFileSync(path.join(dist,'_headers'),
  '/rivis-cloud/*\n  Cache-Control: no-store\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: DENY\n');
-console.log('Cloudflare Pages Gateway built with '+names.length+' API endpoints');
+for (const file of [path.join(here,'legacy-runtime.generated.js'),path.join(functions,'api','[endpoint].js'),path.join(functions,'rivis-cloud','callback.js')]) execFileSync(process.execPath,['--check',file],{stdio:'inherit'});
+console.log('Cloudflare Pages Gateway built and syntax-checked with '+names.length+' API endpoints');
