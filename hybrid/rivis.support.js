@@ -2213,9 +2213,9 @@ async function loadCloudGalleryThumbnails(){
     const result=await sendCloudCommand('thumbnail',{fileId});
     if(!result?.base64)return;
     const url='data:'+(result.mimeType||'image/jpeg')+';base64,'+result.base64;
-    if(url.length<1300000){
+    if(url.length<400000){
      cloudThumbnailMemoryCache.set(fileId,url);
-     if(cloudThumbnailMemoryCache.size>36)cloudThumbnailMemoryCache.delete(cloudThumbnailMemoryCache.keys().next().value);
+     if(cloudThumbnailMemoryCache.size>24)cloudThumbnailMemoryCache.delete(cloudThumbnailMemoryCache.keys().next().value);
     }
     if(img.isConnected)img.src=url;
    }catch(error){
