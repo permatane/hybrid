@@ -27,12 +27,12 @@ for(const name of ['index.html','gateway.css','gateway.js']){
   c=c.replace(marker,"const API = '/api/';");
  }
  if(name==='index.html'){
-  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.5');
+  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.6');
   c=c.replace('href="/.netlify/functions/auth-start"','href="/api/auth-start"');
   c=c.replace(/Login aman melalui Netlify/g,'Login aman melalui Cloudflare');
   c=c.replace(/di Netlify/g,'di Cloudflare');
-  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.5');
-  c=c.replace(/v1\.3\.10/g,'v1.4.5');
+  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.6');
+  c=c.replace(/v1\.3\.10/g,'v1.4.6');
   if(!c.includes('href="/api/auth-start"'))throw Error('Login URL was not patched');
  }
  if(name==='gateway.js'){
@@ -49,15 +49,47 @@ for(const name of ['index.html','gateway.css','gateway.js']){
 fs.writeFileSync(path.join(dist,'index.html'), '<!doctype html><html lang="en"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/rivis-cloud/"><title>RIVIS Cloud Gateway</title><a href="/rivis-cloud/">Open RIVIS Gateway</a></html>');
 fs.mkdirSync(path.join(functions,'api'),{recursive:true});
 fs.mkdirSync(path.join(functions,'rivis-cloud'),{recursive:true});
+
+function cloudflareShared(){
+ let c=legacySource(path.join(source,'_shared.cjs'));
+ c=c.replace("const secret = process.env.RIVIS_SESSION_SECRET;",
+  "const secret = String(process.env.RIVIS_SESSION_SECRET || '').trim().replace(/^['\\\"]|['\\\"]$/g, '').replace(/\\s+/g, '');");
+ const start=c.indexOf('function seal(obj) {');
+ const stop=c.indexOf('function json(statusCode',start);
+ if(start<0||stop<0)throw Error('Shared session functions changed');
+ const replacement=String.raw`
+async function seal(obj) {
+ const iv=globalThis.crypto.getRandomValues(new Uint8Array(12));
+ const key=await globalThis.crypto.subtle.importKey('raw',sessionKey(),{name:'AES-GCM'},false,['encrypt']);
+ const enc=new Uint8Array(await globalThis.crypto.subtle.encrypt({name:'AES-GCM',iv,tagLength:128},key,new TextEncoder().encode(JSON.stringify(obj))));
+ return Buffer.concat([Buffer.from(iv),Buffer.from(enc.slice(-16)),Buffer.from(enc.slice(0,-16))]).toString('base64url');
+}
+async function unseal(value) {
+ try{
+  if(!value)return null;
+  const bytes=Buffer.from(value,'base64url');
+  if(bytes.length<29)return null;
+  const key=await globalThis.crypto.subtle.importKey('raw',sessionKey(),{name:'AES-GCM'},false,['decrypt']);
+  const plain=await globalThis.crypto.subtle.decrypt({name:'AES-GCM',iv:bytes.subarray(0,12),tagLength:128},key,Buffer.concat([bytes.subarray(28),bytes.subarray(12,28)]));
+  const session=JSON.parse(new TextDecoder().decode(plain));
+  return session?.refresh_token||session?.access_token?session:null;
+ }catch(_){return null;}
+}
+async function readSession(event){return unseal(parseCookie(event,COOKIE_SESSION));}
+async function sessionCookie(session){return cookie(COOKIE_SESSION,await seal(session),COOKIE_MAX_AGE);}
+`;
+ c=c.slice(0,start)+replacement+c.slice(stop);
+ if(!c.includes('const s=readSession(event);')||!c.includes('newCookie:sessionCookie(updated)'))throw Error('Session call sites changed');
+ return c.replace('const s=readSession(event);','const s=await readSession(event);')
+         .replace('newCookie:sessionCookie(updated)','newCookie:await sessionCookie(updated)');
+}
+
 const generated=[
  "import crypto from 'node:crypto';",
  "import {Buffer} from 'node:buffer';",
  "function makeShared(env){",
  " const process={env}; const module={exports:{}};",
- legacySource(path.join(source,'_shared.cjs')).replace(
-  "const secret = process.env.RIVIS_SESSION_SECRET;",
-  "const secret = String(process.env.RIVIS_SESSION_SECRET || '').trim().replace(/^['\\\"]|['\\\"]$/g, '').replace(/\\s+/g, '');"
- ),
+ cloudflareShared(),
  " return module.exports;",
  "}"
 ];
@@ -66,7 +98,7 @@ for(const name of names){
   'function handler_'+name.replace(/-/g,'_')+'(env){',
   ' const process={env}; const h=makeShared(env); const exports={};',
   name==='gateway-config'
-   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.5'")
+   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.6'")
    : name==='auth-callback'
     ? legacySource(path.join(source,name+'.js'))
        .replace("const invalid=()=>h.redirect(h.baseUrl()+'/rivis-cloud/?auth=failed',[h.cookie(h.COOKIE_STATE,'',0)]);",
@@ -86,7 +118,7 @@ for(const name of names){
        .replace("if(!tokens.access_token)return invalid();",
         "if(!tokens.access_token)return invalid('no_access_token');")
        .replace("return h.redirect(h.baseUrl()+'/rivis-cloud/?auth=connected',[h.cookie(h.COOKIE_STATE,'',0),h.sessionCookie(session)]);",
-        "stage='session_encryption'; const savedSession=h.sessionCookie(session); stage='redirect'; return h.redirect(h.baseUrl()+'/rivis-cloud/?auth=connected',[h.cookie(h.COOKIE_STATE,'',0),savedSession]);")
+        "stage='session_encryption'; const savedSession=await h.sessionCookie(session); stage='redirect'; return h.redirect(h.baseUrl()+'/rivis-cloud/?auth=connected',[h.cookie(h.COOKIE_STATE,'',0),savedSession]);")
        .replace("}catch(_){return invalid();}",
         "}catch(e){console.error('RIVIS OAuth callback at '+stage+':',e?.message||e);return invalid('callback_'+stage+'_failed');}")
    : name==='auth-start'
