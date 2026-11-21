@@ -27,12 +27,12 @@ for(const name of ['index.html','gateway.css','gateway.js']){
   c=c.replace(marker,"const API = '/api/';");
  }
  if(name==='index.html'){
-  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.7');
+  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.8');
   c=c.replace('href="/.netlify/functions/auth-start"','href="/api/auth-start"');
   c=c.replace(/Login aman melalui Netlify/g,'Login aman melalui Cloudflare');
   c=c.replace(/di Netlify/g,'di Cloudflare');
-  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.7');
-  c=c.replace(/v1\.3\.10/g,'v1.4.7');
+  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.8');
+  c=c.replace(/v1\.3\.10/g,'v1.4.8');
   if(!c.includes('href="/api/auth-start"'))throw Error('Login URL was not patched');
  }
  if(name==='gateway.js'){
@@ -64,7 +64,7 @@ fs.writeFileSync(path.join(dist,'index.html'), '<!doctype html><html lang="en"><
 const qcSource=path.join(here,'vectorichqc');
 const qcPublic=path.join(dist,'vectorichqc');
 fs.mkdirSync(qcPublic,{recursive:true});
-for(const name of ['launch.html','launch.js']) fs.copyFileSync(path.join(qcSource,name),path.join(qcPublic,name));
+fs.copyFileSync(path.join(qcSource,'launch.html'),path.join(qcPublic,'launch.html'));
 fs.mkdirSync(path.join(functions,'api'),{recursive:true});
 fs.writeFileSync(path.join(functions,'api','vectorichqc-launch.js'),
  "import {activeCloudSession} from '../../legacy-runtime.generated.js';\n"+
@@ -137,7 +137,7 @@ for(const name of names){
   ' const process={env}; const h=makeShared(env); const exports={};',
   name==='cloud-data' ? cloudflareCatalog()
    : name==='gateway-config'
-   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.7'")
+   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.8'")
    : name==='auth-callback'
     ? legacySource(path.join(source,name+'.js'))
        .replace("const invalid=()=>h.redirect(h.baseUrl()+'/rivis-cloud/?auth=failed',[h.cookie(h.COOKIE_STATE,'',0)]);",

@@ -60,5 +60,10 @@ test('a permitted RIVIS session opens VectorichQC once; direct, invalid and repl
   assert.deepEqual(attempts.map(r => r.status).sort(), [200, 403]);
   assert.match(await attempts.find(r => r.ok).text(), /VectorichQC v4\.04/);
   assert.equal(assetReads, 1);
+  const view = await worker.fetch(new Request(qcOrigin + '/view'), workerEnv);
+  assert.equal(view.status, 200);
+  assert.equal(view.headers.get('Content-Security-Policy'), 'frame-ancestors ' + gatewayOrigin);
+  assert.equal(view.headers.has('X-Frame-Options'), false);
+  assert.match(await view.text(), /VectorichQC v4\.04/);
   database.close();
 });

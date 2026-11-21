@@ -33,10 +33,26 @@ async function verify(grant, secret) {
   return claims;
 }
 
+async function serveQC(env, embed = false) {
+  const asset = await env.ASSETS.fetch(new Request(QC_ORIGIN + '/'));
+  if (!asset.ok || !asset.headers.get('Content-Type')?.startsWith('text/html')) return denied(503);
+  const responseHeaders = new Headers({...headers, 'Content-Type': 'text/html; charset=utf-8'});
+  if (embed) {
+    responseHeaders.delete('X-Frame-Options');
+    responseHeaders.set('Content-Security-Policy', 'frame-ancestors ' + RIVIS_ORIGIN);
+  }
+  return new Response(asset.body, {headers: responseHeaders});
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.origin !== QC_ORIGIN || url.pathname !== '/open' || request.method !== 'POST' ||
+    if (url.origin !== QC_ORIGIN) return denied();
+    if (url.pathname === '/view' && request.method === 'GET') {
+      try { return await serveQC(env, true); }
+      catch { return denied(503); }
+    }
+    if (url.pathname !== '/open' || request.method !== 'POST' ||
         request.headers.get('Origin') !== RIVIS_ORIGIN ||
         request.headers.get('Content-Type')?.split(';', 1)[0] !== 'application/x-www-form-urlencoded') return denied();
     let claims;
@@ -69,11 +85,7 @@ export default {
         db.prepare('DELETE FROM used_grants WHERE expires <= unixepoch()'),
       ]);
       if (use.meta.changes !== 1) return denied();
-      const asset = await env.ASSETS.fetch(new Request(QC_ORIGIN + '/'));
-      if (!asset.ok || !asset.headers.get('Content-Type')?.startsWith('text/html')) return denied(503);
-      return new Response(asset.body, {
-        headers: {...headers, 'Content-Type': 'text/html; charset=utf-8'},
-      });
+      return await serveQC(env);
     } catch {
       return denied(503);
     }

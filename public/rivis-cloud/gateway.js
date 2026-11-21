@@ -330,14 +330,60 @@
     }
     handleCanvasCommand(event);
   });
+  let checkingLogin = false;
+  let loginTimer;
+  let loginDeadline = 0;
+  const authChannel = typeof window.BroadcastChannel === 'function'
+    ? new window.BroadcastChannel('rivis-cloud-auth')
+    : null;
+  async function checkGoogleLogin() {
+    if (!loginDeadline || signedIn || checkingLogin) return;
+    if (Date.now() >= loginDeadline) {
+      clearInterval(loginTimer);
+      loginDeadline = 0;
+      return;
+    }
+    checkingLogin = true;
+    try {
+      const session = await request('session', {}, 8000);
+      if (!session.connected) return;
+      clearInterval(loginTimer);
+      loginDeadline = 0;
+      signedIn = true;
+      render();
+      await testConnection();
+    } catch (_) {
+      // Retry while the external Google tab is completing sign-in.
+    } finally {
+      checkingLogin = false;
+    }
+  }
+  function connectGoogle(event) {
+    if (!channel || !window.opener) return;
+    event.currentTarget.target = '_blank';
+    event.currentTarget.rel = 'noopener';
+    clearInterval(loginTimer);
+    loginDeadline = Date.now() + 180000;
+    loginTimer = setInterval(checkGoogleLogin, 2500);
+    message('Selesaikan login Google di tab baru. Tab Cloud Gateway ini akan menghubungkan RIVIS secara otomatis.');
+  }
+  window.addEventListener('focus', checkGoogleLogin);
+  if (authChannel) authChannel.onmessage = event => {
+    if (event.data === 'connected') void checkGoogleLogin();
+  };
   async function init() {
     $('gatewayOrigin').textContent = location.origin;
     $('oauthRedirect').textContent = location.origin + '/rivis-cloud/callback';
     const auth = params.get('auth');
     if (auth === 'failed') message('Login belum berhasil. Periksa Google OAuth consent screen, Redirect URI, dan Test Users.');
-    if (auth === 'connected') message('Login Google berhasil. RIVIS Cloud sedang memeriksa penyimpanan.');
+    if (auth === 'connected') {
+      message('Login Google berhasil. Kembali ke tab RIVIS setelah penyimpanan siap.');
+      authChannel?.postMessage('connected');
+    }
     if (auth) history.replaceState(null, '', location.pathname + (channel ? '?channel=' + encodeURIComponent(channel) : ''));
+    $('loginBtn').addEventListener('click', connectGoogle);
     $('logoutBtn').addEventListener('click', disconnect);
+    notifyReady();
     try {
       const [cfg, session] = await Promise.all([request('gateway-config'), request('session')]);
       config = cfg;
