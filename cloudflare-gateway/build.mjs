@@ -27,12 +27,12 @@ for(const name of ['index.html','gateway.css','gateway.js']){
   c=c.replace(marker,"const API = '/api/';");
  }
  if(name==='index.html'){
-  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.2');
+  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.3');
   c=c.replace('href="/.netlify/functions/auth-start"','href="/api/auth-start"');
   c=c.replace(/Login aman melalui Netlify/g,'Login aman melalui Cloudflare');
   c=c.replace(/di Netlify/g,'di Cloudflare');
-  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.2');
-  c=c.replace(/v1\.3\.10/g,'v1.4.2');
+  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.3');
+  c=c.replace(/v1\.3\.10/g,'v1.4.3');
   if(!c.includes('href="/api/auth-start"'))throw Error('Login URL was not patched');
  }
  if(name==='gateway.js'){
@@ -50,7 +50,10 @@ const generated=[
  "import {Buffer} from 'node:buffer';",
  "function makeShared(env){",
  " const process={env}; const module={exports:{}};",
- legacySource(path.join(source,'_shared.cjs')),
+ legacySource(path.join(source,'_shared.cjs')).replace(
+  "const secret = process.env.RIVIS_SESSION_SECRET;",
+  "const secret = String(process.env.RIVIS_SESSION_SECRET || '').trim().replace(/^['\\\"]|['\\\"]$/g, '').replace(/\\s+/g, '');"
+ ),
  " return module.exports;",
  "}"
 ];
@@ -59,12 +62,12 @@ for(const name of names){
   'function handler_'+name.replace(/-/g,'_')+'(env){',
   ' const process={env}; const h=makeShared(env); const exports={};',
   name==='gateway-config'
-   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.2'")
+   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.3'")
    : name==='auth-start'
     ? legacySource(path.join(source,name+'.js'))
        .replace("crypto.randomBytes(32).toString('base64url')", "Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(32))).toString('base64url')")
        .replace("return h.json(500,{error:h.normalizeError(e)});",
-        "return h.json(500,{error: e?.message?.includes('RIVIS_SESSION_SECRET') ? 'RIVIS_SESSION_SECRET invalid: must be 32 random bytes encoded as Base64' : e?.message?.includes('GOOGLE_CLIENT') ? 'Google OAuth client credentials missing' : 'Google OAuth initialization failed',code:'oauth_init_failed'});")
+        "return h.json(500,{error: e?.message?.includes('RIVIS_SESSION_SECRET') ? 'RIVIS_SESSION_SECRET tidak valid atau belum terbaca di Production' : e?.message?.includes('GOOGLE_CLIENT') ? 'Google OAuth client credentials missing' : 'Google OAuth initialization failed',code:'oauth_init_failed',diagnostic:e?.message?.includes('RIVIS_SESSION_SECRET')?{configured:typeof process.env.RIVIS_SESSION_SECRET==='string'&&process.env.RIVIS_SESSION_SECRET.length>0,rawLength:String(process.env.RIVIS_SESSION_SECRET||'').length,base64Characters:String(process.env.RIVIS_SESSION_SECRET||'').trim().replace(/^['\\\"]|['\\\"]$/g,'').replace(/\\s+/g,'').length,decodedBytes:Buffer.from(String(process.env.RIVIS_SESSION_SECRET||'').trim().replace(/^['\\\"]|['\\\"]$/g,'').replace(/\\s+/g,''),'base64').length}:undefined});")
     : legacySource(path.join(source,name+'.js')),
   " if(typeof exports.handler!=='function')throw Error('Handler missing');",
   ' return exports.handler;',
