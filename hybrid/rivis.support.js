@@ -1741,14 +1741,15 @@ function updateCloudControls(){
 function cloudSyncStatus(message){const el=$('rvCloudSyncStatus');if(el)el.textContent=String(message||'');}
 function cloudEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function cloudSafeIdea(idea){
- const clone=JSON.parse(JSON.stringify(idea));
- const clean=value=>{
-  if(typeof value==='string'&&(/^(data:image\/|blob:)/i.test(value)))return '';
-  if(Array.isArray(value))return value.map(clean);
-  if(value&&typeof value==='object'){const out={};for(const [k,v] of Object.entries(value)){if(['generatedImageUrl','generatedImagePreviewUrl','refImageUrl','referenceImage','imageBase64'].includes(k)&&typeof v==='string'&&(/^(data:image\/|blob:)/i.test(v)))continue;out[k]=clean(v);}return out;}
+ // Strip multi-megabyte image Data URLs DURING serialization, not after
+ // cloning the entire image. Keeps Cloud JSON small on mobile devices.
+ return JSON.parse(JSON.stringify(idea,(key,value)=>{
+  const binary=typeof value==='string'&&/^(data:image\/|blob:)/i.test(value);
+  if(binary&&['generatedImageUrl','generatedImagePreviewUrl','refImageUrl','referenceImage','imageBase64'].includes(key))return undefined;
+  if(binary)return '';
+  if((key==='referenceImageBlob'||key==='referenceImageFile')&&value instanceof Blob)return undefined;
   return value;
- };
- return clean(clone);
+ }));
 }
 function sendCloudCommand(command,payload){
  return new Promise((resolve,reject)=>{
