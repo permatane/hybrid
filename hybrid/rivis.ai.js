@@ -562,16 +562,18 @@ try{
  state.referenceFingerprint=safeReferenceFingerprint(parsed.styleFingerprint);
  if(state.referenceFingerprint&&!state.referenceFingerprint.paletteHex?.length){const extracted=await extractImagePalette(imageAtStart,5);if(state.refImageUrl===imageAtStart&&extracted?.length)state.referenceFingerprint.paletteHex=extracted.filter(x=>/^#[0-9A-Fa-f]{6}$/.test(x)).slice(0,8);}
  state.referenceAnalysis={category:parsed.category||'',style:parsed.style||'',analyzedAt:new Date().toISOString()};
- if(parsed.suggestedSimplePrompt&&typeof parsed.suggestedSimplePrompt==='string'){
+ if(state.refMode!=='STYLE REFERENCE'&&parsed.suggestedSimplePrompt&&typeof parsed.suggestedSimplePrompt==='string'){
   const prompt=byId('simplePromptInput');if(prompt){prompt.value=parsed.suggestedSimplePrompt.slice(0,1800);prompt.dispatchEvent(new Event('input',{bubbles:true}));}}
- const category=categoryFromAI(parsed.category);
- if(category){const el=byId('stockCategorySelect');if(el){el.value=category.id;handleCategoryChange(category.id);}}
- setSubcategoryFromAI(parsed.subcategory);
+ if(state.refMode!=='STYLE REFERENCE'){
+  const category=categoryFromAI(parsed.category);
+  if(category){const el=byId('stockCategorySelect');if(el){el.value=category.id;handleCategoryChange(category.id);}}
+  setSubcategoryFromAI(parsed.subcategory);
+ }
  const anyCreative=Boolean(parsed.style||parsed.composition||parsed.purpose);
  if(anyCreative){const checkbox=byId('autoSelectBestCheckbox');if(checkbox){checkbox.checked=false;toggleAutoSelectBest(false);}}
  setOptionFromAI('visualStyleSelect',parsed.style,'selectedStyle');
  setOptionFromAI('commercialPurposeSelect',parsed.purpose,'selectedPurpose');
- setOptionFromAI('compositionSelect',parsed.composition,'selectedComposition');
+ if(state.refMode!=='STYLE REFERENCE')setOptionFromAI('compositionSelect',parsed.composition,'selectedComposition');
  setOptionFromAI('assetTypeSelect',parsed.assetType,'selectedAssetType');
  if(parsed.palette&&COLOR_PALETTES.includes(parsed.palette))setPaletteByName(parsed.palette);
  else if(state.referenceFingerprint?.paletteHex?.length){const el=byId('colorPaletteSelect');if(el){el.value='__auto__';handlePaletteChange('__auto__');}}
@@ -585,8 +587,8 @@ try{
    li.className='cursor-pointer hover:text-purple-300';li.addEventListener('click',()=>{const input=byId('refModInstructionInput');if(input)input.value=suggestion;});list.appendChild(li);});
   byId('refSuggestionsBox')?.classList.toggle('hidden',!list.children.length);
  }
- showToast('Reference analyzed: category, style, palette and asset type aligned where valid.','success');
-}catch(err){console.error('AI Reference Analysis Error:',err);showToast('Reference analysis failed: '+String(err?.message||'unknown').slice(0,150)+'. Existing settings retained.','error');}
+ showToast('RSI Style Fingerprint siap: proporsi, bentuk, garis, pola, palet dan karakter visual dianalisis.','success');return true;
+}catch(err){console.error('AI Reference Analysis Error:',err);showToast('Reference analysis failed: '+String(err?.message||'unknown').slice(0,150)+'. Existing settings retained.','error');return false;}
 finally{btn.disabled=false;btn.classList.remove('opacity-80','cursor-not-allowed');btn.innerHTML='<span id="analyzeRefAiText">AI Analyze</span>';}
 }
 
@@ -608,7 +610,16 @@ if(state.productionType==='collection'){
 if(state.productionType==='series'){const length=currentSeriesLength();const field=byId('seriesLengthCustomInput');const isCustom=byId('seriesLengthSelect')?.value==='custom';if(!Number.isInteger(length)||length<2||length>12||(isCustom&&(!field?.value||Number(field.value)<2||Number(field.value)>12))){if(field){field.setAttribute('aria-invalid','true');field.focus();}showToast('Series Length harus 2–12 scene.','error');return;}field?.removeAttribute('aria-invalid');state.seriesLength=length;state.seriesCreationMode=currentSeriesCreationMode();if(state.seriesCreationMode==='manual'){const scenes=currentManualSeriesScenes();const missing=scenes.findIndex(text=>text.length<8);if(missing>=0){const input=byId('seriesManualSceneInput'+missing);if(input){input.setAttribute('aria-invalid','true');input.focus();}showToast('Isi deskripsi Scene '+(missing+1)+' (minimal 8 karakter).','error');return;}const normalized=scenes.map(x=>x.toLowerCase().replace(/\s+/g,' ').trim());if(new Set(normalized).size!==scenes.length){showToast('Adegan manual tidak boleh sama. Buat aktivitas/interaksi berbeda untuk setiap scene.','error');return;}if(scenes.some(x=>scanIpRisk(x).length)){showToast('Manual scene mengandung instruksi meniru merek atau karakter terlindungi.','error');return;}state.seriesManualScenes=scenes;}state.seriesContinuityLock=byId('seriesContinuityLockCheckbox')?.checked!==false;state.seriesAnchorReference=byId('seriesAnchorReferenceCheckbox')?.checked!==false;state.seriesAutoGenerate=Boolean(byId('seriesAutoGenerateCheckbox')?.checked);}
 const providedPrompt=byId('simplePromptInput').value.trim();const chosenOutputMode=getOutputMode();const rasterSettings=readRasterSettings();
 const simplePrompt=providedPrompt||(chosenOutputMode!=='vector'?'Develop an original commercially useful real-world scene with clear human activity, practical purpose and credible setting':'');
-if(!simplePrompt){showToast("Please enter a Simple Prompt first.","error");return;}if(state.productionType==='series'&&state.refImageUrl&&!state.referenceFingerprint&&typeof handleAnalyzeReferenceImageWithAI==='function'){const refAtStart=state.refImageUrl;showToast('Series automation: menganalisis visual style referensi terlebih dahulu...','info');await handleAnalyzeReferenceImageWithAI();if(state.refImageUrl===refAtStart)byId('simplePromptInput').value=simplePrompt;}const risk=scanIpRisk([simplePrompt,byId('targetBuyerInput')?.value,
+if(!simplePrompt){showToast("Please enter a Simple Prompt first.","error");return;}if(state.refImageUrl&&!state.referenceFingerprint&&!offlineTestMode){
+ const refAtStart=state.refImageUrl;
+ showToast('RSI: menganalisis gaya referensi sebelum Discover Ideas...','info');
+ const analyzed=await handleAnalyzeReferenceImageWithAI();
+ if(!analyzed||state.refImageUrl!==refAtStart||!state.referenceFingerprint){
+  showToast('RSI gagal membaca ciri gaya. Jalankan AI Analyze dan coba lagi; hasil tidak dialihkan ke gaya kartun default.','error');
+  return;
+ }
+ if(state.refMode==='STYLE REFERENCE')byId('simplePromptInput').value=simplePrompt;
+}const risk=scanIpRisk([simplePrompt,byId('targetBuyerInput')?.value,
 byId('designNeedInput')?.value,byId('refModInstructionInput')?.value].join(' '));if(risk.length){showToast('IP Risk Guard: '+risk.join(', ')+'. Ganti istilah berisiko sebelum membuat konsep.',
 'error');return;}const noTextChecked=byId('noTextCheckbox').checked;state.noTextChecked=noTextChecked;state.svgFriendly=chosenOutputMode==='vector'&&byId('svgFriendlyCheckbox')?.checked!==false;
 state.gradientEnabled=chosenOutputMode==='vector'&&byId('gradientColorCheckbox')?.checked===true;const collectionItemCount=byId('collectionItemCountInput').value;
