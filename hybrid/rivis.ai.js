@@ -350,6 +350,27 @@ function rivisRsiStyleLock(idea,prompt){
   (idea.promptManualOverride===true?' Explicit user-edited style instructions take precedence where they conflict.':'');
 }
 
+async function rivisEnsureCardRsiStyle(idea,signal=null){
+ if(offlineTestMode||ideaOutputMode(idea)!=='vector'||!idea)return;
+ if(idea.referenceMode==='COMPOSITION REFERENCE'||idea.referenceMode==='CONCEPT REFERENCE')return;
+ if(idea.referenceStyleFingerprint)return;
+ const source=idea.referenceImageUrl||idea.refImageUrl;
+ if(!source)return;
+ const imagePart=await rivisBuildCompactImagePart(source,1536,.9);
+ const schema='{"medium":"","styleLabel":"","shapeLanguage":"","proportions":"","silhouette":"","lineTreatment":"","patternLanguage":"","characterTreatment":"","colorLogic":"","paletteHex":["#000000"],"shadingDepth":"","texture":"","mood":"","composition":"","negativeStyles":"","avoidCharacteristics":""}';
+ const question='You are an expert visual editorial style analyst. Examine the attached image and return STRICT JSON describing transferable STYLE DNA only. Do not identify people, artists, brands or source identity; do not copy subjects, apparel or exact arrangement. Diagnose visual medium, mature editorial vs cute cartoon anatomy, elongated or rounded proportions, contour rhythm, character face detail, garment/shape layering, intentionally repeated decorative patterns, bold color blocking and sparse print texture ONLY IF visibly present. Avoid broad labels such as generic cartoon unless that is truly what is depicted. JSON schema: '+schema+'. Use concrete, concise phrases for every observed field.';
+ const result=await callGeminiApi('gemini-3-flash-preview',{contents:[{parts:[{text:question},imagePart]}],generationConfig:{responseMimeType:'application/json'}},signal);
+ const raw=(result?.candidates?.[0]?.content?.parts||[]).filter(x=>typeof x.text==='string').map(x=>x.text).join('');
+ const parsed=JSON.parse(raw.replace(/^\s*```(?:json)?\s*/i,'').replace(/\s*```\s*$/,''));
+ const fingerprint=safeReferenceFingerprint(parsed?.styleFingerprint||parsed);
+ if(!fingerprint||!fingerprint.shapeLanguage||!fingerprint.lineTreatment)throw new Error('RSI tidak mendapatkan analisis siluet dan garis dari referensi; gambar belum digenerate supaya tidak menjadi kartun generik.');
+ idea.referenceStyleFingerprint=fingerprint;
+ const live=state.savedIdeas.find(x=>String(x.ideaId)===String(idea.ideaId));
+ if(live&&!live.referenceStyleFingerprint){
+  live.referenceStyleFingerprint={...fingerprint};
+  persistSavedIdeas();
+ }
+}
 function editorialStyleGuidance(idea,style){const name=String(style||idea?.creativeDirection||'');
  const hand=/engraving|woodcut|risograph|screen print|ink|mid-century|editorial|collage|folk art|illustration/i.test(name);
  return 'STYLE FIDELITY: Use the chosen '+name+' visual grammar and preserve distinct contour shapes, meaningful line rhythms and intended geometric details; do not automatically render generic cute cartoon clipart.'+(hand?' For SVG-friendliness use sparse clean vector hatching, geometric halftone or separated print-style layers only where essential; avoid raster grain and microscopic marks.':'');}
@@ -1149,12 +1170,12 @@ if(btn){btn.disabled=true;btn.classList.add('opacity-80','cursor-not-allowed');b
 const imageTimer=setInterval(()=>{imagePct=Math.min(92,imagePct+Math.max(1,(92-imagePct)*0.04));setInnerProgress(btn,imagePct,
 true);},800);try{const negPrompt=idea.negativePrompt??byId('negativePromptInput')?.value??'';let ratio='1:1';if(idea.aspectRatio&&idea.aspectRatio.includes(':')){ratio=generationRatio(idea.aspectRatio);
 }else{const sizeObj=IDEA_STUDIO_SIZES.find(s=>s.id===state.ideaStudioSizeId)||IDEA_STUDIO_SIZES[0];ratio=generationRatio(sizeObj.id==='custom'?state.ideaCustomWidth+':'+state.ideaCustomHeight:sizeObj.nativeRatio);
-}await rivisEnsureCollectionManifest(idea,signal);const basePrompt=buildStockImagePrompt(idea,negPrompt);const collectionDirective=rivisCollectionPrompt(idea);
-const effectivePrompt=collectionDirective?basePrompt+'\n'+collectionDirective:basePrompt;const qualityDirective=qualityFirstPrompt(idea);const qualityBase=qualityDirective?`${effectivePrompt}\n${qualityDirective}`:effectivePrompt;const promptOptimization=rivisSmartPromptOptimize(idea,qualityBase);const preGenerationGuard=rivisPreGenerationGuard(idea,promptOptimization.prompt);if(!preGenerationGuard.ok)throw new Error('Pre-Generation Guard: '+preGenerationGuard.issues.filter(x=>x.severity==='critical').map(x=>x.text).join(' '));const fullPrompt=preGenerationGuard.prompt;
+}await rivisEnsureCollectionManifest(idea,signal);await rivisEnsureCardRsiStyle(idea,signal);const basePrompt=buildStockImagePrompt(idea,negPrompt);const collectionDirective=rivisCollectionPrompt(idea);
+const effectivePrompt=collectionDirective?basePrompt+'\n'+collectionDirective:basePrompt;const qualityDirective=qualityFirstPrompt(idea);const qualityBase=qualityDirective?`${effectivePrompt}\n${qualityDirective}`:effectivePrompt;const promptOptimization=rivisSmartPromptOptimize(idea,qualityBase);const preGenerationGuard=rivisPreGenerationGuard(idea,promptOptimization.prompt);if(!preGenerationGuard.ok)throw new Error('Pre-Generation Guard: '+preGenerationGuard.issues.filter(x=>x.severity==='critical').map(x=>x.text).join(' '));const fullPrompt=rivisRsiStyleLock(idea,preGenerationGuard.prompt);
 const styleSource=idea.referenceImageUrl||idea.refImageUrl||null;
 let styleReferencePart=null;
 if(styleSource&&!offlineTestMode){
- try{styleReferencePart=await rivisBuildRepairReference(styleSource);}
+ try{styleReferencePart=await rivisBuildCompactImagePart(styleSource,1536,.9);}
  catch(error){
   console.warn('RIVIS style reference preparation failed:',error?.message||error);
   if(!silent)showToast('Gambar referensi tidak dapat dibaca; generate memakai deskripsi gaya saja.','info');
