@@ -45,7 +45,7 @@ for(const name of names){
  generated.push(
   'function handler_'+name.replace(/-/g,'_')+'(env){',
   ' const process={env}; const h=makeShared(env); const exports={};',
-  legacySource(path.join(source,name+'.js')),
+  name==='gateway-config' ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.0'") : legacySource(path.join(source,name+'.js')),
   " if(typeof exports.handler!=='function')throw Error('Handler missing');",
   ' return exports.handler;',
   '}'
