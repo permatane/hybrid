@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.132. Private VectorichQC launch from the RIVIS session. */
+/* RIVIS GitHub Support — v3.4.133. Open the private VectorichQC launcher with a regular browser link. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -1459,27 +1459,30 @@ window.RIVIS_VECTOR=Object.freeze({open,close,convert,downloadSVG:downloadSvg});
  }
  const metaNav=byId('navTabMetaGenTop');
  if(metaNav&&!byId('navTabVectorichQcTop')){
-  metaNav.insertAdjacentHTML('afterend',`<button id="navTabVectorichQcTop" type="button" class="nav-tab flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-cyan-300 hover:text-white bg-cyan-950/60 border border-cyan-800/70 hover:bg-cyan-900/70" aria-label="Open VECTORICH QC in a new tab" title="Buka Vectorich QC di tab baru"><span aria-hidden="true">↗</span> VECTORICH QC</button>`);
+  metaNav.insertAdjacentHTML('afterend',`<a id="navTabVectorichQcTop" href="https://rivis-cloud.pages.dev/vectorichqc/launch" target="_blank" rel="opener" class="nav-tab flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-cyan-300 hover:text-white bg-cyan-950/60 border border-cyan-800/70 hover:bg-cyan-900/70" aria-label="Open VECTORICH QC in a new tab" title="Buka Vectorich QC di tab baru"><span aria-hidden="true">↗</span> VECTORICH QC</a>`);
   byId('navTabVectorichQcTop').addEventListener('click',openVectorichQC);
  }
- function openVectorichQC(){
-  const origin='https://rivis-cloud.pages.dev';
+ function openVectorichQC(event){
+  const link=event.currentTarget;
+  const launcher=new URL(link.href);
   const nonce=Array.from(window.crypto.getRandomValues(new Uint8Array(24)),value=>value.toString(16).padStart(2,'0')).join('');
-  let popup;
-  const receive=event=>{
-   if(event.origin!==origin||event.source!==popup||event.data?.type!=='RIVIS_QC_READY'||event.data.nonce!==nonce)return;
-   window.clearTimeout(timeout);
+  launcher.hash=nonce;
+  link.href=launcher.href;
+  const reset=()=>{
    window.removeEventListener('message',receive);
-   popup.postMessage({type:'RIVIS_QC_OPEN',nonce},origin);
+   if(link.href===launcher.href){
+    launcher.hash='';
+    link.href=launcher.href;
+   }
   };
-  const timeout=window.setTimeout(()=>window.removeEventListener('message',receive),30000);
-  window.addEventListener('message',receive);
-  popup=window.open(origin+'/vectorichqc/launch.html#'+nonce,'_blank');
-  if(!popup){
+  const receive=message=>{
+   if(message.origin!==launcher.origin||!message.source||message.data?.type!=='RIVIS_QC_READY'||message.data.nonce!==nonce)return;
    window.clearTimeout(timeout);
-   window.removeEventListener('message',receive);
-   if(typeof showToast==='function')showToast('Izinkan tab baru untuk membuka VectorichQC.','error');
-  }
+   message.source.postMessage({type:'RIVIS_QC_OPEN',nonce},launcher.origin);
+   reset();
+  };
+  const timeout=window.setTimeout(reset,30000);
+  window.addEventListener('message',receive);
  }
  const saved=byId('tabSectionSavedIdeas');
  if(saved&&!byId('tabSectionMetaGen')){
