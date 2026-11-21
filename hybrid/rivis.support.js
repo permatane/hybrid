@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.112. Restore consistent 4K raster default and persist style references on Library cards. */
+/* RIVIS GitHub Support — v3.4.113. Restore RSI Playful Editorial Fashion and preserve Style DNA. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -92,7 +92,7 @@ const STOCK_CATEGORIES=[
 ];
 const LEGACY_STOCK_CATEGORY_ALIASES=Object.freeze({bg:'abstract',vector:'abstract','3d':'abstract'});
 const VISUAL_STYLES_BY_MODE=Object.freeze({
- vector:['Modern Flat Illustration','Editorial Illustration','Playful Editorial Flat Vector','Editorial Fashion Illustration','Fashion Figure Illustration','Contemporary Character Editorial','Stylized Lifestyle Editorial','Bold Color-Block Illustration','Graphic Narrative Illustration','Neo-Brutalist Editorial Graphics','Organic Geometric Editorial','Monochrome Ink Editorial','Geometric Editorial','Botanical Illustration','Character Illustration','Minimalist Line Art','Isometric Illustration','Paper Cut Collage','Screen Print / Risograph','Vintage Engraving','Woodcut Print','Hand-Drawn Ink','Retro Mid-Century','Bauhaus Geometry','Swiss Minimalist Graphic','Children’s Book Illustration','Naive Folk Art','Editorial Cutout','Abstract Organic','Bold Pop Art','Technical Illustration','Monoline Illustration'],
+ vector:['Modern Flat Illustration','Editorial Illustration','Playful Editorial Flat Vector','Playful Editorial Fashion','Editorial Fashion Illustration','Fashion Figure Illustration','Contemporary Character Editorial','Stylized Lifestyle Editorial','Bold Color-Block Illustration','Graphic Narrative Illustration','Neo-Brutalist Editorial Graphics','Organic Geometric Editorial','Monochrome Ink Editorial','Geometric Editorial','Botanical Illustration','Character Illustration','Minimalist Line Art','Isometric Illustration','Paper Cut Collage','Screen Print / Risograph','Vintage Engraving','Woodcut Print','Hand-Drawn Ink','Retro Mid-Century','Bauhaus Geometry','Swiss Minimalist Graphic','Children’s Book Illustration','Naive Folk Art','Editorial Cutout','Abstract Organic','Bold Pop Art','Technical Illustration','Monoline Illustration'],
  photo:['Natural Commercial Photography','Editorial Documentary Photography','Premium Product Photography','Lifestyle Storytelling Photography','Cinematic Narrative Photography','Cinematic Film-Still Photography','Studio Still Life','Food Editorial Photography','Fashion Editorial Photography','Architectural Photography','Travel Documentary Photography','Environmental Portrait Photography','Cinematic Advertising Photography'],
  editorial:['Editorial Documentary Photography','Lifestyle Storytelling Photography','Cinematic Narrative Photography','Cinematic Film-Still Photography','Fashion Editorial Photography','Environmental Portrait Photography','Travel Documentary Photography','Food Editorial Photography','Architectural Photography'],
  advertising:['Cinematic Advertising Photography','Premium Product Photography','Lifestyle Storytelling Photography','Studio Still Life','Fashion Editorial Photography','Food Editorial Photography','Natural Commercial Photography'],
@@ -1516,7 +1516,7 @@ window.RIVIS_LIBRARY_BRIDGE=Object.freeze({
   const input=byId('simplePromptInput');
   if(input){input.value=prompt;input.dispatchEvent(new Event('input',{bubbles:true}));}
   state.refImageUrl=idea.referenceImageUrl||idea.refImageUrl||null;
-  state.refImageFile=null;state.referenceFingerprint=null;state.referenceAnalysis=null;
+  state.refImageFile=null;state.referenceFingerprint=idea.referenceStyleFingerprint?{...idea.referenceStyleFingerprint}:null;state.referenceAnalysis=null;
   const mode=String(idea.referenceMode||'');
   if(mode&&REFERENCE_MODES.some(x=>x.id===mode))state.refMode=mode;
   const modeSelect=byId('refModeSelect');if(modeSelect)modeSelect.value=state.refMode;
