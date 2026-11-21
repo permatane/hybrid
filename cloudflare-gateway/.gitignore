@@ -1,0 +1,4 @@
+dist/
+functions/
+legacy-runtime.generated.js
+node_modules/
