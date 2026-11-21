@@ -15,7 +15,7 @@ const read=file=>fs.readFileSync(file,'utf8');
 function legacySource(file){
  const c=read(file).replace(/(?:const|let|var)\s+crypto\s*=\s*require\(['"]node:crypto['"]\)\s*;?/g,'').replace(/(?:const|let|var)\s+h\s*=\s*require\(['"]\.\/_shared\.cjs['"]\)\s*;?/g,'');
  if(/require\(/.test(c))throw Error('Unsupported require in '+file);
- return c;
+ return c.replace(/crypto\.randomBytes\(\s*(\d+)\s*\)/g,(_match,count)=>"Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array("+count+")))");
 }
 fs.rmSync(dist,{recursive:true,force:true});
 fs.mkdirSync(path.join(dist,'rivis-cloud'),{recursive:true});
@@ -27,18 +27,32 @@ for(const name of ['index.html','gateway.css','gateway.js']){
   c=c.replace(marker,"const API = '/api/';");
  }
  if(name==='index.html'){
-  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.6');
+  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.7');
   c=c.replace('href="/.netlify/functions/auth-start"','href="/api/auth-start"');
   c=c.replace(/Login aman melalui Netlify/g,'Login aman melalui Cloudflare');
   c=c.replace(/di Netlify/g,'di Cloudflare');
-  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.6');
-  c=c.replace(/v1\.3\.10/g,'v1.4.6');
+  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.7');
+  c=c.replace(/v1\.3\.10/g,'v1.4.7');
   if(!c.includes('href="/api/auth-start"'))throw Error('Login URL was not patched');
  }
  if(name==='gateway.js'){
   c=c.replace('RIVIS_DRIVE_FOLDER_ID di Netlify Environment Variables','RIVIS_DRIVE_FOLDER_ID di Cloudflare Variables and Secrets');
   c=c.replace('Folder RIVIS sudah ditetapkan di Netlify','Folder RIVIS sudah ditetapkan di Cloudflare');
   c=c.replace('Koneksi ke Netlify gagal.','Koneksi ke Cloudflare gagal.');
+  // All replacements below are Cloudflare-only. Netlify keeps its 1 MiB chunks.
+  const cloudGatewayPatches=[
+   ['end - start > 1024*1024','end - start > 2*1024*1024'],
+   ['timeoutMs=32000','timeoutMs=48000'],
+   ['const chunkSize=1024*1024; // smaller Netlify payload; Google Drive requires 256 KiB alignment.','const chunkSize=2*1024*1024; // 2 MiB aligned chunks reduce Cloudflare/Drive round-trips.'],
+   ['Date.now()-cloudMigrationReadyAt>120000','Date.now()-cloudMigrationReadyAt>900000'],
+   ['request(path, options={}, timeoutMs=45000)','request(path, options={}, timeoutMs=90000)'],
+   ["if(d.command==='upload'){","if(d.command==='upload'){"] // keep existing heartbeat; no fake percentages
+  ];
+  for(const [from,to] of cloudGatewayPatches){
+   if(!c.includes(from))throw Error('Cloudflare Gateway optimization source marker changed: '+from);
+   c=c.replace(from,to);
+  }
+  c=c.replace('Cloud upload gagal · ','Operasi Cloud gagal · ');
   c=c.replace(
    "if (auth === 'failed') message('Login belum berhasil. Periksa Google OAuth consent screen, Redirect URI, dan Test Users.');",
    "if (auth === 'failed') { const reason=params.get('reason')||'unknown'; const messages={google_denied:'Google tidak memberikan izin.',state_cookie_missing:'Cookie OAuth tidak ditemukan. Izinkan cookie untuk situs ini dan ulangi login di browser yang sama.',state_mismatch:'Cookie OAuth tidak cocok. Mulai login ulang dari Gateway.',no_access_token:'Google tidak mengirim access token.',token_exchange_failed:'Pertukaran token Google gagal. Periksa GOOGLE_CLIENT_SECRET dan OAuth Redirect URI.',session_secret_invalid:'Session secret tidak valid.',callback_runtime_error:'Proses callback gagal di Cloudflare. Periksa Workers Logs.',callback_state_validation_failed:'Validasi OAuth state gagal.',callback_oauth_credentials_failed:'Kredensial Google belum dapat digunakan.',callback_token_exchange_failed:'Google menolak atau gagal menukar authorization code. Periksa OAuth Client Secret dan Redirect URI.',callback_session_encryption_failed:'Pembuatan sesi Google gagal. Periksa kompatibilitas enkripsi Cloudflare.',callback_redirect_failed:'Pembuatan redirect dan cookie sesi gagal.',callback_initial_failed:'Callback gagal sebelum verifikasi OAuth.'}; message('Login gagal ('+reason+'): '+(messages[reason]||'Periksa log Cloudflare.')); }"
@@ -84,6 +98,22 @@ async function sessionCookie(session){return cookie(COOKIE_SESSION,await seal(se
          .replace('newCookie:sessionCookie(updated)','newCookie:await sessionCookie(updated)');
 }
 
+function cloudflareCatalog(){
+ let c=legacySource(path.join(source,'cloud-data.js'));
+ const changes=[
+  ["let catalogFileIdCache=''","let catalogFileIdCache=globalThis.__rivisCatalogIdCache?.get(process.env.RIVIS_DRIVE_FOLDER_ID)||''"],
+  ["catalogFileIdCache='';}}","catalogFileIdCache='';globalThis.__rivisCatalogIdCache?.delete(process.env.RIVIS_DRIVE_FOLDER_ID);}}"],
+  ["catalogFileIdCache=file.id;return {fileId:file.id","catalogFileIdCache=file.id;(globalThis.__rivisCatalogIdCache ||= new Map()).set(process.env.RIVIS_DRIVE_FOLDER_ID,file.id);return {fileId:file.id"],
+  ["catalogFileIdCache=saved.fileId;return saved.fileId;","catalogFileIdCache=saved.fileId;(globalThis.__rivisCatalogIdCache ||= new Map()).set(process.env.RIVIS_DRIVE_FOLDER_ID,saved.fileId);return saved.fileId;"],
+  ["catalogFileIdCache=saved.fileId;return saved;","catalogFileIdCache=saved.fileId;(globalThis.__rivisCatalogIdCache ||= new Map()).set(process.env.RIVIS_DRIVE_FOLDER_ID,saved.fileId);return saved;"]
+ ];
+ for(const [from,to] of changes){
+  if(c.split(from).length!==2)throw Error('Cloudflare catalog cache marker changed: '+from);
+  c=c.replace(from,to);
+ }
+ return c;
+}
+
 const generated=[
  "import crypto from 'node:crypto';",
  "import {Buffer} from 'node:buffer';",
@@ -97,8 +127,9 @@ for(const name of names){
  generated.push(
   'function handler_'+name.replace(/-/g,'_')+'(env){',
   ' const process={env}; const h=makeShared(env); const exports={};',
-  name==='gateway-config'
-   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.6'")
+  name==='cloud-data' ? cloudflareCatalog()
+   : name==='gateway-config'
+   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.7'")
    : name==='auth-callback'
     ? legacySource(path.join(source,name+'.js'))
        .replace("const invalid=()=>h.redirect(h.baseUrl()+'/rivis-cloud/?auth=failed',[h.cookie(h.COOKIE_STATE,'',0)]);",
