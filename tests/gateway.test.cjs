@@ -935,3 +935,73 @@ test('METADATA Generator CSV maps .jpg to .jpeg without renaming source image',(
  assert.equal(sample.filename,'product_photo.jpg','Input image filename must not change');
  assert.equal(run.csvRow(sample,new Map([[sample,'album.jpg']]))[0],'album.jpeg');
 });
+
+test('Discover Auto Generate checkbox is beside Idea Count, persists OFF by default and hides in mini mode',()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const markup=source.indexOf('id=\\\"ideaCountSelect\\\"');
+ const checkbox=source.indexOf('id=\\\"discoverAutoGenerateCheckbox\\\"');
+ const discover=source.indexOf('id=\\\"discoverIdeasBtn\\\"');
+ assert.ok(markup>0&&checkbox>markup&&discover>checkbox,'checkbox must sit between count and Discover button');
+ assert.match(source,/id=\\\"discoverAutoGenerateCheckbox\\\" type=\\\"checkbox\\\"/);
+ assert.match(source,/safeStorageGet\(DISCOVER_AUTO_GENERATE_KEY,'false'\)==='true'/);
+ assert.match(source,/#ideaDiscoverActionBar\.is-compact #discoverAutoGenerateControl/);
+});
+
+test('Discover Auto Generate schedules Image All and Meta All once, never cancels a running batch',async()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const start=source.indexOf("const DISCOVER_AUTO_GENERATE_KEY='rvis_discover_auto_generate_v1';");
+ const end=source.indexOf('\nfunction setDiscoverBarCollapsed(',start);
+ assert.ok(start>0&&end>start,'Auto Generate implementation must exist');
+ const timers=[],runs=[],saved=new Map(),checkbox={checked:false},batchState={images:null,meta:null};
+ const sandbox={
+  byId:id=>id==='discoverAutoGenerateCheckbox'?checkbox:{id},
+  safeStorageSet:(key,value)=>saved.set(key,value),
+  setTimeout:fn=>{timers.push(fn);return 1;},
+  batchState,
+  handleGenerateAllImages:async()=>runs.push('image'),
+  handleGenerateAllMetadata:async()=>runs.push('meta'),
+  showToast:()=>{},
+  console
+ };
+ const api=vm.runInNewContext(source.slice(start,end)+'\n({setDiscoverAutoGenerate,scheduleDiscoverAutoGeneration})',sandbox);
+ api.setDiscoverAutoGenerate(true);
+ assert.equal(saved.get('rvis_discover_auto_generate_v1'),'true');
+ api.scheduleDiscoverAutoGeneration();api.scheduleDiscoverAutoGeneration();
+ assert.equal(timers.length,1,'Duplicate scheduling must be prevented');
+ timers.shift()();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(runs,['image','meta']);
+ batchState.images={abort:()=>{throw Error('Existing Image All must not be cancelled');}};
+ api.scheduleDiscoverAutoGeneration();
+ timers.shift()();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(runs,['image','meta','meta'],'Only idle Meta All should launch');
+ api.setDiscoverAutoGenerate(false);
+ api.scheduleDiscoverAutoGeneration();timers.shift()();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(runs.length,3,'Turning the checkbox off must stop a pending launch');
+});
+
+test('Discover save prefers Auto Generate over legacy Series image-only automation',()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const start=source.indexOf('function saveGeneratedIdeasToLibrary(');
+ const end=source.indexOf('\nfunction isRasterMedium(',start);
+ assert.ok(start>0&&end>start);
+ const calls=[],checkbox={checked:true},seriesCheckbox={checked:true};
+ const sandbox={
+  state:{savedIdeas:[],discoveredIdeas:[],refImageUrl:null,referenceFingerprint:null,refMode:'STYLE REFERENCE',productionType:'series'},
+  byId:id=>id==='discoverAutoGenerateCheckbox'?checkbox:id==='seriesAutoGenerateCheckbox'?seriesCheckbox:{id},
+  ensureConceptBlueprint:()=>{},persistSavedIdeas:()=>true,updateBadges:()=>{},
+  switchTab:()=>calls.push('library'),updateFloatingShortcut:()=>{},
+  scheduleDiscoverAutoGeneration:()=>calls.push('image-and-meta'),
+  setTimeout:()=>calls.push('legacy-series'),
+  batchState:{images:null}
+ };
+ const save=vm.runInNewContext(source.slice(start,end)+'\nsaveGeneratedIdeasToLibrary',sandbox);
+ assert.equal(save([{ideaId:'auto_idea_001'}]),1);
+ assert.deepEqual(calls,['library','image-and-meta']);
+ checkbox.checked=false;
+ assert.equal(save([{ideaId:'auto_idea_002'}]),1);
+ assert.deepEqual(calls,['library','image-and-meta','library','legacy-series'],
+  'Legacy Series automatic image generation remains available only when Auto Generate is disabled');
+});
