@@ -282,7 +282,7 @@ function getMetadataAssetFilename(idea,exportedFilename=''){
   if(!isRasterIdea(idea))return`${base}-edt.svg`;
   const exportedExt=(String(exportedFilename||'').match(/\.([^.\/\\]+)$/)||[])[1]?.toLowerCase();
   const configuredExt=String(rasterSnapshot(idea).format||'jpg').toLowerCase();
-  const ext=exportedExt==='png'||(!exportedExt&&configuredExt==='png')?'png':'jpg';
+  const ext=exportedExt==='png'||(!exportedExt&&configuredExt==='png')?'png':'jpeg';
   return`${base}-edt.${ext}`;
 }
 function buildAdobeStockCsvRow(idea,metaInput=idea?.metadata||{},filenameOverride=''){
