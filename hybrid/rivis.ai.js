@@ -1094,7 +1094,8 @@ async function technicalImageScan(url,idea,{includeAiParts=true}={}){
   const previewScale=Math.min(1,640/Math.max(width,height));
   canvas.width=Math.max(1,Math.round(width*previewScale));canvas.height=Math.max(1,Math.round(height*previewScale));
   ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
-  previewUrl=canvas.toDataURL('image/png');
+  // Compact WebP preview only; full-resolution image remains untouched.
+  previewUrl=canvas.toDataURL('image/webp',0.82);
 
   if(includeAiParts){
    // AI receives a compressed 1600px overview plus five native 384px crops,
@@ -1241,7 +1242,8 @@ async function rivisCreateLibraryThumbnail(url){
   canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(width*scale));canvas.height=Math.max(1,Math.round(height*scale));
   const ctx=canvas.getContext('2d');if(!ctx)throw new Error('Canvas thumbnail tidak tersedia.');
   ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
-  return{url:canvas.toDataURL('image/png'),width,height};
+  // 640px preview retains alpha with smaller strings in IndexedDB.
+  return{url:canvas.toDataURL('image/webp',0.82),width,height};
  }finally{if(canvas){canvas.width=0;canvas.height=0;}img.src='';img.removeAttribute('src');}
 }
 async function handleGenerateSingleStockImageForIdea(ideaId,
