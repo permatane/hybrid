@@ -37,5 +37,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: node --check hybrid/rivis.support.js && node --check hybrid/rivis.ai.js
       - run: npm test
       - run: npm run build --prefix cloudflare-gateway
