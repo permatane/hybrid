@@ -963,7 +963,7 @@ test('Discover Auto Generate schedules Image All and Meta All once, never cancel
   showToast:()=>{},
   console
  };
- const api=vm.runInNewContext(source.slice(start,end)+'\n({setDiscoverAutoGenerate,scheduleDiscoverAutoGeneration})',sandbox);
+ const api=vm.runInNewContext(source.slice(start,end)+'\n({setDiscoverAutoGenerate,scheduleDiscoverAutoGeneration,resumePendingDiscoverAutoBatch})',sandbox);
  api.setDiscoverAutoGenerate(true);
  assert.equal(saved.get('rvis_discover_auto_generate_v1'),'true');
  api.scheduleDiscoverAutoGeneration();api.scheduleDiscoverAutoGeneration();
@@ -976,10 +976,14 @@ test('Discover Auto Generate schedules Image All and Meta All once, never cancel
  timers.shift()();
  await new Promise(resolve=>setImmediate(resolve));
  assert.deepEqual(runs,['image','meta','meta'],'Only idle Meta All should launch');
+ batchState.images=null;
+ api.resumePendingDiscoverAutoBatch('images');
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(runs,['image','meta','meta','image'],'Queued Image All must resume when prior batch finishes');
  api.setDiscoverAutoGenerate(false);
  api.scheduleDiscoverAutoGeneration();timers.shift()();
  await new Promise(resolve=>setImmediate(resolve));
- assert.equal(runs.length,3,'Turning the checkbox off must stop a pending launch');
+ assert.equal(runs.length,4,'Turning the checkbox off must stop a pending launch');
 });
 
 test('Discover save prefers Auto Generate over legacy Series image-only automation',()=>{
@@ -1004,4 +1008,13 @@ test('Discover save prefers Auto Generate over legacy Series image-only automati
  assert.equal(save([{ideaId:'auto_idea_002'}]),1);
  assert.deepEqual(calls,['library','image-and-meta','library','legacy-series'],
   'Legacy Series automatic image generation remains available only when Auto Generate is disabled');
+});
+
+test('Auto Generate resumes deferred image and metadata batches after completion',()=>{
+ const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ assert.match(ai,/batchState\.images=null;[\s\S]*?resumePendingDiscoverAutoBatch\('images'\)/);
+ assert.match(ai,/batchState\.meta=null;[\s\S]*?resumePendingDiscoverAutoBatch\('meta'\)/);
+ // Avoid a second invocation of Image All in Series mode when main Auto Generate is enabled.
+ const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ assert.match(support,/if\(autoDiscover\)scheduleDiscoverAutoGeneration\(\);[\s\S]*?else if\(state\.productionType==='series'/);
 });
