@@ -46,7 +46,7 @@ for(const name of ['index.html','gateway.css','gateway.js']){
    ['const chunkSize=1024*1024; // smaller Netlify payload; Google Drive requires 256 KiB alignment.','const chunkSize=2*1024*1024; // 2 MiB aligned chunks reduce Cloudflare/Drive round-trips.'],
    ['Date.now()-cloudMigrationReadyAt>120000','Date.now()-cloudMigrationReadyAt>900000'],
    ['request(path, options={}, timeoutMs=45000)','request(path, options={}, timeoutMs=90000)'],
-   ["if(d.command==='upload'){","if(d.command==='upload'){"] // keep existing heartbeat; no fake percentages
+   ["if(d.command==='upload'||d.command==='delete'){","if(d.command==='upload'||d.command==='delete'){"] // maintain heartbeat for permanent Drive deletes
   ];
   for(const [from,to] of cloudGatewayPatches){
    if(!c.includes(from))throw Error('Cloudflare Gateway optimization source marker changed: '+from);
