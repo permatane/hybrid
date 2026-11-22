@@ -2245,7 +2245,12 @@ function mergeCloudSeriesGalleryItem(incoming,previous){
  // A compact list response must not erase a complete cached Series manifest.
  const sceneList=Array.isArray(incoming.seriesScenes)?incoming.seriesScenes:[];
  const oldList=Array.isArray(previous.seriesScenes)?previous.seriesScenes:[];
- const chosenScenes=sceneList.length>=oldList.length?sceneList:oldList;
+ // A lightweight catalog page must not erase cached scene metadata or other full fields.
+ const priorBySceneId=new Map(oldList.filter(scene=>scene?.sceneId).map(scene=>[String(scene.sceneId),scene]));
+ const chosenScenes=(sceneList.length>=oldList.length?sceneList:oldList).map((scene,index)=>{
+  const previousScene=priorBySceneId.get(String(scene?.sceneId||''))||oldList[index]||{};
+  return {...previousScene,...scene};
+ });
  return {
   ...incoming,seriesScenes:chosenScenes,
   cloudAssets:[...merged.values()],
