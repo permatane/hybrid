@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'netlify/**'
+      - 'cloudflare-gateway/**'
       - 'public/**'
       - 'hybrid/**'
       - 'tests/**'
@@ -16,6 +17,7 @@ on:
   pull_request:
     paths:
       - 'netlify/**'
+      - 'cloudflare-gateway/**'
       - 'public/**'
       - 'hybrid/**'
       - 'tests/**'
@@ -36,3 +38,4 @@ jobs:
         with:
           node-version: '22'
       - run: npm test
+      - run: npm run build --prefix cloudflare-gateway
