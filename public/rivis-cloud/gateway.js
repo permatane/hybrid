@@ -300,7 +300,9 @@
           seriesScenes:Array.isArray(payload.seriesScenes)?payload.seriesScenes:[]
         })});
       } else if (d.command === 'archive' || d.command === 'delete') {
-        await ensureCloudMigration(d.requestId);
+        // Gallery was already loaded: permanent delete validates catalog itself.
+        // Skip the separate migration-state GET to save a Drive round trip.
+        if(d.command==='archive')await ensureCloudMigration(d.requestId);
         result = await request('cloud-data', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:d.command, ideaId:d.payload?.ideaId})},d.command==='delete'?120000:45000);
       } else throw new Error('Perintah Cloud Gallery tidak dikenal.');
       reply(true, result, null);
