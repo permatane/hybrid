@@ -225,6 +225,18 @@ async function readLegacySnapshot(ctx){
  const docs=ideas.map(idea=>{const ideaId=String(idea.ideaId),doc={schemaVersion:2,idea,prompts:prompts.filter(x=>String(x.ideaId)===ideaId),assets:assets.filter(x=>String(x.ideaId)===ideaId),groups:groups.filter(x=>String(x.ideaId)===ideaId),groupItems:groupItems.filter(x=>String(x.ideaId)===ideaId),generationLogs:generationLogs.filter(x=>String(x.ideaId)===ideaId)};idea.cloudAssets=doc.assets;idea.cloudPrompts=doc.prompts;idea.cloudGroups=doc.groups;idea.cloudGroupItems=doc.groupItems;idea.cloudGenerationLogs=doc.generationLogs;return doc;});
  legacySnapshotCache=docs;legacySnapshotAt=Date.now();return docs;
 }
+// RIVIS performance: compact Series scene references avoid a Drive JSON read per gallery card.
+function compactSceneManifest(idea,generated,assetSummary){
+ if(idea?.productionType!=='series')return null;
+ const scenes=Array.isArray(idea.seriesScenes)?idea.seriesScenes:[];
+ const latestByScene=new Map();
+ for(const asset of generated)if(asset?.sceneId&&asset?.driveFileId)latestByScene.set(String(asset.sceneId),assetSummary(asset));
+ return {
+  seriesLength:Math.min(12,Math.max(0,scenes.length,Number(idea.seriesLength)||0,latestByScene.size)),
+  seriesScenes:scenes.slice(0,12).map((scene,index)=>({sceneId:String(scene.sceneId||String(idea.ideaId)+'_scene_'+(index+1)),sceneTitle:String(scene.sceneTitle||'').slice(0,160)})),
+  sceneAssets:[...latestByScene.values()].slice(0,12)
+ };
+}
 function catalogSummary(doc,fileId){
  const idea=doc.idea||{},prompts=Array.isArray(doc.prompts)?doc.prompts:[],assets=Array.isArray(doc.assets)?doc.assets:[];
  const active=prompts.find(p=>String(p.promptId)===String(idea.activePromptId))||prompts.find(p=>['true','1','yes'].includes(String(p.activeVersion).toLowerCase()))||prompts.at(-1)||{};
@@ -233,6 +245,7 @@ function catalogSummary(doc,fileId){
  const reference=assets.filter(a=>a.assetType==='reference'&&String(a.isActive).toLowerCase()!=='false').at(-1)||null;
  const previewAsset=cover||reference;
  const assetSummary=asset=>({assetId:asset.assetId,sceneId:asset.sceneId||'',assetType:asset.assetType,driveFileId:asset.driveFileId||'',fileName:asset.fileName||'',mimeType:asset.mimeType||'',width:asset.width||'',height:asset.height||'',isActive:asset.isActive??'true'});
+ const seriesPreview=compactSceneManifest(idea,generated,assetSummary);
  const prompt=String(idea.simplePrompt||active.simplePrompt||active.finalPrompt||active.visualPrompt||idea.finalGenerationPrompt||'').slice(0,221);
  return {
   ideaId:idea.ideaId,fileId,
@@ -247,7 +260,8 @@ function catalogSummary(doc,fileId){
   updatedAt:idea.updatedAt||now(),
   activePromptId:idea.activePromptId||active.promptId||'',
   simplePrompt:prompt,
-  cloudAssets:previewAsset?[assetSummary(previewAsset)]:[]
+  cloudAssets:seriesPreview?[...seriesPreview.sceneAssets,...(cover&&!cover.sceneId?[assetSummary(cover)]:[]),...(reference?[assetSummary(reference)]:[])]:previewAsset?[assetSummary(previewAsset)]:[],
+  ...(seriesPreview?{seriesLength:seriesPreview.seriesLength,seriesScenes:seriesPreview.seriesScenes}:{})
  };
 }
 function cleanJsonValue(value){if(typeof value==='string'&&(value.startsWith('data:image/')||value.startsWith('blob:')))return '';if(Array.isArray(value))return value.map(cleanJsonValue);if(value&&typeof value==='object'){const out={};for(const [key,item] of Object.entries(value)){if(['referenceImageBlob','referenceImageFile','imageBase64'].includes(key))continue;out[key]=cleanJsonValue(item);}return out;}return value;}
@@ -281,6 +295,7 @@ function compactCatalogEntry(entry){
  const assetSummary=a=>({assetId:a.assetId,sceneId:a.sceneId||'',assetType:a.assetType,driveFileId:a.driveFileId||'',fileName:a.fileName||'',mimeType:a.mimeType||'',width:a.width||'',height:a.height||'',isActive:a.isActive??'true'});
  const prompts=Array.isArray(entry.prompts)?entry.prompts:[];
  const active=prompts.find(p=>String(p.promptId||'')===String(entry.activePromptId||''))||prompts.at(-1)||null;
+ const seriesPreview=compactSceneManifest(entry,generated,assetSummary);
  const prompt=String(entry.simplePrompt||active?.simplePrompt||active?.finalPrompt||active?.visualPrompt||'').slice(0,221);
  return {
   ideaId:entry.ideaId,fileId:entry.fileId,
@@ -295,7 +310,8 @@ function compactCatalogEntry(entry){
   updatedAt:entry.updatedAt||'',
   activePromptId:entry.activePromptId||active?.promptId||'',
   simplePrompt:prompt,
-  cloudAssets:previewAsset?[assetSummary(previewAsset)]:[]
+  cloudAssets:seriesPreview?[...seriesPreview.sceneAssets,...(cover&&!cover.sceneId?[assetSummary(cover)]:[]),...(reference?[assetSummary(reference)]:[])]:previewAsset?[assetSummary(previewAsset)]:[],
+  ...(seriesPreview?{seriesLength:seriesPreview.seriesLength,seriesScenes:seriesPreview.seriesScenes}:{})
  };
 }
 async function compactCatalogIfNeeded(ctx,current){
