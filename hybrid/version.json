@@ -1,5 +1,5 @@
 {
-  "version": "3.4.140",
+  "version": "3.4.141",
   "ai": "hybrid/rivis.ai.js",
   "vector": "hybrid/rivis.ai-vector.js",
   "support": "hybrid/rivis.support.js"
