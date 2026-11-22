@@ -1477,7 +1477,8 @@ total)}`;}updateBatchPanel('images',queueDone,total);if(!controller.signal.abort
 "success");else showToast(`Generated ${generatedCount}/${totalImageWork} images (${failedCount} scene/card failures).`,"info");}finally{RIVIS_BATCH_PROGRESS.end('images',controller.signal.aborted);batchState.images=null;
 updateBatchPanel('images',0,0);if(btn){btn.disabled=false;btn.classList.remove('bg-red-900','hover:bg-red-800','border','border-red-700');
 btn.classList.add('from-purple-600','to-indigo-600','hover:from-purple-500','hover:to-indigo-500');btn.innerHTML=origHTML||` Image All`;
-}}}
+ }if(typeof resumePendingDiscoverAutoBatch==='function')resumePendingDiscoverAutoBatch('images');
+}}
 async function handleGenerateAllMetadata(btnEl){const btn=btnEl||byId('generateAllMetaBtn');if(toggleBatchCancellation('meta',
 btn,'Meta All'))return;const targets=state.savedIdeas.filter(i=>seriesNeedsMetadata(i));if(!targets.length){showToast("All saved cards already have SEO Metadata!",
 "info");return;}const controller=new AbortController();batchState.meta=controller;RIVIS_BATCH_PROGRESS.begin('meta',targets);const total=targets.length;const totalMetadataWork=targets.reduce((sum,idea)=>sum+pendingSeriesMetadataCount(idea),0);let generatedCount=0;
@@ -1493,7 +1494,8 @@ failedCount++;RIVIS_BATCH_PROGRESS.mark('meta',idea.ideaId,false);console.warn(`
 owner);if(finishCardProgress)await finishCardProgress(cardSucceeded);}queueDone++;if(btn&&!controller.signal.aborted){btn.innerHTML=` ${batchProgressLabel(queueDone,total)}`;}updateBatchPanel('meta',
 queueDone,total);if(!controller.signal.aborted&&idx<targets.length-1){await new Promise(resolve=>setTimeout(resolve,300));}}if(controller.signal.aborted)showToast(`Meta All stopped (${generatedCount}/${totalMetadataWork} assets/scenes generated).`,"info");else if(failedCount===0)showToast(`Generated SEO metadata for ${generatedCount}/${totalMetadataWork} assets/scenes!`,"success");else showToast(`Generated SEO metadata for ${generatedCount}/${totalMetadataWork} assets/scenes (${failedCount} card failures).`,"info");}finally{RIVIS_BATCH_PROGRESS.end('meta',controller.signal.aborted);batchState.meta=null;updateBatchPanel('meta',0,0);if(btn){btn.disabled=false;btn.classList.remove('bg-red-900',
 'hover:bg-red-800','border','border-red-700');btn.classList.add('from-blue-600','to-cyan-600','hover:from-blue-500','hover:to-cyan-500');
-btn.innerHTML=origHTML||` Meta All`;}}}
+btn.innerHTML=origHTML||` Meta All`;}
+ if(typeof resumePendingDiscoverAutoBatch==='function')resumePendingDiscoverAutoBatch('meta');}}
 async function handleRemixStyleVariations(ideaId,btnEl){const idea=state.savedIdeas.find(i=>i.ideaId===ideaId)||state.discoveredIdeas.find(i=>i.ideaId===ideaId);
 if(!idea)return;if(btnEl){btnEl.disabled=true;btnEl.classList.add('opacity-80','cursor-not-allowed');btnEl.innerHTML=` <span>Remixing…</span>`;
 }showToast("Generating 4 style variations with Gemini AI...","info");try{let parsed=[];if(offlineTestMode){await new Promise(resolve=>setTimeout(resolve,
