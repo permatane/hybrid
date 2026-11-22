@@ -16,7 +16,6 @@ const cloudUploadComplete=require('../netlify/functions/cloud-upload-complete.js
 const cloudThumbnail=require('../netlify/functions/cloud-thumbnail.js').handler;
 const gatewayConfig=require('../netlify/functions/gateway-config.js').handler;
 const root=path.join(__dirname,'..');
-const userUploadedHash='b2ecfc4a1acded4d1dc17f30b4317ddc334ea98e4fe76c6ac62aebd10d9fe3fd';
 const oldEnv={...process.env};
 function setEnv() {process.env.RIVIS_SESSION_SECRET=crypto.randomBytes(32).toString('base64');process.env.GOOGLE_CLIENT_ID='test.apps.googleusercontent.com';process.env.GOOGLE_CLIENT_SECRET='client_secret_test';process.env.RIVIS_DRIVE_FOLDER_ID='folder12345';process.env.RIVIS_SPREADSHEET_ID='sheet12345';delete process.env.RIVIS_BASE_URL;}
 function getCookie(resp,name) {return resp.multiValueHeaders['Set-Cookie'].find(x=>x.startsWith(name+'='));}
@@ -80,10 +79,11 @@ function driveJsonMock(options={}){
  };
  return {fetch,files,response};
 }
-test('Vectorich QC is copied byte-for-byte (CSP and all scripts preserved)',()=>{
-  const html=fs.readFileSync(path.join(root,'public/index.html'));
-  assert.equal(crypto.createHash('sha256').update(html).digest('hex'),userUploadedHash);
-  assert.match(html.toString('utf8'),/Content-Security-Policy/);
+test('VectorichQC source is not published in RIVIS GitHub source root',()=>{
+  const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
+  assert.match(html,/https:\/\/vectorichqc-prv\.pages\.dev\//);
+  assert.doesNotMatch(html,/<script\b|Vectorich QC Studio v4\.02|Content-Security-Policy/);
+  assert.ok(Buffer.byteLength(html)<2048,'Only the Cloudflare redirect should be public');
 });
 test('AES-GCM session: auth and tamper detection',()=>{
   setEnv();const obj={access_token:'secret_token',refresh_token:'refresh_test',expires_at:1234};
@@ -193,9 +193,16 @@ test('Cloud data stores series prompts, groups, and scene items inside one JSON 
  const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();global.fetch=mock.fetch;
  try{
   const handler=freshCloudData(),headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
-  const res=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'save',idea:{ideaId:'series_12345678',conceptName:'Test Series',productionType:'series',seriesScenes:[{sceneTitle:'Arrival'}]},prompts:[{promptId:'p1',simplePrompt:'scene 1'},{promptId:'p2',simplePrompt:'scene 2'}],groups:[{groupId:'g1',groupTitle:'Series'}],groupItems:[{itemId:'i1',groupId:'g1',sceneTitle:'Arrival'}]})});
+  const res=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'save',idea:{ideaId:'series_12345678',conceptName:'Test Series',productionType:'series',seriesLength:2,seriesScenes:[{sceneId:'scene_1',sceneTitle:'Arrival'},{sceneId:'scene_2',sceneTitle:'Departure'}]},prompts:[{promptId:'p1',simplePrompt:'scene 1'},{promptId:'p2',simplePrompt:'scene 2'}],assets:[{assetId:'a1',sceneId:'scene_1',assetType:'generated',isActive:'true',driveFileId:'drive_scene_1',width:2048,height:2048},{assetId:'a2',sceneId:'scene_2',assetType:'generated',isActive:'true',driveFileId:'drive_scene_2',width:2048,height:2048}],groups:[{groupId:'g1',groupTitle:'Series'}],groupItems:[{itemId:'i1',groupId:'g1',sceneTitle:'Arrival'}]})});
   assert.equal(res.statusCode,200,res.body);const doc=[...mock.files.values()].find(x=>x.name==='RIVIS_IDEA_series_12345678.json').doc;
   assert.equal(doc.prompts.length,2);assert.equal(doc.groups.length,1);assert.equal(doc.groupItems.length,1);
+  assert.equal(doc.assets.length,2,'Original Drive JSON retains both full assets');
+  const listed=JSON.parse((await handler({httpMethod:'GET',headers,queryStringParameters:{action:'list'}})).body);
+  assert.equal(listed.ideas.length,1);
+  assert.equal(listed.ideas[0].productionType,'series');
+  assert.equal(listed.ideas[0].seriesLength,2);
+  assert.deepEqual(listed.ideas[0].seriesScenes.map(x=>x.sceneId),['scene_1','scene_2']);
+  assert.deepEqual(listed.ideas[0].cloudAssets.filter(x=>x.sceneId).map(x=>x.driveFileId),['drive_scene_1','drive_scene_2']);
  }finally{global.fetch=orig;process.env={...oldEnv};}
 });
 
