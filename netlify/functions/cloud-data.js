@@ -349,6 +349,105 @@ async function updateIdeaStatus(ctx,ideaId,status){
  const saved=await driveWriteJson(ctx,{fileId:entry.fileId,name:'RIVIS_IDEA_'+String(ideaId)+'.json',document:cleanJsonValue(doc),etag:loaded.etag});await updateCatalogEntry(ctx,catalogSummary(doc,saved.fileId),catalog);return {ideaId,status,retainedDriveAssets:true};
 }
 
+
+/* Permanent delete is scoped to this RIVIS folder and the target idea ID.
+   Parallel Drive operations avoid per-scene sequential deletion. */
+function driveReferencedAssets(item){
+ const refs=item?.cloudAssetRefs||{};
+ return [
+  ...(Array.isArray(item?.assets)?item.assets:[]),
+  ...(Array.isArray(item?.cloudAssets)?item.cloudAssets:[]),
+  ...(refs.cover?[refs.cover]:[]),...(refs.reference?[refs.reference]:[]),
+  ...(Array.isArray(refs.scenes)?refs.scenes:[])
+ ].filter(x=>x&&h.validFileId(String(x.driveFileId||'')));
+}
+async function boundedCloudWork(items,limit,work){
+ let cursor=0;
+ const outputs=new Array(items.length);
+ await Promise.all(Array.from({length:Math.min(limit,items.length)},async()=>{
+  while(cursor<items.length){const index=cursor++;try{outputs[index]=await work(items[index]);}
+   catch(e){outputs[index]={kind:'error',message:String(e?.message||e).slice(0,250)};}}
+ }));
+ return outputs;
+}
+async function driveDeleteVerified(ctx,fileId,isOwned){
+ if(!h.validFileId(String(fileId||''))||fileId===ctx.folderId)throw new Error('Invalid target Drive file ID');
+ const base='https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(fileId);
+ const metadataUrl=base+'?supportsAllDrives=true&fields='+encodeURIComponent('id,name,mimeType,parents,description');
+ const retryable=status=>[429,500,502,503,504].includes(status);
+ let metadata=null;
+ for(let attempt=0;attempt<3;attempt++){
+  const res=await driveFetch(ctx,metadataUrl);
+  if(res.status===404)return {kind:'missing'};
+  if(retryable(res.status)&&attempt<2){await new Promise(r=>setTimeout(r,180*(attempt+1)));continue;}
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw driveError('Drive metadata check failed',res,data);
+  metadata=data;break;
+ }
+ if(!metadata?.parents?.includes(ctx.folderId)||!isOwned(metadata))return {kind:'skipped'};
+ for(let attempt=0;attempt<3;attempt++){
+  const res=await driveFetch(ctx,base+'?supportsAllDrives=true',{method:'DELETE'});
+  if(res.ok||res.status===404)return {kind:'deleted'};
+  if(retryable(res.status)&&attempt<2){await new Promise(r=>setTimeout(r,240*(attempt+1)));continue;}
+  throw driveError('Drive delete failed',res,await res.json().catch(()=>({})));
+ }
+ throw new Error('Drive delete retry limit exceeded');
+}
+async function removeIdeaFromCatalog(ctx,ideaId,initial){
+ let current=initial;
+ for(let attempt=0;attempt<7;attempt++){
+  if(!current)current=await getCatalog(ctx);
+  if(!current)throw new Error('Drive catalog unavailable');
+  current.document.ideas=(current.document.ideas||[]).filter(x=>String(x.ideaId)!==ideaId);
+  try{await saveCatalog(ctx,current.document,current.fileId,current.etag);return;}
+  catch(e){
+   if(!String(e.message).includes('DRIVE_JSON_CONFLICT')||attempt===6)throw e;
+   await new Promise(r=>setTimeout(r,120*(attempt+1)));current=await getCatalog(ctx);
+  }
+ }
+}
+async function deleteIdeaPermanently(ctx,ideaId){
+ const catalog=await ensureJsonCatalog(ctx);
+ if(!catalog)return {migrationRequired:true};
+ const entry=(catalog.document.ideas||[]).find(x=>String(x.ideaId)===ideaId);
+ if(!entry)return null;
+ if(!h.validFileId(String(entry.fileId||'')))throw new Error('Invalid idea JSON file ID; deletion cancelled');
+ let doc=null;
+ try{doc=(await driveReadJson(ctx,entry.fileId)).document;}
+ catch(e){if(!/Drive JSON read failed \(404\)/.test(String(e.message)))throw e;}
+ if(doc?.idea&&String(doc.idea.ideaId)!==ideaId)throw new Error('Idea JSON identity mismatch');
+ const all=[...driveReferencedAssets(doc),...driveReferencedAssets(doc?.idea),...driveReferencedAssets(entry)];
+ const unique=new Map();
+ for(const asset of all){const id=String(asset.driveFileId);if(!unique.has(id)||(!unique.get(id).assetId&&asset.assetId))unique.set(id,asset);}
+ const shared=new Set();
+ for(const other of catalog.document.ideas||[])if(String(other.ideaId)!==ideaId){
+  for(const ref of driveReferencedAssets(other))shared.add(String(ref.driveFileId));
+ }
+ const targets=[...unique].filter(([id])=>id!==entry.fileId&&!shared.has(id));
+ const results=await boundedCloudWork(targets,4,([id,asset])=>driveDeleteVerified(ctx,id,meta=>{
+  const description=String(meta.description||''),assetId=String(asset.assetId||'');
+  return description.includes('RIVIS Cloud Asset · Idea '+ideaId+' ·')||
+   (assetId.length>=3&&String(meta.name||'').startsWith(assetId+'_')&&String(meta.mimeType||'').startsWith('image/'));
+ }));
+ const errors=results.filter(x=>x?.kind==='error');
+ if(errors.length)throw new Error(errors.length+' file gambar gagal dihapus; klik Hapus untuk mencoba lagi. '+errors[0].message);
+ // Delete per-idea JSON only after every owned image has been processed. Google
+ // returns 404 for files removed by a previous interrupted attempt.
+ const json=await driveDeleteVerified(ctx,String(entry.fileId),meta=>
+  meta.name==='RIVIS_IDEA_'+ideaId+'.json'&&meta.mimeType==='application/json');
+ if(json.kind!=='deleted'&&json.kind!=='missing')
+  throw new Error('JSON file outside the RIVIS folder or not owned by this card');
+ // Remove catalog entry once. A conflict leaves it available for idempotent retry.
+ await removeIdeaFromCatalog(ctx,ideaId,catalog);
+ const skipped=results.filter(x=>x?.kind==='skipped').length;
+ return {ideaId,status:'PermanentlyDeleted',permanent:true,
+  deletedDriveFiles:results.filter(x=>x?.kind==='deleted').length+(json.kind==='deleted'?1:0),
+  alreadyMissingFiles:results.filter(x=>x?.kind==='missing').length+(json.kind==='missing'?1:0),
+  skippedSharedAssets:unique.size-targets.length,
+  skippedUnverifiedAssets:skipped,
+  retainedDriveAssets:unique.size>targets.length||skipped>0};
+}
+
 exports.handler=async(event)=>{
  if(event.httpMethod==='OPTIONS')return h.json(204,{});
  if(event.httpMethod==='POST'&&(event.headers?.origin||event.headers?.Origin||'')!==h.baseUrl())return h.json(403,{error:'Invalid request origin'});
@@ -443,7 +542,7 @@ exports.handler=async(event)=>{
   }
   if(body.action==='delete'||body.action==='archive'){
    const ideaId=text(body.ideaId,128);if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))return h.json(400,{error:'Invalid ideaId'},headers);
-   const status=body.action==='delete'?'Deleted':'Archived',result=await updateIdeaStatus(ctx,ideaId,status);
+   const result=body.action==='delete'?await deleteIdeaPermanently(ctx,ideaId):await updateIdeaStatus(ctx,ideaId,'Archived');
    if(!result)return h.json(404,{error:'Idea not found'},headers);if(result.migrationRequired)return h.json(409,{error:'Legacy migration is required before changing this item.',migrationRequired:true},headers);
    return h.json(200,{ok:true,storageMode:'drive-json',...result},headers);
   }
