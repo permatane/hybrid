@@ -753,3 +753,110 @@ test('Cloud Gallery deletion restores card immediately when Drive rejects delete
  assert.equal(h.ui.refreshCount,0);
  assert.ok(h.ui.toasts.some(row=>row[1]==='error'));
 });
+
+test('Permanent delete: Series images and reference files removed concurrently',async()=>{
+ setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
+ const session=h.seal({access_token:'test-token',refresh_token:'refresh-token',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();
+ const ideaId='series_delete123',ids=['scene_file_111','scene_file_222','scene_file_333','reference_svg_1'];
+ const assets=ids.map((driveFileId,i)=>({assetId:'asset_scene_'+i,ideaId,assetType:i===3?'reference':'generated',sceneId:i===3?'':'scene_'+i,driveFileId}));
+ for(let i=0;i<assets.length;i++)mock.files.set(ids[i],{id:ids[i],name:assets[i].assetId+'_file'+i,mimeType:i===3?'image/svg+xml':'image/png',parents:['folder12345'],description:'RIVIS Cloud Asset · Idea '+ideaId+' · '+assets[i].assetType});
+ let active=0,maxActive=0;
+ global.fetch=async(url,options={})=>{
+  if(options.method==='DELETE'&&ids.some(id=>String(url).includes('/'+id+'?'))){
+   active++;maxActive=Math.max(maxActive,active);
+   await new Promise(resolve=>setTimeout(resolve,10));
+   try{return await mock.fetch(url,options);}finally{active--;}
+  }
+  return mock.fetch(url,options);
+ };
+ try{
+  const handler=freshCloudData(),headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
+  const saved=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'save',idea:{ideaId,productionType:'series',seriesScenes:[{sceneId:'scene_0'},{sceneId:'scene_1'},{sceneId:'scene_2'}]},assets})});
+  assert.equal(saved.statusCode,200,saved.body);
+  const result=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'delete',ideaId})});
+  assert.equal(result.statusCode,200,result.body);
+  const data=JSON.parse(result.body);
+  assert.equal(data.deletedDriveFiles,5,'Four files plus idea JSON');
+  assert.equal(data.skippedUnverifiedAssets,0);
+  for(const id of ids)assert.equal(mock.files.has(id),false,id+' must be deleted');
+  assert.ok(maxActive>=2,'Drive images should be removed in parallel');
+ }finally{global.fetch=orig;process.env={...oldEnv};}
+});
+
+test('Permanent delete protects an asset shared by another Gallery card',async()=>{
+ setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
+ const session=h.seal({access_token:'test-token',refresh_token:'refresh-token',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();global.fetch=mock.fetch;
+ try{
+  const handler=freshCloudData(),headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
+  const id='shared_file_123',assetId='shared_asset_123';
+  mock.files.set(id,{id,name:assetId+'_photo.png',mimeType:'image/png',parents:['folder12345'],description:'RIVIS Cloud Asset · Idea idea_share_a · generated'});
+  for(const ideaId of ['idea_share_a','idea_share_b']){
+   const res=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'save',idea:{ideaId},assets:[{assetId,assetType:'generated',driveFileId:id,ideaId}]})});
+   assert.equal(res.statusCode,200,res.body);
+  }
+  const del=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'delete',ideaId:'idea_share_a'})});
+  assert.equal(del.statusCode,200,del.body);
+  assert.equal(JSON.parse(del.body).skippedSharedAssets,1);
+  assert.equal(mock.files.has(id),true,'Referenced file must remain for the other card');
+  const listed=JSON.parse((await handler({httpMethod:'GET',headers,queryStringParameters:{action:'list'}})).body);
+  assert.deepEqual(listed.ideas.map(x=>x.ideaId),['idea_share_b']);
+ }finally{global.fetch=orig;process.env={...oldEnv};}
+});
+
+test('Permanent delete never removes a Drive asset outside the configured folder',async()=>{
+ setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
+ const session=h.seal({access_token:'test-token',refresh_token:'refresh-token',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();global.fetch=mock.fetch;
+ try{
+  const handler=freshCloudData(),headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
+  const ideaId='idea_external_1',id='external_file_123';
+  mock.files.set(id,{id,name:'personal_photo.png',mimeType:'image/png',parents:['private_folder'],description:'Personal photo'});
+  const saved=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'save',idea:{ideaId},assets:[{assetId:'external_asset',assetType:'generated',driveFileId:id,ideaId}]})});
+  assert.equal(saved.statusCode,200,saved.body);
+  const deleted=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'delete',ideaId})});
+  assert.equal(deleted.statusCode,200,deleted.body);
+  assert.equal(JSON.parse(deleted.body).skippedUnverifiedAssets,1);
+  assert.equal(mock.files.has(id),true,'Unrelated files must not be deleted');
+ }finally{global.fetch=orig;process.env={...oldEnv};}
+});
+
+test('Permanent delete retains its JSON and catalog entry after Drive delete failure, then succeeds on retry',async()=>{
+ setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
+ const session=h.seal({access_token:'test-token',refresh_token:'refresh-token',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();
+ const ideaId='idea_retry_123',id='failed_file_123';
+ mock.files.set(id,{id,name:'retry_asset_photo.png',mimeType:'image/png',parents:['folder12345'],description:'RIVIS Cloud Asset · Idea '+ideaId+' · generated'});
+ let failure=true;
+ global.fetch=async(url,opts={})=>{
+  if(failure&&opts.method==='DELETE'&&String(url).includes('/'+id+'?'))
+   return mock.response({error:{message:'Temporary unavailable'}},503);
+  return mock.fetch(url,opts);
+ };
+ try{
+  const handler=freshCloudData(),headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
+  const saved=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'save',idea:{ideaId},assets:[{assetId:'retry_asset',assetType:'generated',driveFileId:id,ideaId}]})});
+  assert.equal(saved.statusCode,200,saved.body);
+  const first=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'delete',ideaId})});
+  assert.equal(first.statusCode,502,first.body);
+  assert.equal(mock.files.has(id),true);
+  assert.ok([...mock.files.values()].some(x=>x.name==='RIVIS_IDEA_'+ideaId+'.json'));
+  failure=false;
+  const second=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'delete',ideaId})});
+  assert.equal(second.statusCode,200,second.body);
+  assert.equal(JSON.parse(second.body).permanent,true);
+  assert.equal(mock.files.has(id),false);
+ }finally{global.fetch=orig;process.env={...oldEnv};}
+});
+
+test('Cloud archive remains reversible and preserves Google Drive files',async()=>{
+ setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
+ const session=h.seal({access_token:'test-token',refresh_token:'refresh-token',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();global.fetch=mock.fetch;
+ try{
+  const handler=freshCloudData(),headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
+  const ideaId='idea_archive_1';
+  const saved=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'save',idea:{ideaId}})});
+  assert.equal(saved.statusCode,200,saved.body);
+  const archive=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'archive',ideaId})});
+  assert.equal(archive.statusCode,200,archive.body);
+  assert.equal(JSON.parse(archive.body).status,'Archived');
+  assert.ok([...mock.files.values()].some(x=>x.name==='RIVIS_IDEA_'+ideaId+'.json'));
+ }finally{global.fetch=orig;process.env={...oldEnv};}
+});
