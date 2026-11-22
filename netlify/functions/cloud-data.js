@@ -350,8 +350,8 @@ async function updateIdeaStatus(ctx,ideaId,status){
 }
 
 
-/* Permanent delete is scoped to this RIVIS folder and the target idea ID.
-   Parallel Drive operations avoid per-scene sequential deletion. */
+/* Remove the card and JSON from the catalog; image/reference assets go to
+   Google Drive Trash. All operations remain scoped to the verified RIVIS folder. */
 function driveReferencedAssets(item){
  const refs=item?.cloudAssetRefs||{};
  return [
@@ -370,10 +370,10 @@ async function boundedCloudWork(items,limit,work){
  }));
  return outputs;
 }
-async function driveDeleteVerified(ctx,fileId,isOwned){
+async function driveDeleteVerified(ctx,fileId,isOwned,disposition='delete'){
  if(!h.validFileId(String(fileId||''))||fileId===ctx.folderId)throw new Error('Invalid target Drive file ID');
  const base='https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(fileId);
- const metadataUrl=base+'?supportsAllDrives=true&fields='+encodeURIComponent('id,name,mimeType,parents,description');
+ const metadataUrl=base+'?supportsAllDrives=true&fields='+encodeURIComponent('id,name,mimeType,parents,description,trashed');
  const retryable=status=>[429,500,502,503,504].includes(status);
  let metadata=null;
  for(let attempt=0;attempt<3;attempt++){
@@ -385,13 +385,24 @@ async function driveDeleteVerified(ctx,fileId,isOwned){
   metadata=data;break;
  }
  if(!metadata?.parents?.includes(ctx.folderId)||!isOwned(metadata))return {kind:'skipped'};
+ if(disposition==='trash'&&metadata.trashed===true)return {kind:'alreadyTrashed'};
  for(let attempt=0;attempt<3;attempt++){
-  const res=await driveFetch(ctx,base+'?supportsAllDrives=true',{method:'DELETE'});
-  if(res.ok||res.status===404)return {kind:'deleted'};
+  const trash=disposition==='trash';
+  const url=base+'?supportsAllDrives=true'+(trash?'&fields=id,trashed':'');
+  const res=await driveFetch(ctx,url,trash?{
+   method:'PATCH',headers:{'Content-Type':'application/json; charset=UTF-8'},body:JSON.stringify({trashed:true})
+  }:{method:'DELETE'});
+  if(res.status===404)return {kind:'missing'};
+  if(res.ok){
+   if(!trash)return {kind:'deleted'};
+   const body=await res.json().catch(()=>({}));
+   if(body.trashed!==true)throw new Error('Google Drive did not confirm the image was moved to Trash');
+   return {kind:'trashed'};
+  }
   if(retryable(res.status)&&attempt<2){await new Promise(r=>setTimeout(r,240*(attempt+1)));continue;}
-  throw driveError('Drive delete failed',res,await res.json().catch(()=>({})));
+  throw driveError(trash?'Drive Trash move failed':'Drive delete failed',res,await res.json().catch(()=>({})));
  }
- throw new Error('Drive delete retry limit exceeded');
+ throw new Error('Drive file operation retry limit exceeded');
 }
 async function removeIdeaFromCatalog(ctx,ideaId,initial){
  let current=initial;
@@ -428,11 +439,11 @@ async function deleteIdeaPermanently(ctx,ideaId){
   const description=String(meta.description||''),assetId=String(asset.assetId||'');
   return description.includes('RIVIS Cloud Asset · Idea '+ideaId+' ·')||
    (assetId.length>=3&&String(meta.name||'').startsWith(assetId+'_')&&String(meta.mimeType||'').startsWith('image/'));
- }));
+ },'trash'));
  const errors=results.filter(x=>x?.kind==='error');
- if(errors.length)throw new Error(errors.length+' file gambar gagal dihapus; klik Hapus untuk mencoba lagi. '+errors[0].message);
- // Delete per-idea JSON only after every owned image has been processed. Google
- // returns 404 for files removed by a previous interrupted attempt.
+ if(errors.length)throw new Error(errors.length+' file gambar gagal dipindahkan ke Trash; klik Hapus untuk mencoba lagi. '+errors[0].message);
+ // Permanently delete the per-card JSON only after image/reference assets have
+ // been moved to Trash. A retry recognizes already trashed assets.
  const json=await driveDeleteVerified(ctx,String(entry.fileId),meta=>
   meta.name==='RIVIS_IDEA_'+ideaId+'.json'&&meta.mimeType==='application/json');
  if(json.kind!=='deleted'&&json.kind!=='missing')
@@ -440,12 +451,14 @@ async function deleteIdeaPermanently(ctx,ideaId){
  // Remove catalog entry once. A conflict leaves it available for idempotent retry.
  await removeIdeaFromCatalog(ctx,ideaId,catalog);
  const skipped=results.filter(x=>x?.kind==='skipped').length;
- return {ideaId,status:'PermanentlyDeleted',permanent:true,
-  deletedDriveFiles:results.filter(x=>x?.kind==='deleted').length+(json.kind==='deleted'?1:0),
+ return {ideaId,status:'RemovedWithTrashedAssets',permanent:true,assetDisposition:'trash',
+  trashedDriveFiles:results.filter(x=>x?.kind==='trashed').length,
+  alreadyTrashedFiles:results.filter(x=>x?.kind==='alreadyTrashed').length,
+  deletedDriveFiles:json.kind==='deleted'?1:0,
   alreadyMissingFiles:results.filter(x=>x?.kind==='missing').length+(json.kind==='missing'?1:0),
   skippedSharedAssets:unique.size-targets.length,
   skippedUnverifiedAssets:skipped,
-  retainedDriveAssets:unique.size>targets.length||skipped>0};
+  retainedDriveAssets:true,recoverableAssets:true};
 }
 
 exports.handler=async(event)=>{
