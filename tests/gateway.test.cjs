@@ -1033,3 +1033,16 @@ test('Series panel keeps continuity settings but no longer renders duplicate Aut
  assert.doesNotMatch(ai,/seriesAutoGenerateCheckbox|seriesAutoGenerate/);
  assert.match(support,/SERIES CONTINUITY/);
 });
+
+test('Discover Auto Generate follows purple-indigo-blue theme of adjacent Discover button',()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const control=source.match(/#ideaDiscoverActionBar #discoverAutoGenerateControl\{([^}]+)\}/)?.[1]||'';
+ const checkbox=source.match(/#ideaDiscoverActionBar #discoverAutoGenerateCheckbox\{([^}]+)\}/)?.[1]||'';
+ const active=source.match(/#ideaDiscoverActionBar #discoverAutoGenerateControl:has\(input:checked\)\{([^}]+)\}/)?.[1]||'';
+ assert.match(control,/linear-gradient\(135deg,rgba\(76,29,149/);
+ assert.match(control,/color:#ddd6fe/);
+ assert.match(checkbox,/accent-color:#818cf8/);
+ assert.match(active,/linear-gradient\(135deg,rgba\(124,58,237/);
+ assert.match(active,/rgba\(37,99,235/);
+ assert.doesNotMatch(control+checkbox+active,/#22c55e|rgba\(6,95,70/);
+});
