@@ -2585,11 +2585,13 @@ function cloudPageRequest(page){
 }
 function cloudPrefetchNextPage(page,total){
  clearTimeout(cloudGalleryPrefetchTimer);
- const next=page+1;
+ const next=page+1,revision=cloudGalleryMutationRevision;
  if(!gatewayVerified||next>Math.ceil(total/CLOUD_GALLERY_PAGE_SIZE)||cloudGalleryPageCache.has(next))return;
  cloudGalleryPrefetchTimer=setTimeout(()=>{
-  if(!gatewayVerified||cloudGalleryPageRequests.size||cloudGalleryPageCache.has(next))return;
-  cloudPageRequest(next).then(r=>cloudRememberPage(Number(r.page)||next,r.ideas||[],Number(r.total)||0)).catch(()=>{});
+  if(revision!==cloudGalleryMutationRevision||!gatewayVerified||cloudGalleryPageRequests.size||cloudGalleryPageCache.has(next))return;
+  cloudPageRequest(next).then(r=>{
+   if(revision===cloudGalleryMutationRevision)cloudRememberPage(Number(r.page)||next,r.ideas||[],Number(r.total)||0);
+  }).catch(()=>{});
  },700);
 }
 async function refreshCloudGallery(page=cloudGalleryPage,force=false){
