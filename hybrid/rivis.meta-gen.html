@@ -434,6 +434,8 @@ function sourceCsvName(name){
 let platform='adobe';
 const rule=()=>PLATFORM_RULES[platform];
 function targetFilename(e){return e.filename}
+// Normalize JPEG references in metadata CSV only; input images are not renamed.
+function csvRasterFilename(name){return String(name||'').replace(/\.jpg$/i,'.jpeg')}
 function platformKeywords(e){
  let tags=(e.metadata?.tags||[]).map(t=>t.trim()).filter(Boolean);
  // The card keeps 30–40 keywords, but the Vecteezy CSV profile supports at most 30.
@@ -877,7 +879,7 @@ function csvCell(value){
   return '"'+text.replace(/"/g,'""')+'"';
 }
 function csvRow(e,mappedNames){
- const m=e.metadata,k=platformKeywords(e).join(', ');let name=mappedNames?.get(e)||targetFilename(e);if(mappedNames&&platform==='vecteezy')name=name.replace(/\.[^.]+$/,'');
+ const m=e.metadata,k=platformKeywords(e).join(', ');let name=mappedNames?.get(e)||targetFilename(e);if(mappedNames&&platform==='vecteezy')name=name.replace(/\.[^.]+$/,'');name=csvRasterFilename(name);
  switch(platform){
  case 'adobe':return [name,m.title,k,e.category||'',e.release||''];
  case 'shutterstock':return [name,m.description,k,[e.shutterCat1,e.shutterCat2].filter(Boolean).join(', '),e.illustration?'Yes':'No',e.mature?'Yes':'No',e.editorial?'Yes':'No'];
@@ -889,7 +891,7 @@ function csvRow(e,mappedNames){
 function exportCsv(list,mappedNames){let rows=[rule().headers,...list.map(e=>csvRow(e,mappedNames))];return '\uFEFF'+rows.map(r=>r.map(csvCell).join(rule().delimiter)).join('\r\n')+'\r\n'}
 function validatePlatformEntry(e,mappedNames){
  let errors=[],warnings=[];if(!e.metadata)return {errors:['Metadata is not available yet.'],warnings};
- const m=e.metadata,filename=mappedNames?.get(e)||targetFilename(e),title=(m.title||'').trim(),keywords=platformKeywords(e),p=rule();
+ const m=e.metadata,filename=csvRasterFilename(mappedNames?.get(e)||targetFilename(e)),title=(m.title||'').trim(),keywords=platformKeywords(e),p=rule();
  if(!filename)errors.push('Original input filename is required.');
  if(/[\/\\\x00-\x1f]/.test(filename))errors.push('Filename contains forbidden path characters.');
  if(/^[ \t]*[=+@]/.test(filename))errors.push('Unsafe filename for spreadsheet CSV. Rename the original source file before uploading it here.');
@@ -947,7 +949,7 @@ function assertExportable(list,mappedNames){
  if(!list.length)throw Error('No generated metadata available.');
  let fails=list.filter(e=>validatePlatformEntry(e,mappedNames).errors.length);
  if(fails.length)throw Error(`${fails.length} asset(s) need CSV corrections: ${fails.slice(0,3).map(e=>e.filename).join(', ')}`);
- let seen=new Set();for(const e of list){let name=mappedNames?.get(e)||targetFilename(e);let key=name.toLowerCase();if(seen.has(key))throw Error('Duplicate target filenames in batch: '+name);seen.add(key)}
+ let seen=new Set();for(const e of list){let name=csvRasterFilename(mappedNames?.get(e)||targetFilename(e));let key=name.toLowerCase();if(seen.has(key))throw Error('Duplicate target filenames in batch: '+name);seen.add(key)}
 }
 function splitCsvBatches(list,mappedNames){
  const enc=new TextEncoder(),p=rule();const headerBytes=enc.encode('\uFEFF'+p.headers.map(csvCell).join(p.delimiter)+'\r\n').length;
