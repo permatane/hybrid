@@ -163,8 +163,39 @@ for(const name of names){
   '}'
  );
 }
+// Secure VectorichQC launch: requires an existing Google Drive OAuth session.
+// The key and allowed email exist only in Cloudflare Secrets, never in this repository.
+generated.push(String.raw`
+function handler_qc_launch(env){
+ const h=makeShared(env);
+ return async event=>{
+  if(!h.onlyGet(event))return h.json(405,{error:'Method not allowed'});
+  try{
+   const secret=String(env.VQC_LAUNCH_SECRET||'').trim();
+   const allowed=String(env.VQC_ALLOWED_EMAIL||'').trim().toLowerCase();
+   const key=Buffer.from(secret,'base64url');
+   if(key.length!==32||!allowed)return h.json(503,{error:'VectorichQC signed access belum dikonfigurasi'});
+   const auth=await h.activeSession(event);
+   if(auth.error||!auth.session?.access_token)return h.redirect(h.baseUrl()+'/rivis-cloud/?qc=connect');
+   const about=await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)',{headers:{Authorization:'Bearer '+auth.session.access_token},cache:'no-store'});
+   if(!about.ok)return h.json(403,{error:'Gagal memverifikasi akun Google Drive'});
+   const info=await about.json();
+   const email=String(info?.user?.emailAddress||'').trim().toLowerCase();
+   if(!email||email!==allowed)return h.json(403,{error:'Akun Google ini tidak memiliki izin VectorichQC'});
+   const exp=Math.floor(Date.now()/1000)+30;
+   const nonce=Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(16))).toString('base64url');
+   const msg='vqc:launch:v1\n'+exp+'\n'+nonce;
+   const sig=crypto.createHmac('sha256',key).update(msg).digest('base64url');
+   const url='https://vectorichqc-prv.pages.dev/open?t='+encodeURIComponent(exp+'.'+nonce+'.'+sig);
+   const cookies=auth.newCookie?[auth.newCookie]:[];
+   return h.redirect(url,cookies);
+  }catch(e){console.error('VectorichQC launch failed:',e?.message||e);return h.json(503,{error:'VectorichQC private launch sementara tidak tersedia'});}
+ };
+}
+`);
 generated.push('const handlers={');
 for(const name of names)generated.push(JSON.stringify(name)+':handler_'+name.replace(/-/g,'_')+',');
+generated.push("'qc-launch':handler_qc_launch,");
 generated.push('};');
 generated.push("\nexport async function dispatch(ctx,endpoint){\n const factory=handlers[endpoint];\n if(!factory)return Response.json({error:'Unknown gateway endpoint'},{status:404});\n const request=ctx.request,url=new URL(request.url);\n const env={...ctx.env,RIVIS_BASE_URL:ctx.env.RIVIS_BASE_URL||url.origin};\n const headers=Object.fromEntries(request.headers.entries());\n const binary=endpoint==='cloud-upload-chunk'&&request.method==='PUT'&&request.headers.get('x-rivis-query-status')!=='1';\n let body='',isBase64Encoded=false;\n if(request.method!=='GET'&&request.method!=='HEAD'){\n  if(binary){\n   body=Buffer.from(await request.arrayBuffer()).toString('base64');\n   isBase64Encoded=true;\n  }else body=await request.text();\n }\n const event={httpMethod:request.method,headers,queryStringParameters:Object.fromEntries(url.searchParams),body,isBase64Encoded};\n try{\n  const r=await factory(env)(event);\n  const responseHeaders=new Headers(r.headers||{});\n  for(const [key,values] of Object.entries(r.multiValueHeaders||{}))\n   for(const value of values||[])responseHeaders.append(key,value);\n  responseHeaders.set('Cache-Control','no-store');\n  responseHeaders.set('X-Content-Type-Options','nosniff');\n  return new Response(r.body||'',{status:r.statusCode||200,headers:responseHeaders});\n }catch(e){\n  console.error('RIVIS gateway error:',endpoint,e?.message||e);\n  return Response.json({error:'Gateway request failed'},{status:500,headers:{'Cache-Control':'no-store'}});\n }\n}\n");
 
