@@ -2361,7 +2361,7 @@ function renderCloudGallery(ideas,page=1,totalCount=null){
   const promptText=prompt?'<p class="rv-cloud-gallery-prompt">'+cloudEscape(prompt.slice(0,220))+(prompt.length>220?'…':'')+'</p>':'';
   const selected=cloudGallerySelectedIds.has(String(idea.ideaId));
   const retry='<button type="button" class="rv-cloud-thumb-retry" title="Refresh thumbnail gambar" aria-label="Refresh thumbnail '+title+'"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.7 6"/><path d="M20 4v7h-7"/></svg></button>';
-  return '<article class="rv-cloud-gallery-card'+(selected?' is-selected':'')+'" data-cloud-gallery-id="'+id+'"><div class="rv-cloud-gallery-preview rv-cloud-gallery-selectable'+(seriesVisible?' rv-cloud-series-preview':'')+'" style="--rv-cloud-aspect:'+previewRatio+';" data-cloud-select-id="'+id+'" role="checkbox" tabindex="0" aria-label="Pilih card '+title+'" aria-checked="'+(selected?'true':'false')+'">'+preview+retry+'</div><div class="rv-cloud-gallery-body"><h4>'+title+'</h4><div class="rv-cloud-gallery-meta">'+type+' · '+(score!==undefined?('Score '+cloudEscape(score)):'Score —')+'</div><div class="rv-cloud-gallery-meta">'+cloudEscape(idea.updatedAt||idea.createdAt||'Cloud saved')+'</div>'+promptText+'<div class="rv-cloud-gallery-actions"><button type="button" class="rv-cloud-gallery-explore" onclick="RIVIS_EXPLORE_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Explore Idea</button><button type="button" class="rv-cloud-gallery-load" onclick="RIVIS_LOAD_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Load to Library</button><button type="button" class="rv-cloud-gallery-delete" onclick="RIVIS_DELETE_CLOUD_IDEA(&quot;'+id+'&quot;,this)" title="Hapus dari Cloud Gallery; file Drive tetap tersimpan" aria-label="Hapus item Cloud Gallery">Hapus</button></div></div></article>';
+  return '<article class="rv-cloud-gallery-card'+(selected?' is-selected':'')+'" data-cloud-gallery-id="'+id+'"><div class="rv-cloud-gallery-preview rv-cloud-gallery-selectable'+(seriesVisible?' rv-cloud-series-preview':'')+'" style="--rv-cloud-aspect:'+previewRatio+';" data-cloud-select-id="'+id+'" role="checkbox" tabindex="0" aria-label="Pilih card '+title+'" aria-checked="'+(selected?'true':'false')+'">'+preview+retry+'</div><div class="rv-cloud-gallery-body"><h4>'+title+'</h4><div class="rv-cloud-gallery-meta">'+type+' · '+(score!==undefined?('Score '+cloudEscape(score)):'Score —')+'</div><div class="rv-cloud-gallery-meta">'+cloudEscape(idea.updatedAt||idea.createdAt||'Cloud saved')+'</div>'+promptText+'<div class="rv-cloud-gallery-actions"><button type="button" class="rv-cloud-gallery-explore" onclick="RIVIS_EXPLORE_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Explore Idea</button><button type="button" class="rv-cloud-gallery-load" onclick="RIVIS_LOAD_CLOUD_IDEA(&quot;'+id+'&quot;,this)">Load to Library</button><button type="button" class="rv-cloud-gallery-delete" onclick="RIVIS_DELETE_CLOUD_IDEA(&quot;'+id+'&quot;,this)" title="Hapus permanen kartu, JSON, dan gambar miliknya dari Google Drive" aria-label="Hapus item Cloud Gallery">Hapus</button></div></div></article>';
  }).join(''):'<div class="rv-cloud-empty">Memperbarui halaman Cloud Gallery…</div>';
  if(pager){
   const button=(label,target,disabled=false,active=false)=>'<button type="button" class="rv-cloud-page-btn'+(active?' is-active':'')+'" data-cloud-page="'+target+'"'+(disabled?' disabled':'')+(active?' aria-current="page"':'')+'>'+label+'</button>';
@@ -2676,7 +2676,8 @@ async function deleteCloudGalleryIdea(ideaId,button){
  if(button?.dataset?.confirmDelete!==id){
   if(!button)return false;
   button.dataset.confirmDelete=id;button.textContent='Yakin?';
-  button.title='Klik lagi untuk menghapus dari Gallery. File di Drive tetap tersimpan.';
+  button.title='Konfirmasi penghapusan PERMANEN: gambar dan JSON kartu akan dihapus dari Google Drive.';
+  showToast('Klik Yakin? sekali lagi untuk menghapus permanen gambar dan data kartu dari Google Drive.','info');
   setTimeout(()=>{if(button.isConnected&&button.dataset.confirmDelete===id){delete button.dataset.confirmDelete;button.textContent='Hapus';}},6500);
   return false;
  }
@@ -2697,12 +2698,14 @@ async function deleteCloudGalleryIdea(ideaId,button){
  cloudGalleryItems=cloudGalleryItems.filter(x=>String(x.ideaId)!==id);
  cloudGalleryTotal=Math.max(0,beforeTotal-1);
  renderCloudGallery(cloudGalleryItems,beforePage,cloudGalleryTotal);
- cloudSyncStatus('Menghapus dari Cloud Gallery: '+title+'…');
+ cloudSyncStatus('Menghapus permanen file Google Drive: '+title+'…');
  try{
   const result=await sendCloudCommand('delete',{ideaId:id});
-  if(result?.ok!==true)throw new Error('Gateway tidak mengonfirmasi penghapusan.');
-  cloudSyncStatus('Item berhasil dihapus: '+title+'. File Drive tetap aman.');
-  showToast('Item dihapus dari Cloud Gallery.','success');
+  if(result?.ok!==true||result?.permanent!==true)throw new Error('Gateway belum mengonfirmasi penghapusan file Drive secara permanen.');
+  const retained=(Number(result.skippedSharedAssets)||0)+(Number(result.skippedUnverifiedAssets)||0);
+  cloudSyncStatus('Dihapus permanen: '+title+' · '+(Number(result.deletedDriveFiles)||0)+' file Drive.'+(retained?' '+retained+' file dibagi/tidak terverifikasi dipertahankan.':''));
+  showToast('Card dan '+(Number(result.deletedDriveFiles)||0)+' file Drive berhasil dihapus permanen.','success');
+  if(retained)showToast(retained+' file tidak dihapus karena digunakan kartu lain atau tidak dapat diverifikasi.','info');
   // Fill the page only if deletion left it empty; otherwise avoid another Drive request.
   if(cloudGalleryTotal>0&&!cloudGalleryItems.length){
    const page=Math.min(beforePage,Math.max(1,Math.ceil(cloudGalleryTotal/CLOUD_GALLERY_PAGE_SIZE)));
