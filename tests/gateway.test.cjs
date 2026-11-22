@@ -1046,3 +1046,13 @@ test('Discover Auto Generate follows purple-indigo-blue theme of adjacent Discov
  assert.match(active,/rgba\(37,99,235/);
  assert.doesNotMatch(control+checkbox+active,/#22c55e|rgba\(6,95,70/);
 });
+
+test('Discover checkbox is labeled Auto Process in UI, accessibility and notifications',()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ assert.match(source,/Auto<br\/>Process/);
+ assert.match(source,/Auto Process Image All dan Meta All/);
+ assert.match(source,/Auto Process: Image All dan Meta All dimulai/);
+ assert.match(source,/Auto Process aktif: batch yang masih berjalan/);
+ assert.doesNotMatch(source,/Auto<br\/>Generate|aria-label=\\\"Auto Generate Image All dan Meta All/);
+ assert.match(source,/DISCOVER_AUTO_GENERATE_KEY/,'Existing storage key is preserved for user preferences');
+});
