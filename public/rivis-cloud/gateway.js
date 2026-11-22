@@ -195,9 +195,9 @@
     try {
       if (!signedIn || !verifiedSelection) throw new Error('Hubungkan Google terlebih dahulu.');
       let result;
-      if(d.command==='upload'){
-        // Heartbeats keep the RIVIS caller informed while Netlify / Drive handle a chunk.
-        heartbeat=setInterval(()=>emit('RIVIS_CLOUD_PROGRESS',{requestId:d.requestId,stage:'heartbeat',message:'Cloud Gateway sedang memproses upload...'}),12000);
+      if(d.command==='upload'||d.command==='delete'){
+        // Heartbeats prevent the UI from timing out on multi-file Drive deletes.
+        heartbeat=setInterval(()=>emit('RIVIS_CLOUD_PROGRESS',{requestId:d.requestId,stage:'heartbeat',message:d.command==='delete'?'Menghapus file Google Drive…':'Cloud Gateway sedang memproses upload...'}),12000);
       }
       if (d.command === 'save') {
         const payload = d.payload || {};
@@ -301,11 +301,11 @@
         })});
       } else if (d.command === 'archive' || d.command === 'delete') {
         await ensureCloudMigration(d.requestId);
-        result = await request('cloud-data', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:d.command, ideaId:d.payload?.ideaId})});
+        result = await request('cloud-data', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:d.command, ideaId:d.payload?.ideaId})},d.command==='delete'?120000:45000);
       } else throw new Error('Perintah Cloud Gallery tidak dikenal.');
       reply(true, result, null);
     } catch (error) {
-      status('Cloud upload gagal · '+String(error?.message||error).slice(0,250),'error');
+      status('Operasi Cloud gagal · '+String(error?.message||error).slice(0,250),'error');
       reply(false, null, error.message || 'Cloud operation failed');
     } finally {
       if(heartbeat!==null)clearInterval(heartbeat);
