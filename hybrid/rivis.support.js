@@ -635,10 +635,25 @@ function setGradientEnabled(enabled){state.gradientEnabled=Boolean(enabled);safe
 String(state.gradientEnabled));}
 const DISCOVER_AUTO_GENERATE_KEY='rvis_discover_auto_generate_v1';
 let discoverAutoStartScheduled=false;
+const discoverAutoPending={images:false,meta:false};
 function setDiscoverAutoGenerate(enabled){
  const checkbox=byId('discoverAutoGenerateCheckbox');
  if(checkbox)checkbox.checked=Boolean(enabled);
+ if(!enabled){discoverAutoPending.images=false;discoverAutoPending.meta=false;}
  safeStorageSet(DISCOVER_AUTO_GENERATE_KEY,Boolean(enabled)?'true':'false');
+}
+// Start only when idle: calling the batch button twice would cancel an active batch.
+// When Discover adds ideas mid-batch, its completion calls this again for the new cards.
+function resumePendingDiscoverAutoBatch(type){
+ if(!discoverAutoPending[type]||!byId('discoverAutoGenerateCheckbox')?.checked||batchState[type])return false;
+ discoverAutoPending[type]=false;
+ const fn=type==='images'?handleGenerateAllImages:handleGenerateAllMetadata;
+ const buttonId=type==='images'?'generateAllImagesBtn':'generateAllMetaBtn';
+ Promise.resolve().then(()=>fn(byId(buttonId))).catch(error=>{
+  console.error('Auto Generate '+type+' failed:',error);
+  showToast('Auto Generate '+(type==='images'?'Image All':'Meta All')+' gagal: '+String(error?.message||error).slice(0,150),'error');
+ });
+ return true;
 }
 function scheduleDiscoverAutoGeneration(){
  if(discoverAutoStartScheduled)return;
@@ -646,20 +661,12 @@ function scheduleDiscoverAutoGeneration(){
  setTimeout(()=>{
   discoverAutoStartScheduled=false;
   if(!byId('discoverAutoGenerateCheckbox')?.checked)return;
-  // The existing Image All / Meta All buttons cancel a running batch when called again.
-  // Never invoke them when their corresponding batch is already running.
-  const launch=(type,fn,buttonId)=>{
-   if(batchState[type])return false;
-   Promise.resolve().then(()=>fn(byId(buttonId))).catch(error=>{
-    console.error('Auto Generate '+type+' failed:',error);
-    showToast('Auto Generate '+(type==='images'?'Image All':'Meta All')+' gagal: '+String(error?.message||error).slice(0,150),'error');
-   });
-   return true;
-  };
-  const images=launch('images',handleGenerateAllImages,'generateAllImagesBtn');
-  const meta=launch('meta',handleGenerateAllMetadata,'generateAllMetaBtn');
-  if(images||meta)showToast('Auto Generate aktif: Image All dan Meta All dimulai dari Library.','info');
-  else showToast('Auto Generate: batch Image All dan Meta All masih berjalan.','info');
+  discoverAutoPending.images=true;
+  discoverAutoPending.meta=true;
+  const images=resumePendingDiscoverAutoBatch('images');
+  const meta=resumePendingDiscoverAutoBatch('meta');
+  showToast(images&&meta?'Auto Generate: Image All dan Meta All dimulai.':
+   'Auto Generate aktif: batch yang masih berjalan akan dilanjutkan untuk kartu baru.','info');
  },240);
 }
 function setDiscoverBarCollapsed(collapsed){const bar=byId('ideaDiscoverActionBar');const toggle=byId('discoverBarToggleBtn');
