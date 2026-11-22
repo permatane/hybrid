@@ -860,3 +860,14 @@ test('Cloud archive remains reversible and preserves Google Drive files',async()
   assert.ok([...mock.files.values()].some(x=>x.name==='RIVIS_IDEA_'+ideaId+'.json'));
  }finally{global.fetch=orig;process.env={...oldEnv};}
 });
+
+test('Permanent Gallery deletion avoids redundant gateway state check and requires a second confirmation',()=>{
+ const gateway=fs.readFileSync(path.join(root,'public/rivis-cloud/gateway.js'),'utf8');
+ const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ assert.match(gateway,/if\(d\.command==='archive'\)await ensureCloudMigration\(d\.requestId\)/);
+ assert.match(gateway,/d\.command==='delete'\?120000:45000/);
+ assert.match(gateway,/d\.command==='delete'\?'Menghapus file Google Drive/);
+ assert.match(support,/result\?\.permanent!==true/);
+ assert.match(support,/Klik Yakin\? sekali lagi untuk menghapus permanen gambar/);
+ assert.match(support,/skippedSharedAssets/);
+});
