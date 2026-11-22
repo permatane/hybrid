@@ -186,7 +186,7 @@ tx.oncomplete=()=>resolve(true);tx.onerror=tx.onabort=()=>reject(tx.error||new E
 function readStoredIdeas(){try{const v=JSON.parse(safeStorageGet(STORAGE_KEYS.SAVED_IDEAS,
 '[]'));return Array.isArray(v)?v:[];}catch(e){console.warn('Saved ideas storage was invalid',e);return[];}}
 function compactLibraryBackup(ideas){return ideas.map(idea=>{const slim={...idea};
-delete slim.generatedImageUrl;delete slim.generatedImagePreviewUrl;delete slim.refImageUrl;delete slim.referenceImage;delete slim.imageBase64;delete slim.visualPreflightPending;if(Array.isArray(slim.seriesScenes))slim.seriesScenes=slim.seriesScenes.map(scene=>{const copy={...scene};delete copy.generatedImageUrl;delete copy.generatedImagePreviewUrl;return copy;});
+delete slim.generatedImageUrl;delete slim.generatedImagePreviewUrl;delete slim.refImageUrl;delete slim.referenceImage;delete slim.referenceImageUrl;delete slim.referenceImageDataUrl;delete slim.seriesAnchorImageUrl;delete slim.imageBase64;delete slim.visualPreflightPending;if(Array.isArray(slim.seriesScenes))slim.seriesScenes=slim.seriesScenes.map(scene=>{const copy={...scene};delete copy.generatedImageUrl;delete copy.generatedImagePreviewUrl;return copy;});
 return slim;});}
 async function initializePersistentLibrary(){try{const stored=await idbGet(IDB_LIBRARY_KEY);if(Array.isArray(stored)){state.savedIdeas=stored;
 }else{const legacy=readStoredIdeas();await idbSet(IDB_LIBRARY_KEY,legacy);state.savedIdeas=legacy;}state.savedIdeas.forEach(ensureConceptBlueprint);
@@ -194,13 +194,23 @@ safeStorageSet(STORAGE_KEYS.SAVED_IDEAS,JSON.stringify(compactLibraryBackup(stat
 }catch(err){idbAvailable=false;console.warn('IndexedDB initialization failed:',err);state.savedIdeas=readStoredIdeas();state.savedIdeas.forEach(ensureConceptBlueprint);
 renderSavedIdeasGrid();updateBadges();}refreshStorageStatus();}
 let sizeFrame=0,sizeDirty=false;
+// Avoid JSON-serializing multi-megabyte Series images to display Library size.
 function estimateSavedLibraryBytes(ideas){
  let bytes=0;
+ const countImage=value=>{
+  if(typeof value!=='string'||!value.startsWith('data:image/'))return;
+  const comma=value.indexOf(',');if(comma<0)return;
+  const payloadLength=value.length-comma-1;
+  const padding=value.endsWith('==')?2:value.endsWith('=')?1:0;
+  bytes+=Math.max(0,Math.floor(payloadLength*.75)-padding);
+ };
  for(const idea of ideas||[]){
-  try{const meta={...idea};delete meta.generatedImageUrl;delete meta.generatedImagePreviewUrl;bytes+=new Blob([JSON.stringify(meta)]).size;}catch(_){}
-  for(const value of [idea?.generatedImageUrl,idea?.generatedImagePreviewUrl]){
-   if(typeof value==='string'&&value.startsWith('data:')){const comma=value.indexOf(',');if(comma>=0)bytes+=Math.floor((value.length-comma-1)*.75);}
-  }
+  if(!idea)continue;
+  try{bytes+=new Blob([JSON.stringify(compactLibraryBackup([idea])[0])]).size;}catch(_){}
+  for(const value of [idea.generatedImageUrl,idea.generatedImagePreviewUrl,idea.refImageUrl,idea.referenceImageUrl,idea.referenceImageDataUrl,idea.seriesAnchorImageUrl])countImage(value);
+  if(Array.isArray(idea.seriesScenes))
+   for(const scene of idea.seriesScenes||[])
+    for(const value of [scene?.generatedImageUrl,scene?.generatedImagePreviewUrl])countImage(value);
  }
  return bytes;
 }
