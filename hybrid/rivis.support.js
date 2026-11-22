@@ -1459,7 +1459,7 @@ window.RIVIS_VECTOR=Object.freeze({open,close,convert,downloadSVG:downloadSvg});
  }
  const metaNav=byId('navTabMetaGenTop');
  if(metaNav&&!byId('navTabVectorichQcTop')){
-  metaNav.insertAdjacentHTML('afterend',`<a id="navTabVectorichQcTop" href="https://vectorichqc-prv.pages.dev/" target="_blank" rel="noopener noreferrer" class="nav-tab flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-cyan-300 hover:text-white bg-cyan-950/60 border border-cyan-800/70 hover:bg-cyan-900/70" aria-label="Open VECTORICH QC in a new tab" title="Buka Vectorich QC di tab baru"><span aria-hidden="true">↗</span> VECTORICH QC</a>`);
+  metaNav.insertAdjacentHTML('afterend',`<a id="navTabVectorichQcTop" href="https://rivis-cloud.pages.dev/api/qc-launch" target="_blank" rel="noopener noreferrer" class="nav-tab flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-cyan-300 hover:text-white bg-cyan-950/60 border border-cyan-800/70 hover:bg-cyan-900/70" aria-label="Open VECTORICH QC in a new tab" title="Buka Vectorich QC di tab baru"><span aria-hidden="true">↗</span> VECTORICH QC</a>`);
  }
  const saved=byId('tabSectionSavedIdeas');
  if(saved&&!byId('tabSectionMetaGen')){
