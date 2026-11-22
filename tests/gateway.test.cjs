@@ -75,8 +75,12 @@ function driveJsonMock(options={}){
    const id=decodeURIComponent(metaMatch[1]),file=files.get(id);
    if(!file)return response({error:{message:'not found'}},404);
    if(method==='DELETE'){files.delete(id);return response({},204);}
+   if(method==='PATCH'&&opts.body){
+    const patch=JSON.parse(String(opts.body));
+    if(patch.trashed===true){file.trashed=true;return response({id:file.id,trashed:true},200,file.etag);}
+   }
    if(uri.includes('alt=media'))return response(JSON.stringify(file.doc),200,file.etag);
-   return response({id:file.id,name:file.name,mimeType:file.mimeType,parents:file.parents,description:file.description||'',version:1},200,file.etag);
+   return response({id:file.id,name:file.name,mimeType:file.mimeType,parents:file.parents,description:file.description||'',trashed:file.trashed===true,version:1},200,file.etag);
   }
   throw Error('Unexpected Drive mock URL '+uri+' '+method);
  };
@@ -179,7 +183,7 @@ test('Cloud data migrates legacy Sheets records into per-idea JSON documents in 
  }finally{global.fetch=orig;process.env={...oldEnv};}
 });
 
-test('Cloud data delete permanently removes owned image and JSON while preserving the catalog',async()=>{
+test('Cloud data delete trashes the image but permanently removes its JSON and catalog entry',async()=>{
  setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
  const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();global.fetch=mock.fetch;
  try{
@@ -187,9 +191,12 @@ test('Cloud data delete permanently removes owned image and JSON while preservin
   mock.files.set('drive_asset_123',{id:'drive_asset_123',name:'asset_keep_original.png',mimeType:'image/png',parents:['folder12345'],description:'RIVIS Cloud Asset · Idea idea_delete123 · generated'});
   await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'save',idea:{ideaId:'idea_delete123',conceptName:'Delete Fixture'},assets:[{assetId:'asset_keep',ideaId:'idea_delete123',driveFileId:'drive_asset_123',assetType:'generated'}]})});
   const deleted=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'delete',ideaId:'idea_delete123'})});assert.equal(deleted.statusCode,200,deleted.body);
-  assert.equal(JSON.parse(deleted.body).permanent,true);assert.equal(JSON.parse(deleted.body).deletedDriveFiles,2);
+  assert.equal(JSON.parse(deleted.body).permanent,true);
+   assert.equal(JSON.parse(deleted.body).assetDisposition,'trash');
+   assert.equal(JSON.parse(deleted.body).trashedDriveFiles,1);
+   assert.equal(JSON.parse(deleted.body).deletedDriveFiles,1);
   const listed=await handler({httpMethod:'GET',headers,queryStringParameters:{action:'list'}});assert.deepEqual(JSON.parse(listed.body).ideas,[]);
-  assert.equal(mock.files.has('drive_asset_123'),false);
+  assert.equal(mock.files.get('drive_asset_123')?.trashed,true,'Image remains recoverable in Drive Trash');
   assert.equal([...mock.files.values()].some(x=>x.name==='RIVIS_IDEA_idea_delete123.json'),false);
   assert.equal([...mock.files.values()].some(x=>x.name==='RIVIS_CLOUD_CATALOG.json'),true);
  }finally{global.fetch=orig;process.env={...oldEnv};}
@@ -617,7 +624,7 @@ test('RIVIS source bridge accepts numeric chunk IDs and rejects invalid IDs and 
 
 
 
-test('Cloud Gallery permanent delete removes both JSON and original Drive image',async()=>{
+test('Cloud Gallery removes its JSON but moves original Drive image to Trash',async()=>{
  setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
  const session=h.seal({access_token:'token_test',refresh_token:'refresh_test',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();global.fetch=mock.fetch;
  try{
@@ -628,7 +635,7 @@ test('Cloud Gallery permanent delete removes both JSON and original Drive image'
   assert.equal(deleting.statusCode,200,deleting.body);assert.equal(JSON.parse(deleting.body).permanent,true);
   const listed=await handler({httpMethod:'GET',headers,queryStringParameters:{action:'list'}});
   assert.deepEqual(JSON.parse(listed.body).ideas,[]);
-  assert.equal(mock.files.has('driveFile123'),false);
+  assert.equal(mock.files.get('driveFile123')?.trashed,true);
   assert.equal([...mock.files.values()].some(x=>x.name==='RIVIS_IDEA_idea_delete_test.json'),false);
  }finally{global.fetch=orig;process.env={...oldEnv};}
 });
@@ -735,7 +742,7 @@ test('Cloud Gallery deletion removes card immediately without waiting for a seco
  assert.equal(h.context.cloudGalleryTotal,1);
  assert.equal(h.ui.refreshCount,0);
  assert.equal(h.context.cloudGallerySelectedIds.has('idea_one'),false);
- h.resolveCommand({ok:true,permanent:true,deletedDriveFiles:2});
+ h.resolveCommand({ok:true,permanent:true,assetDisposition:'trash',trashedDriveFiles:2,deletedDriveFiles:1});
  assert.equal(await pending,true);
  assert.equal(h.ui.refreshCount,0,'No full Drive list after successful delete');
  assert.equal(h.ui.cacheCleared,1);
@@ -754,7 +761,7 @@ test('Cloud Gallery deletion restores card immediately when Drive rejects delete
  assert.ok(h.ui.toasts.some(row=>row[1]==='error'));
 });
 
-test('Permanent delete: Series images and reference files removed concurrently',async()=>{
+test('Gallery removal: Series images and SVG reference moved concurrently to Drive Trash',async()=>{
  setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
  const session=h.seal({access_token:'test-token',refresh_token:'refresh-token',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();
  const ideaId='series_delete123',ids=['scene_file_111','scene_file_222','scene_file_333','reference_svg_1'];
@@ -762,7 +769,7 @@ test('Permanent delete: Series images and reference files removed concurrently',
  for(let i=0;i<assets.length;i++)mock.files.set(ids[i],{id:ids[i],name:assets[i].assetId+'_file'+i,mimeType:i===3?'image/svg+xml':'image/png',parents:['folder12345'],description:'RIVIS Cloud Asset · Idea '+ideaId+' · '+assets[i].assetType});
  let active=0,maxActive=0;
  global.fetch=async(url,options={})=>{
-  if(options.method==='DELETE'&&ids.some(id=>String(url).includes('/'+id+'?'))){
+  if(options.method==='PATCH'&&ids.some(id=>String(url).includes('/'+id+'?'))){
    active++;maxActive=Math.max(maxActive,active);
    await new Promise(resolve=>setTimeout(resolve,10));
    try{return await mock.fetch(url,options);}finally{active--;}
@@ -776,9 +783,10 @@ test('Permanent delete: Series images and reference files removed concurrently',
   const result=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'delete',ideaId})});
   assert.equal(result.statusCode,200,result.body);
   const data=JSON.parse(result.body);
-  assert.equal(data.deletedDriveFiles,5,'Four files plus idea JSON');
+  assert.equal(data.trashedDriveFiles,4,'Four image/reference files are moved to Trash');
+   assert.equal(data.deletedDriveFiles,1,'Only the card JSON is permanently deleted');
   assert.equal(data.skippedUnverifiedAssets,0);
-  for(const id of ids)assert.equal(mock.files.has(id),false,id+' must be deleted');
+  for(const id of ids)assert.equal(mock.files.get(id)?.trashed,true,id+' must be in Trash');
   assert.ok(maxActive>=2,'Drive images should be removed in parallel');
  }finally{global.fetch=orig;process.env={...oldEnv};}
 });
@@ -826,7 +834,7 @@ test('Permanent delete retains its JSON and catalog entry after Drive delete fai
  mock.files.set(id,{id,name:'retry_asset_photo.png',mimeType:'image/png',parents:['folder12345'],description:'RIVIS Cloud Asset · Idea '+ideaId+' · generated'});
  let failure=true;
  global.fetch=async(url,opts={})=>{
-  if(failure&&opts.method==='DELETE'&&String(url).includes('/'+id+'?'))
+  if(failure&&opts.method==='PATCH'&&String(url).includes('/'+id+'?'))
    return mock.response({error:{message:'Temporary unavailable'}},503);
   return mock.fetch(url,opts);
  };
@@ -842,7 +850,7 @@ test('Permanent delete retains its JSON and catalog entry after Drive delete fai
   const second=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'delete',ideaId})});
   assert.equal(second.statusCode,200,second.body);
   assert.equal(JSON.parse(second.body).permanent,true);
-  assert.equal(mock.files.has(id),false);
+  assert.equal(mock.files.get(id)?.trashed,true);
  }finally{global.fetch=orig;process.env={...oldEnv};}
 });
 
