@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path=require('node:path');
+const vm=require('node:vm');
 const h=require('../netlify/functions/_shared.cjs');
 const start=require('../netlify/functions/auth-start.js').handler;
 const callback=require('../netlify/functions/auth-callback.js').handler;
@@ -636,4 +637,24 @@ test('RIVIS Cloud Gallery UI and Save All progress support one-row mobile action
  assert.match(source,/window\.RIVIS_DELETE_CLOUD_IDEA=deleteCloudGalleryIdea/);
  assert.match(source,/dataset\.confirmDelete/);
  assert.match(gatewaySource,/d\.command === 'archive' \|\| d\.command === 'delete'/);
+});
+
+test('Library storage estimate avoids JSON stringifying full 4K Series image payloads',()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const backupStart=source.indexOf('function compactLibraryBackup(');
+ const backupEnd=source.indexOf('\nasync function initializePersistentLibrary',backupStart);
+ const estimateStart=source.indexOf('function estimateSavedLibraryBytes(');
+ const estimateEnd=source.indexOf('\nfunction refreshStorageStatus()',estimateStart);
+ assert.ok(backupStart>0&&backupEnd>backupStart&&estimateStart>0&&estimateEnd>estimateStart);
+ const funcs=source.slice(backupStart,backupEnd)+'\n'+source.slice(estimateStart,estimateEnd);
+ const {compactLibraryBackup,estimateSavedLibraryBytes}=vm.runInNewContext(
+  funcs+'\n({compactLibraryBackup,estimateSavedLibraryBytes})',{Blob});
+ const image='data:image/png;base64,'+'A'.repeat(400000);
+ const idea={ideaId:'series_test',seriesAnchorImageUrl:image,generatedImageUrl:image,
+  seriesScenes:[{sceneId:'scene_1',generatedImageUrl:image,generatedImagePreviewUrl:image}]};
+ const backup=compactLibraryBackup([idea]);
+ assert.ok(!JSON.stringify(backup).includes('data:image/'),'metadata fallback must exclude image bytes');
+ assert.equal(idea.seriesScenes[0].generatedImageUrl,image,'original image payload must remain untouched');
+ const bytes=estimateSavedLibraryBytes([idea]);
+ assert.ok(bytes>=1_200_000&&bytes<1_300_000,'estimate must account for all four image payloads');
 });
