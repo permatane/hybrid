@@ -658,3 +658,22 @@ test('Library storage estimate avoids JSON stringifying full 4K Series image pay
  const bytes=estimateSavedLibraryBytes([idea]);
  assert.ok(bytes>=1_200_000&&bytes<1_300_000,'estimate must account for all four image payloads');
 });
+
+test('Cloud Gallery compact Series summary preserves earlier full scene metadata',()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const start=source.indexOf('function mergeCloudSeriesGalleryItem('),end=source.indexOf('\nfunction cloudSeriesPreviewAssets(',start);
+ assert.ok(start>0&&end>start);
+ const merge=vm.runInNewContext(source.slice(start,end)+'\nmergeCloudSeriesGalleryItem',{});
+ const prior={productionType:'series',seriesLength:2,seriesScenes:[
+  {sceneId:'scene_1',sceneTitle:'Arrival',metadata:{stockTitle:'Arrival Scene'}},
+  {sceneId:'scene_2',sceneTitle:'Departure',metadata:{stockTitle:'Departure Scene'}}],cloudAssets:[]};
+ const incoming={productionType:'series',seriesLength:2,seriesScenes:[
+  {sceneId:'scene_1',sceneTitle:'Arrival Updated'},{sceneId:'scene_2',sceneTitle:'Departure'}],
+  cloudAssets:[{sceneId:'scene_1',assetType:'generated',driveFileId:'drive_1'},{sceneId:'scene_2',assetType:'generated',driveFileId:'drive_2'}]};
+ const merged=merge(incoming,prior);
+ assert.equal(merged.seriesScenes.length,2);
+ assert.equal(merged.seriesScenes[0].metadata.stockTitle,'Arrival Scene');
+ assert.equal(merged.seriesScenes[0].sceneTitle,'Arrival Updated');
+ assert.equal(merged.seriesScenes[1].metadata.stockTitle,'Departure Scene');
+ assert.equal(merged.cloudAssets.length,2);
+});
