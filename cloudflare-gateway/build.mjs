@@ -172,16 +172,16 @@ function handler_qc_launch(env){
   if(!h.onlyGet(event))return h.json(405,{error:'Method not allowed'});
   try{
    const secret=String(env.VQC_LAUNCH_SECRET||'').trim();
-   const allowed=String(env.VQC_ALLOWED_EMAIL||'').trim().toLowerCase();
+   const allowed=new Set(String(env.VQC_ALLOWED_EMAIL||'').toLowerCase().split(/[,;\s]+/).filter(Boolean));
    const key=Buffer.from(secret,'base64url');
-   if(key.length!==32||!allowed)return h.json(503,{error:'VectorichQC signed access belum dikonfigurasi'});
+   if(key.length!==32||allowed.size===0)return h.json(503,{error:'VectorichQC signed access belum dikonfigurasi'});
    const auth=await h.activeSession(event);
    if(auth.error||!auth.session?.access_token)return h.redirect(h.baseUrl()+'/rivis-cloud/?qc=connect');
    const about=await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)',{headers:{Authorization:'Bearer '+auth.session.access_token},cache:'no-store'});
    if(!about.ok)return h.json(403,{error:'Gagal memverifikasi akun Google Drive'});
    const info=await about.json();
    const email=String(info?.user?.emailAddress||'').trim().toLowerCase();
-   if(!email||email!==allowed)return h.json(403,{error:'Akun Google ini tidak memiliki izin VectorichQC'});
+   if(!email||!allowed.has(email))return h.json(403,{error:'Akun Google ini tidak memiliki izin VectorichQC',account_hint:email?email.replace(/^(.).*(@.*)$/,'$1***$2'):'tidak tersedia'});
    const exp=Math.floor(Date.now()/1000)+30;
    const nonce=Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(16))).toString('base64url');
    const msg='vqc:launch:v1\n'+exp+'\n'+nonce;
