@@ -61,7 +61,6 @@ for(const name of ['index.html','gateway.css','gateway.js']){
  fs.writeFileSync(path.join(dist,'rivis-cloud',name),c);
 }
 fs.writeFileSync(path.join(dist,'index.html'), '<!doctype html><html lang="en"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/rivis-cloud/"><title>RIVIS Cloud Gateway</title><a href="/rivis-cloud/">Open RIVIS Gateway</a></html>');
-fs.writeFileSync(path.join(dist,'_redirects'), '/vectorichqc/launch https://rivis-vectorichqc.permatamailbox.workers.dev/ 302\n');
 fs.mkdirSync(path.join(functions,'api'),{recursive:true});
 fs.mkdirSync(path.join(functions,'rivis-cloud'),{recursive:true});
 
