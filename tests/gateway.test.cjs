@@ -677,3 +677,72 @@ test('Cloud Gallery compact Series summary preserves earlier full scene metadata
  assert.equal(merged.seriesScenes[1].metadata.stockTitle,'Departure Scene');
  assert.equal(merged.cloudAssets.length,2);
 });
+
+test('Mobile Cloud Gallery deletion uses a compact status label and readable button',()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ assert.match(source,/rv-cloud-gallery-actions\{grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\) minmax\(68px,\.55fr\)/);
+ assert.match(source,/button\.textContent='Hapus…'/);
+ assert.match(source,/Sedang menghapus item Cloud Gallery/);
+ assert.doesNotMatch(source,/button\.textContent='Menghapus\.\.\.'/);
+});
+
+function createCloudDeleteHarness(){
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const start=source.indexOf('let cloudGalleryDeleteBusy=false;');
+ const end=source.indexOf('\nasync function saveCardToCloud(',start);
+ assert.ok(start>0&&end>start,'Cloud Gallery deletion source found');
+ let resolveCommand,rejectCommand;
+ const command=new Promise((resolve,reject)=>{resolveCommand=resolve;rejectCommand=reject;});
+ const ui={renderCount:0,refreshCount:0,toasts:[],cacheCleared:0};
+ const context={
+  gatewayVerified:true,
+  cloudGalleryItems:[{ideaId:'idea_one',conceptName:'Original'},{ideaId:'idea_two',conceptName:'Other'}],
+  cloudGalleryTotal:2,cloudGalleryPage:1,cloudGalleryNavigationId:0,
+  cloudGalleryMutationRevision:0,cloudGalleryPrefetchTimer:null,
+  cloudGallerySelectedIds:new Set(['idea_one']),
+  cloudGalleryPageRequests:new Map(),cloudGalleryPageCache:new Map(),
+  CLOUD_GALLERY_CACHE_KEY:'test-cloud-cache',CLOUD_GALLERY_PAGE_SIZE:20,
+  clearTimeout:()=>{},setTimeout:()=>0,
+  localStorage:{removeItem:()=>{ui.cacheCleared++;}},
+  showToast:(...args)=>ui.toasts.push(args),
+  cloudSyncStatus:()=>{},
+  renderCloudGallery:()=>{ui.renderCount++;},
+  refreshCloudGallery:async()=>{ui.refreshCount++;},
+  sendCloudCommand:(action,data)=>{
+   assert.equal(action,'delete');
+   assert.equal(data.ideaId,'idea_one');
+   return command;
+  }
+ };
+ const {deleteCloudGalleryIdea}=vm.runInNewContext(
+  source.slice(start,end)+'\n({deleteCloudGalleryIdea})',context);
+ const button={dataset:{confirmDelete:'idea_one'},isConnected:true,disabled:false,textContent:'Yakin?',
+  setAttribute:()=>{},removeAttribute:()=>{}};
+ return {context,ui,button,deleteCloudGalleryIdea,resolveCommand,rejectCommand};
+}
+
+test('Cloud Gallery deletion removes card immediately without waiting for a second Drive list',async()=>{
+ const h=createCloudDeleteHarness();
+ const pending=h.deleteCloudGalleryIdea('idea_one',h.button);
+ assert.deepEqual(h.context.cloudGalleryItems.map(x=>x.ideaId),['idea_two']);
+ assert.equal(h.context.cloudGalleryTotal,1);
+ assert.equal(h.ui.refreshCount,0);
+ assert.equal(h.context.cloudGallerySelectedIds.has('idea_one'),false);
+ h.resolveCommand({ok:true});
+ assert.equal(await pending,true);
+ assert.equal(h.ui.refreshCount,0,'No full Drive list after successful delete');
+ assert.equal(h.ui.cacheCleared,1);
+});
+
+test('Cloud Gallery deletion restores card immediately when Drive rejects delete',async()=>{
+ const h=createCloudDeleteHarness();
+ const pending=h.deleteCloudGalleryIdea('idea_one',h.button);
+ assert.equal(h.context.cloudGalleryItems.length,1);
+ h.rejectCommand(new Error('Drive temporarily unavailable'));
+ assert.equal(await pending,false);
+ assert.deepEqual(h.context.cloudGalleryItems.map(x=>x.ideaId),['idea_one','idea_two']);
+ assert.equal(h.context.cloudGalleryTotal,2);
+ assert.equal(h.context.cloudGallerySelectedIds.has('idea_one'),true);
+ assert.equal(h.ui.refreshCount,0);
+ assert.ok(h.ui.toasts.some(row=>row[1]==='error'));
+});
