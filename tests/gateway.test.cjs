@@ -854,6 +854,28 @@ test('Permanent delete retains its JSON and catalog entry after Drive delete fai
  }finally{global.fetch=orig;process.env={...oldEnv};}
 });
 
+test('Google Drive Trash cleanup is safe to retry when an image is already trashed',async()=>{
+ setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
+ const session=h.seal({access_token:'test-token',refresh_token:'refresh-token',expires_at:Date.now()+3600000});
+ const orig=global.fetch,mock=driveJsonMock();global.fetch=mock.fetch;
+ const ideaId='idea_trash_retry_1',fileId='image_already_trashed_123';
+ mock.files.set(fileId,{id:fileId,name:'asset_trash_photo.png',mimeType:'image/png',parents:['folder12345'],
+  description:'RIVIS Cloud Asset · Idea '+ideaId+' · generated',trashed:true});
+ try{
+  const handler=freshCloudData(),headers={cookie:h.COOKIE_SESSION+'='+encodeURIComponent(session),origin:'https://vectorichqc2026.netlify.app'};
+  const saved=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'save',idea:{ideaId},assets:[{assetId:'asset_trash',ideaId,assetType:'generated',driveFileId:fileId}]})});
+  assert.equal(saved.statusCode,200,saved.body);
+  const response=await handler({httpMethod:'POST',headers,body:JSON.stringify({action:'delete',ideaId})});
+  assert.equal(response.statusCode,200,response.body);
+  const result=JSON.parse(response.body);
+  assert.equal(result.assetDisposition,'trash');
+  assert.equal(result.trashedDriveFiles,0);
+  assert.equal(result.alreadyTrashedFiles,1);
+  assert.equal(result.deletedDriveFiles,1);
+  assert.equal(mock.files.get(fileId)?.trashed,true,'Existing Trash item remains recoverable');
+ }finally{global.fetch=orig;process.env={...oldEnv};}
+});
+
 test('Cloud archive remains reversible and preserves Google Drive files',async()=>{
  setEnv();delete process.env.RIVIS_SPREADSHEET_ID;
  const session=h.seal({access_token:'test-token',refresh_token:'refresh-token',expires_at:Date.now()+3600000}),orig=global.fetch,mock=driveJsonMock();global.fetch=mock.fetch;
