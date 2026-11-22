@@ -902,3 +902,36 @@ test('Permanent Gallery deletion avoids redundant gateway state check and requir
  assert.match(support,/result\?\.assetDisposition!=='trash'/);
  assert.match(support,/skippedSharedAssets/);
 });
+
+test('RIVIS Adobe Stock CSV raster uses .jpeg instead of .jpg, preserves PNG and SVG',()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const start=source.indexOf('function getMetadataAssetFilename('),end=source.indexOf('\nfunction buildAdobeStockCsvRow(',start);
+ assert.ok(start>0&&end>start,'Metadata filename builder is present');
+ const sandbox={getCardBaseFilename:()=> 'a123_example',isRasterIdea:idea=>idea.raster,
+  rasterSnapshot:idea=>({format:idea.format||'jpg'})};
+ const filename=vm.runInNewContext(source.slice(start,end)+'\ngetMetadataAssetFilename',sandbox);
+ assert.equal(filename({raster:true,format:'jpg'}),'a123_example-edt.jpeg');
+ assert.equal(filename({raster:true,format:'jpeg'},'preview.jpg'),'a123_example-edt.jpeg');
+ assert.equal(filename({raster:true,format:'png'}),'a123_example-edt.png');
+ assert.equal(filename({raster:true,format:'jpg'},'preview.png'),'a123_example-edt.png');
+ assert.equal(filename({raster:false,format:'jpg'}),'a123_example-edt.svg');
+ // CSV changes must not rewrite the actual exported JPG filename.
+ assert.match(source,/const format=mode==='vector'\?'png':\(p\.format==='png'\?'png':'jpg'\)/);
+});
+
+test('METADATA Generator CSV maps .jpg to .jpeg without renaming source image',()=>{
+ const html=fs.readFileSync(path.join(root,'hybrid/rivis.meta-gen.html'),'utf8');
+ const helperStart=html.indexOf('function csvRasterFilename('),helperEnd=html.indexOf('\nfunction platformKeywords(',helperStart);
+ const rowStart=html.indexOf('function csvRow('),rowEnd=html.indexOf('\nfunction exportCsv(',rowStart);
+ assert.ok(helperStart>0&&helperEnd>helperStart&&rowStart>0&&rowEnd>rowStart,'CSV mapping source found');
+ const sandbox={platform:'adobe',platformKeywords:e=>e.metadata.tags,targetFilename:e=>e.filename};
+ const run=vm.runInNewContext(html.slice(helperStart,helperEnd)+'\n'+html.slice(rowStart,rowEnd)+'\n({csvRasterFilename,csvRow})',sandbox);
+ const sample={filename:'product_photo.jpg',metadata:{title:'Product photo',tags:['product','photo']},category:'8'};
+ assert.equal(run.csvRow(sample)[0],'product_photo.jpeg');
+ assert.equal(run.csvRasterFilename('photo.JPG'),'photo.jpeg');
+ assert.equal(run.csvRasterFilename('photo.jpeg'),'photo.jpeg');
+ assert.equal(run.csvRasterFilename('photo.png'),'photo.png');
+ assert.equal(run.csvRasterFilename('vector.svg'),'vector.svg');
+ assert.equal(sample.filename,'product_photo.jpg','Input image filename must not change');
+ assert.equal(run.csvRow(sample,new Map([[sample,'album.jpg']]))[0],'album.jpeg');
+});
