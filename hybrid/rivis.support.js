@@ -2429,7 +2429,26 @@ function pumpCloudSeriesGalleryManifests(){
   })();
  }
 }
+// Keep Base64 thumbnail memory bounded by bytes as well as card count.
 const cloudThumbnailMemoryCache=new Map();
+let cloudThumbnailCachedBytes=0;
+const CLOUD_THUMB_CACHE_MAX_BYTES=12*1024*1024;
+function cloudDropThumbnail(fileId){
+ const previous=cloudThumbnailMemoryCache.get(fileId);
+ if(previous){cloudThumbnailCachedBytes-=previous.length;cloudThumbnailMemoryCache.delete(fileId);}
+}
+function cloudReadThumbnail(fileId){
+ const cached=cloudThumbnailMemoryCache.get(fileId);
+ if(cached){cloudThumbnailMemoryCache.delete(fileId);cloudThumbnailMemoryCache.set(fileId,cached);}
+ return cached;
+}
+function cloudCacheThumbnail(fileId,url){
+ if(typeof url!=='string'||url.length>850000)return;
+ cloudDropThumbnail(fileId);
+ cloudThumbnailMemoryCache.set(fileId,url);cloudThumbnailCachedBytes+=url.length;
+ while(cloudThumbnailMemoryCache.size>72||cloudThumbnailCachedBytes>CLOUD_THUMB_CACHE_MAX_BYTES)
+  cloudDropThumbnail(cloudThumbnailMemoryCache.keys().next().value);
+}
 let cloudThumbnailObserver=null;
 let cloudThumbnailQueue=[],cloudThumbnailRunning=0;
 const cloudThumbnailPendingIds=new Map();
@@ -2445,10 +2464,7 @@ function pumpCloudGalleryThumbnails(){
     const mime=String(result.mimeType||'image/jpeg');
     if(!/^image\/(?:jpeg|png|webp|gif)$/i.test(mime))return;
     const url='data:'+mime+';base64,'+result.base64;
-    if(url.length<400000){
-     cloudThumbnailMemoryCache.set(fileId,url);
-     if(cloudThumbnailMemoryCache.size>96)cloudThumbnailMemoryCache.delete(cloudThumbnailMemoryCache.keys().next().value);
-    }
+    cloudCacheThumbnail(fileId,url);
     for(const img of images)if(img.isConnected&&img.dataset.cloudThumbId===fileId)img.src=url;
    }catch(error){
     for(const img of images)if(img.isConnected)img.closest('.rv-cloud-series-tile,.rv-cloud-gallery-preview')?.classList.add('rv-cloud-thumb-error');
@@ -2464,7 +2480,7 @@ function pumpCloudGalleryThumbnails(){
 function queueCloudGalleryThumbnail(img){
  const fileId=String(img?.dataset?.cloudThumbId||'');
  if(!fileId||!img.isConnected)return;
- const cached=cloudThumbnailMemoryCache.get(fileId);
+ const cached=cloudReadThumbnail(fileId);
  if(cached){img.src=cached;return;}
  const pending=cloudThumbnailPendingIds.get(fileId);
  if(pending){pending.push(img);return;}
@@ -2491,7 +2507,7 @@ function loadCloudGalleryThumbnails(){
  },{rootMargin:'200px 0px',threshold:0.01});
  cloudThumbnailObserver=observer;
  for(const img of images){
-  const cached=cloudThumbnailMemoryCache.get(String(img.dataset.cloudThumbId));
+  const cached=cloudReadThumbnail(String(img.dataset.cloudThumbId));
   if(cached){img.src=cached;continue;}
   observer.observe(img);
  }
@@ -2515,14 +2531,14 @@ async function retryCloudGalleryCardThumbnails(button){
    await Promise.all(targets.slice(i,i+3).map(async img=>{
     const fileId=String(img.dataset.cloudThumbId||'');
     if(!fileId)return;
-    cloudThumbnailMemoryCache.delete(fileId);
+    cloudDropThumbnail(fileId);
     try{
      const res=await sendCloudCommand('thumbnail',{fileId});
      if(!res?.base64)throw new Error('Empty thumbnail response');
      const mime=String(res.mimeType||'image/jpeg');
      if(!/^image\/(?:jpeg|png|webp|gif)$/i.test(mime))throw new Error('Unsupported thumbnail type');
      const data='data:'+mime+';base64,'+res.base64;
-     if(data.length<400000)cloudThumbnailMemoryCache.set(fileId,data);
+     cloudCacheThumbnail(fileId,data);
      if(img.isConnected&&img.dataset.cloudThumbId===fileId){
       img.src=data;img.closest('.rv-cloud-series-tile,.rv-cloud-gallery-preview')?.classList.remove('rv-cloud-thumb-error');success++;
      }
