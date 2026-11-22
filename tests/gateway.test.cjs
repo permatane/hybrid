@@ -986,19 +986,19 @@ test('Discover Auto Generate schedules Image All and Meta All once, never cancel
  assert.equal(runs.length,4,'Turning the checkbox off must stop a pending launch');
 });
 
-test('Discover save prefers Auto Generate over legacy Series image-only automation',()=>{
+test('Discover save uses only the main Auto Generate checkbox for Series and single ideas',()=>{
  const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
  const start=source.indexOf('function saveGeneratedIdeasToLibrary(');
  const end=source.indexOf('\nfunction isRasterMedium(',start);
  assert.ok(start>0&&end>start);
- const calls=[],checkbox={checked:true},seriesCheckbox={checked:true};
+ const calls=[],checkbox={checked:true};
  const sandbox={
   state:{savedIdeas:[],discoveredIdeas:[],refImageUrl:null,referenceFingerprint:null,refMode:'STYLE REFERENCE',productionType:'series'},
-  byId:id=>id==='discoverAutoGenerateCheckbox'?checkbox:id==='seriesAutoGenerateCheckbox'?seriesCheckbox:{id},
+  byId:id=>id==='discoverAutoGenerateCheckbox'?checkbox:{id},
   ensureConceptBlueprint:()=>{},persistSavedIdeas:()=>true,updateBadges:()=>{},
   switchTab:()=>calls.push('library'),updateFloatingShortcut:()=>{},
   scheduleDiscoverAutoGeneration:()=>calls.push('image-and-meta'),
-  setTimeout:()=>calls.push('legacy-series'),
+  setTimeout:()=>{throw Error('Legacy Series auto-generator must not be scheduled')},
   batchState:{images:null}
  };
  const save=vm.runInNewContext(source.slice(start,end)+'\nsaveGeneratedIdeasToLibrary',sandbox);
@@ -1006,15 +1006,30 @@ test('Discover save prefers Auto Generate over legacy Series image-only automati
  assert.deepEqual(calls,['library','image-and-meta']);
  checkbox.checked=false;
  assert.equal(save([{ideaId:'auto_idea_002'}]),1);
- assert.deepEqual(calls,['library','image-and-meta','library','legacy-series'],
-  'Legacy Series automatic image generation remains available only when Auto Generate is disabled');
+ assert.deepEqual(calls,['library','image-and-meta','library'],
+  'Unchecked Auto Generate must not start image-only automation in Series');
+ sandbox.state.productionType='single';checkbox.checked=true;
+ assert.equal(save([{ideaId:'auto_idea_003'}]),1);
+ assert.deepEqual(calls,['library','image-and-meta','library','library','image-and-meta']);
 });
 
 test('Auto Generate resumes deferred image and metadata batches after completion',()=>{
  const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
  assert.match(ai,/batchState\.images=null;[\s\S]*?resumePendingDiscoverAutoBatch\('images'\)/);
  assert.match(ai,/batchState\.meta=null;[\s\S]*?resumePendingDiscoverAutoBatch\('meta'\)/);
- // Avoid a second invocation of Image All in Series mode when main Auto Generate is enabled.
+ // Old Series checkbox must not launch Image All separately.
  const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
- assert.match(support,/if\(autoDiscover\)scheduleDiscoverAutoGeneration\(\);[\s\S]*?else if\(state\.productionType==='series'/);
+ assert.match(support,/if\(autoDiscover\)scheduleDiscoverAutoGeneration\(\)/);
+ assert.doesNotMatch(support,/seriesAutoGenerateCheckbox|seriesAutoGenerate/);
+});
+
+test('Series panel keeps continuity settings but no longer renders duplicate Auto Generate',()=>{
+ const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ assert.match(support,/seriesContinuityLockCheckbox/);
+ assert.match(support,/seriesAnchorReferenceCheckbox/);
+ assert.match(support,/id=\\\"discoverAutoGenerateCheckbox\\\"/);
+ assert.doesNotMatch(support,/Auto-generate all scenes after Save All|seriesAutoGenerateCheckbox|seriesAutoGenerate/);
+ assert.doesNotMatch(ai,/seriesAutoGenerateCheckbox|seriesAutoGenerate/);
+ assert.match(support,/SERIES CONTINUITY/);
 });
