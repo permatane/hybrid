@@ -876,6 +876,7 @@ test('Permanent Gallery deletion avoids redundant gateway state check and requir
  assert.match(gateway,/d\.command==='delete'\?120000:45000/);
  assert.match(gateway,/d\.command==='delete'\?'Menghapus file Google Drive/);
  assert.match(support,/result\?\.permanent!==true/);
- assert.match(support,/Klik Yakin\? sekali lagi untuk menghapus permanen gambar/);
+ assert.match(support,/Klik Yakin\? untuk memindahkan gambar ke Trash dan menghapus data kartu/);
+ assert.match(support,/result\?\.assetDisposition!=='trash'/);
  assert.match(support,/skippedSharedAssets/);
 });
