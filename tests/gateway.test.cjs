@@ -1250,14 +1250,14 @@ test('Gemini Canvas automatic mode retries a denied model request without insert
 test('Image Generator model preview reads real image request status and never silently changes models',()=>{
  const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
  const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
- assert.match(ai,/const RIVIS_IMAGE_MODEL_ID='gemini-3\\.1-flash-image'/);
- assert.match(ai,/return callGeminiApi\\(RIVIS_IMAGE_MODEL_ID,/);
- assert.match(ai,/window\\.RIVIS_IMAGE_MODEL_STATUS=info/);
- assert.match(ai,/response\\?\\.modelVersion/);
- assert.match(ai,/rivisReportImageModel\\(error\\?\\.name==='AbortError'\\?'canceled':'error'/);
- assert.match(support,/rivisImageModelPreview/);
- assert.match(support,/rivisImageModelLibrary/);
- assert.match(support,/rivis:image-model-status/);
- assert.match(support,/Belum diuji/);
- assert.doesNotMatch(support,/installGeminiFetchInterceptor/);
+ assert.ok(ai.includes("const RIVIS_IMAGE_MODEL_ID='gemini-3.1-flash-image'"));
+ assert.ok(ai.includes('return callGeminiApi(RIVIS_IMAGE_MODEL_ID,'));
+ assert.ok(ai.includes('window.RIVIS_IMAGE_MODEL_STATUS=info'));
+ assert.ok(ai.includes('response?.modelVersion'));
+ assert.ok(ai.includes("error?.name==='AbortError'?'canceled':'error'"));
+ assert.ok(support.includes('rivisImageModelPreview'));
+ assert.ok(support.includes('rivisImageModelLibrary'));
+ assert.ok(support.includes('rivis:image-model-status'));
+ assert.ok(support.includes('Belum diuji'));
+ assert.ok(!support.includes('installGeminiFetchInterceptor'));
 });
