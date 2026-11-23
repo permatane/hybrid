@@ -1087,23 +1087,25 @@ test('Cutout Ready rejects checkerboard gradients and subject touching image bor
  assert.equal(inspect(cropped,w,h,'#ECEFF3').ok,false,'Subject cropped at border must fail QC');
 });
 
-test('Cutout Ready raster controls persist color and preserve original JPG output',()=>{
+test('PNG Transparent mode replaces Cutout Ready controls and preserves original raster output',()=>{
  const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
  const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
- assert.match(support,/rasterCutoutReadyCheckbox/);
- assert.match(support,/rasterCutoutBgColor/);
- assert.match(support,/cutoutReady:false,cutoutBgColor:'#ECEFF3'/);
- assert.match(ai,/cutoutReady:byId\('rasterCutoutReadyCheckbox'\)\?\.checked===true/);
- assert.match(ai,/cutoutBgColor:.*#ECEFF3/);
+ assert.match(support,/png-transparent/);
+ assert.match(support,/rasterTransparentModeNotice/);
+ assert.match(support,/cutoutReady:transparent/);
+ assert.match(ai,/cutoutReady:transparent/);
+ assert.match(ai,/cutoutBgColor:'#ECEFF3'/);
  assert.match(ai,/rivisCutoutPrompt\(idea\)/);
- assert.match(ai,/const fullPrompt=rivisRsiStyleLock\(idea,preGenerationGuard.prompt\)\+\(isRasterIdea\(idea\)/);
- assert.match(ai,/current.cutoutReadiness=\{status:qc.ok\?'PASS':'REVIEW'/);
- assert.match(support,/onclick=\\\"handleDownloadCutoutPng/);
+ assert.match(ai,/if\(isTransparentPngIdea\(current\)\)/);
+ assert.match(ai,/rivisCutoutPngBlob\(candidateUrl/);
+ assert.match(support,/renderCutoutProcessingStatus/);
+ assert.match(support,/renderCutoutQc/);
+ assert.doesNotMatch(support,/id=\\\"rasterCutoutReadyCheckbox\\\"/);
+ assert.doesNotMatch(support,/onclick=\\\"handleDownloadCutoutPng/);
+ assert.doesNotMatch(support,/>PNG Alpha<\\/button>/);
  assert.match(support,/onclick=\\\"downloadSeriesScene/);
- assert.match(support,/PNG Alpha/);
- assert.match(support,/getCardBaseFilename\(idea\)\+'-transparent.png'/);
- assert.match(support,/const format=mode==='vector'\?'png':\(p.format==='png'\?'png':'jpg'\)/,
-  'Original raster JPG/PNG exports must remain intact');
+ assert.match(support,/getCardBaseFilename\(idea\)\+'-transparent\.png'/);
+ assert.match(support,/const format=mode==='vector'\|\|mode==='png-transparent'\?'png':\(p\.format==='png'\?'png':'jpg'\)/);
  assert.doesNotMatch(support.slice(support.indexOf('async function handleDownloadCutoutPng('),support.indexOf('async function getExportedAsset(')),/idea\.generatedImageUrl\s*=/,
   'Transparent export must never overwrite the original image');
 });
@@ -1123,12 +1125,15 @@ test('Cutout Ready directive requires solid flat background with no shadows or f
  assert.match(text,/NOT an alpha checkerboard or simulated transparency/);
 });
 
-test('Cutout Ready presents background QC on Library and each Series scene',()=>{
+test('PNG Alpha Processing appears before Cutout QC for Library and Series scenes',()=>{
  const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
  const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
- assert.match(support,/Cutout QC · \$\{escapeHtml\(idea\.cutoutReadiness\?\.status\|\|'REVIEW'\)\}/);
- assert.match(support,/Cutout QC · \$\{escapeHtml\(scene\.cutoutReadiness\?\.status\|\|'REVIEW'\)\}/);
+ assert.match(support,/function renderCutoutProcessingStatus\(idea\)/);
+ assert.match(support,/function renderCutoutQc\(idea\)/);
+ assert.match(support,/\$\{renderCutoutProcessingStatus\(idea\)\}\$\{renderCutoutQc\(idea\)\}/);
+ assert.match(support,/\$\{renderCutoutProcessingStatus\(sceneAsset\)\}\$\{renderCutoutQc\(sceneAsset\)\}/);
  assert.match(ai,/scene\.cutoutReadiness=generated\.cutoutReadiness\|\|null/);
+ assert.match(ai,/scene\.cutoutProcessed=generated\.cutoutProcessed===true/);
 });
 
 test('Gemini Canvas 401 HTML response reports access issue without forcing API key modal',async()=>{
