@@ -729,6 +729,50 @@ const box=byId('customSizeDimensionsBox');if(box){if(val==='custom')box.classLis
 const MODE_RESOLUTION_KEYS={vector:'rvis_vector_image_resolution_v1',raster:'rvis_raster_image_resolution_v1'};
 function loadModeResolution(mode){const raster=mode!=='vector';const key=MODE_RESOLUTION_KEYS[raster?'raster':'vector'];const fallback=raster?'4K':'1K';return validImageResolution(safeStorageGet(key,fallback));}
 function syncModeResolution(mode){const resolution=loadModeResolution(mode);state.imageResolution=resolution;const control=byId('imageResolutionSelect');if(control)control.value=resolution;}
+
+/* Read-only Image Generator model preview; no model switching or network probes. */
+(function installRivisImageModelPreview(){
+ function render(){
+  const resolution=byId('imageResolutionSelect');
+  const batchButton=byId('generateAllImagesBtn');
+  if(!resolution&&!batchButton)return false;
+  const info=window.RIVIS_IMAGE_MODEL_STATUS||{};
+  const requested=String(info.requestedModel||window.RIVIS_IMAGE_MODEL_ID||'Tidak diketahui');
+  const observed=String(info.reportedModel||'');
+  const status=String(info.status||'idle');
+  const code=Number(info.httpStatus)||null;
+  const labels={idle:'Belum diuji',requesting:'Sedang generate…',success:'Terakhir berhasil',canceled:'Dibatalkan'};
+  const statusText=labels[status]||(code?'HTTP '+code:'Permintaan gagal');
+  const full='Image AI: '+requested+(observed&&observed!==requested?' · respons: '+observed:'')+' · '+statusText;
+  let pane=byId('rivisImageModelPreview');
+  if(resolution&&!pane){
+   pane=document.createElement('div');
+   pane.id='rivisImageModelPreview';
+   pane.className='mt-2 rounded-lg border border-slate-700/70 bg-slate-950/70 px-2.5 py-2 text-[10px] leading-relaxed text-slate-300';
+   pane.setAttribute('role','status');
+   pane.setAttribute('aria-live','polite');
+   resolution.parentElement?.appendChild(pane);
+  }
+  if(pane){
+   pane.textContent=full;
+   pane.title='Model yang dipakai runtime RIVIS. Status berasal dari permintaan gambar terakhir, bukan pemeriksaan layanan global.';
+  }
+  let small=byId('rivisImageModelLibrary');
+  if(batchButton&&!small){
+   small=document.createElement('span');
+   small.id='rivisImageModelLibrary';
+   small.className='text-[10px] text-slate-400 self-center';
+   batchButton.parentElement?.prepend(small);
+  }
+  if(small){small.textContent='Image model · '+requested;small.title=full;}
+  return true;
+ }
+ window.addEventListener('rivis:image-model-status',render);
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',render,{once:true});
+ else queueMicrotask(render);
+ window.RIVIS_REFRESH_IMAGE_MODEL_PREVIEW=render;
+})();
+
 function handleImageResolutionChange(value){state.imageResolution=validImageResolution(value);const mode=getOutputMode();safeStorageSet(MODE_RESOLUTION_KEYS[mode==='vector'?'vector':'raster'],state.imageResolution);if(mode!=='vector')safeStorageSet(STORAGE_KEYS.IMAGE_RESOLUTION,state.imageResolution);updateRatioHint();}
 const PRODUCTION_BUTTON_ACTIVE="p-2.5 rounded-lg border text-left transition-all flex flex-col gap-1 bg-purple-600/20 border-purple-500 text-white shadow";
 const PRODUCTION_BUTTON_IDLE="p-2.5 rounded-lg border text-left transition-all flex flex-col gap-1 bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700";
