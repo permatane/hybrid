@@ -1131,7 +1131,7 @@ test('Cutout Ready presents background QC on Library and each Series scene',()=>
  assert.match(ai,/scene\.cutoutReadiness=generated\.cutoutReadiness\|\|null/);
 });
 
-test('Gemini Canvas 401 HTML response opens recovery panel without JSON parse error',async()=>{
+test('Gemini Canvas 401 HTML response reports access issue without forcing API key modal',async()=>{
  const source=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
  const start=source.indexOf('function rivisGeminiAuthError('),end=source.indexOf('\n/* RIVIS 3.1.56:',start);
  assert.ok(start>0&&end>start,'Gemini auth error parser exists');
@@ -1145,16 +1145,16 @@ test('Gemini Canvas 401 HTML response opens recovery panel without JSON parse er
   assert.equal(error.httpStatus,401);
   assert.equal(error.isAuthError,true);
   assert.match(error.message,/Gemini Canvas/);
-  assert.match(error.message,/Muat ulang tab/);
+  assert.match(error.message,/muat ulang/);
   assert.doesNotMatch(error.message,/bukan JSON|<html>/);
   return true;
  });
- assert.equal(classes.has('hidden'),false,'Gemini Key panel should open');
+ assert.equal(classes.has('hidden'),true,'Canvas Auto should not force the Gemini Key modal');
  assert.equal(noticeClasses.has('hidden'),false,'Specific auth diagnostic should be visible');
  assert.match(notice.textContent,/HTTP 401/);
- assert.equal(requestedUrls.length,2,'Canvas should try blank-key injection only after a 401');
- assert.equal(requestedUrls[0].includes('?key='),false,'First attempt remains keyless');
- assert.equal(requestedUrls[1].endsWith('?key='),true,'Second attempt supports Canvas blank-key injection');
+ assert.equal(requestedUrls.length,2,'Canvas may try both supported host-auth URL shapes');
+ assert.equal(requestedUrls[0].endsWith('?key='),true,'Canvas Auto starts with explicit blank-key integration');
+ assert.equal(requestedUrls[1].includes('?key='),false,'Legacy bare URL is only a fallback');
 });
 
 test('Gemini invalid custom key 401 is redacted and no HTML is displayed',async()=>{
@@ -1197,7 +1197,7 @@ test('Gemini Key panel provides a connection test while keeping user credentials
  assert.match(ai,/rivisShowGeminiAuthRecovery\(error\)/);
 });
 
-test('Gemini Canvas empty-key fallback can restore generation after keyless 401',async()=>{
+test('Gemini Canvas automatic authentication uses blank-key first, then legacy bare-URL fallback',async()=>{
  const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
  const start=ai.indexOf('function rivisGeminiAuthError('),end=ai.indexOf('\n/* RIVIS 3.1.56:',start);
  const requests=[];
@@ -1210,5 +1210,39 @@ test('Gemini Canvas empty-key fallback can restore generation after keyless 401'
  const reply=await run('gemini-3-flash-preview',{contents:[{parts:[{text:'test'}]}]});
  assert.equal(reply.candidates.length,1);
  assert.equal(requests.length,2);
- assert.ok(requests[1].endsWith('?key='),'Fallback uses blank-key Canvas host integration');
+ assert.ok(requests[0].endsWith('?key='),'Primary request uses Canvas blank-key host integration');
+ assert.ok(!requests[1].includes('?key='),'Fallback retries legacy bare URL');
+});
+
+test('Gemini Canvas automatic blank-key authentication succeeds without prompting for a key',async()=>{
+ const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ const start=ai.indexOf('function rivisGeminiAuthError('),end=ai.indexOf('\n/* RIVIS 3.1.56:',start);
+ const requests=[];let prompted=false;
+ const run=vm.runInNewContext(ai.slice(start,end)+'\nrivisGeminiApiOnce',{
+  state:{apiKey:''},byId:()=>({classList:{remove:()=>{prompted=true;},add:()=>{}}}),
+  fetch:async url=>{requests.push(String(url));return{status:200,ok:true,json:async()=>({candidates:[{content:{parts:[{text:'OK'}]}}]})};}
+ });
+ const result=await run('gemini-3-flash-preview',{contents:[]});
+ assert.equal(result.candidates.length,1);
+ assert.equal(requests.length,1);
+ assert.ok(requests[0].endsWith('?key='));
+ assert.equal(prompted,false);
+});
+
+test('Gemini Canvas automatic mode retries a denied model request without inserting user keys',async()=>{
+ const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ const start=ai.indexOf('function rivisGeminiAuthError('),end=ai.indexOf('\n/* RIVIS 3.1.56:',start);
+ const requests=[];
+ const run=vm.runInNewContext(ai.slice(start,end)+'\nrivisGeminiApiOnce',{
+  state:{apiKey:''},byId:()=>null,fetch:async url=>{
+   requests.push(String(url));
+   if(requests.length===1)return{status:403,ok:false,json:async()=>({error:{message:'Unregistered caller'}})};
+   return{status:200,ok:true,json:async()=>({candidates:[{content:{parts:[{text:'OK'}]}}]})};
+  }
+ });
+ const reply=await run('gemini-3-flash-preview',{contents:[]});
+ assert.equal(reply.candidates.length,1);
+ assert.equal(requests.length,2);
+ assert.ok(requests[0].endsWith('?key='));
+ assert.ok(!requests[1].includes('?key='));
 });
