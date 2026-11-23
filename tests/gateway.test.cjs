@@ -1246,3 +1246,18 @@ test('Gemini Canvas automatic mode retries a denied model request without insert
  assert.ok(requests[0].endsWith('?key='));
  assert.ok(!requests[1].includes('?key='));
 });
+
+test('Image Generator model preview reads real image request status and never silently changes models',()=>{
+ const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ assert.match(ai,/const RIVIS_IMAGE_MODEL_ID='gemini-3\\.1-flash-image'/);
+ assert.match(ai,/return callGeminiApi\\(RIVIS_IMAGE_MODEL_ID,/);
+ assert.match(ai,/window\\.RIVIS_IMAGE_MODEL_STATUS=info/);
+ assert.match(ai,/response\\?\\.modelVersion/);
+ assert.match(ai,/rivisReportImageModel\\(error\\?\\.name==='AbortError'\\?'canceled':'error'/);
+ assert.match(support,/rivisImageModelPreview/);
+ assert.match(support,/rivisImageModelLibrary/);
+ assert.match(support,/rivis:image-model-status/);
+ assert.match(support,/Belum diuji/);
+ assert.doesNotMatch(support,/installGeminiFetchInterceptor/);
+});
