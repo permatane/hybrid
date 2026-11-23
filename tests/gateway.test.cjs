@@ -1122,3 +1122,11 @@ test('Cutout Ready directive requires solid flat background with no shadows or f
  assert.match(text,/8–12% outer margin/);
  assert.match(text,/NOT an alpha checkerboard or simulated transparency/);
 });
+
+test('Cutout Ready presents background QC on Library and each Series scene',()=>{
+ const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ assert.match(support,/Cutout QC · \$\{escapeHtml\(idea\.cutoutReadiness\?\.status\|\|'REVIEW'\)\}/);
+ assert.match(support,/Cutout QC · \$\{escapeHtml\(scene\.cutoutReadiness\?\.status\|\|'REVIEW'\)\}/);
+ assert.match(ai,/scene\.cutoutReadiness=generated\.cutoutReadiness\|\|null/);
+});
