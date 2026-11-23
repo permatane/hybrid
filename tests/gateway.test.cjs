@@ -1247,7 +1247,7 @@ test('Gemini Canvas automatic mode retries a denied model request without insert
  assert.ok(!requests[1].includes('?key='));
 });
 
-test('Image Generator model preview reads real image request status and never silently changes models',()=>{
+test('Image Generator model preview sits below the RIVIS subtitle and reports real request status',()=>{
  const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
  const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
  assert.ok(ai.includes("const RIVIS_IMAGE_MODEL_ID='gemini-3.1-flash-image'"));
@@ -1255,9 +1255,33 @@ test('Image Generator model preview reads real image request status and never si
  assert.ok(ai.includes('window.RIVIS_IMAGE_MODEL_STATUS=info'));
  assert.ok(ai.includes('response?.modelVersion'));
  assert.ok(ai.includes("error?.name==='AbortError'?'canceled':'error'"));
+ assert.ok(support.includes("includes('Stock Asset Creator & Idea Intelligence')"));
+ assert.ok(support.includes("subtitle.insertAdjacentElement('afterend',pane)"));
  assert.ok(support.includes('rivisImageModelPreview'));
- assert.ok(support.includes('rivisImageModelLibrary'));
  assert.ok(support.includes('rivis:image-model-status'));
  assert.ok(support.includes('Belum diuji'));
+ assert.ok(!support.includes('rivisImageModelLibrary'));
  assert.ok(!support.includes('installGeminiFetchInterceptor'));
+});
+
+test('PNG Transparent mode automatically prompts, processes and exports alpha PNG without a Library cutout button',()=>{
+ const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ assert.ok(support.includes("png-transparent"));
+ assert.ok(support.includes("rasterTransparentModeNotice"));
+ assert.ok(support.includes("cutoutReady:transparent"));
+ assert.ok(support.includes("format:transparent?'png'"));
+ assert.ok(support.includes("mode==='png-transparent'&&idea.cutoutProcessed!==true"));
+ assert.ok(support.includes("mode==='vector'||mode==='png-transparent'?'png'"));
+ assert.ok(support.includes("renderCutoutProcessingStatus(idea)"));
+ assert.ok(support.includes("renderCutoutQc(idea)"));
+ assert.ok(!support.includes('id=\\\"rasterCutoutReadyCheckbox\\\"'));
+ assert.ok(!support.includes('>PNG Transparan</button>'));
+ assert.ok(!support.includes('>PNG Alpha</button>'));
+ assert.ok(ai.includes("cutoutReady:transparent"));
+ assert.ok(ai.includes("if(isTransparentPngIdea(current))"));
+ assert.ok(ai.includes("rivisCutoutPngBlob(candidateUrl"));
+ assert.ok(ai.includes("rivisBlobToDataUrl(alphaBlob)"));
+ assert.ok(ai.includes("onCutoutProgress"));
+ assert.ok(ai.includes("scene.cutoutProcessed=generated.cutoutProcessed===true"));
 });
