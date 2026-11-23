@@ -1265,7 +1265,8 @@ test('Image Generator model preview sits below the RIVIS subtitle and reports re
  assert.ok(support.includes('rivisImageModelPreview'));
  assert.ok(support.includes('rivis:image-model-status'));
  assert.ok(support.includes('Belum diuji'));
- assert.ok(!support.includes('rivisImageModelLibrary'));
+ assert.ok(support.includes("byId('rivisImageModelLibrary')?.remove()"),'Old misplaced label is cleaned up');
+ assert.ok(!support.includes("small.id='rivisImageModelLibrary'"),'No model label is created inside Library controls');
  assert.ok(!support.includes('installGeminiFetchInterceptor'));
 });
 
