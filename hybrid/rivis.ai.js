@@ -38,14 +38,59 @@ passed:idea.metadata?kwOptimal:true,detail:idea.metadata?`${keywords.length} key
 const hasAiDisclosure=idea.metadata?Boolean(idea.metadata.aiDisclosure):true;checks.push({id:'ai_disclosure',label:'Adobe Stock AI Disclosure',
 passed:hasAiDisclosure,detail:hasAiDisclosure?'Generative AI disclosure configured':'AI disclosure required'});const passedCount=checks.filter(c=>c.passed).length;
 return{passedCount,totalChecks:checks.length,isPerfect:passedCount===checks.length,checks};}
-async function rivisGeminiApiOnce(model,payload,signal=null){const key=(state.apiKey||'').trim();const baseUrl=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-const apiUrl=key?`${baseUrl}?key=${encodeURIComponent(key)}`:baseUrl;let res;try{res=await fetch(apiUrl,{method:'POST',headers:{'Content-Type':'application/json'},
-body:JSON.stringify(payload),...(signal?{signal}:{})});}catch(err){if(err?.name==='AbortError')throw err;throw new Error('Network error: tidak dapat menghubungi Gemini API. Periksa koneksi atau izin jaringan.');
-}let data;try{data=await res.json();}catch(_){throw new Error(`HTTP ${res.status}: respons Gemini API bukan JSON.`);}if(!res.ok||data?.error){const raw=String(data?.error?.message||res.statusText||'Request failed');
-const cleaned=raw.replace(/([?&]key=)[^&\s"']+/gi,'$1[REDACTED]').replace(/AIza[0-9A-Za-z_-]{20,}/g,'[REDACTED]');const safe=key?cleaned.split(key).join('[REDACTED]'):cleaned;
-const status=res.status;const hint=status===400?'Parameter tidak valid':[401,403].includes(status)?'API Key atau izin akses bermasalah':status===404?'Model tidak tersedia':status===429?'Kuota/rate limit tercapai':status>=500?'Server Gemini sedang bermasalah':'Permintaan gagal';
-const e=new Error(`HTTP ${status}: ${hint}. ${safe}`);e.httpStatus=status;const ra=res.headers?.get?.('Retry-After');if(ra){const seconds=Number(ra);const ms=Number.isFinite(seconds)?seconds*1000:Date.parse(ra)-Date.now();if(Number.isFinite(ms)&&ms>0)e.retryAfterMs=Math.min(ms,60000);}throw e;}if(!data?.candidates?.length){throw new Error(data?.promptFeedback?.blockReason?`Gemini API memblokir permintaan: ${data.promptFeedback.blockReason}`:'Gemini API tidak mengembalikan kandidat hasil.');
-}return data;}
+function rivisGeminiAuthError(status,hasCustomKey,detail=''){
+ const guidance=hasCustomKey
+  ?'Gemini API menolak API Key yang tersimpan. Buka Gemini Key, periksa/ganti key, lalu Uji Koneksi. Pastikan izin Gemini API dan pembatasan key sesuai.'
+  :'Autentikasi Gemini Canvas tidak tersedia atau sesi ditolak. Muat ulang tab Gemini Canvas. Jika tetap gagal, buka Gemini Key dan gunakan Gemini API Key Anda dari Google AI Studio.';
+ const e=new Error('HTTP '+status+': '+guidance+(detail?' ('+String(detail).slice(0,160)+')':''));
+ e.httpStatus=status;e.isAuthError=true;return e;
+}
+function rivisShowGeminiAuthRecovery(error){
+ if(!error?.isAuthError)return;
+ const notice=byId('rvisGeminiAuthNotice'),modal=byId('apiKeyModal');
+ if(modal)modal.classList.remove('hidden');
+ if(notice){notice.classList.remove('hidden');notice.textContent=String(error.message||'Autentikasi Gemini gagal.').slice(0,650);}
+}
+async function rivisGeminiApiOnce(model,payload,signal=null){
+ const key=(state.apiKey||'').trim();
+ const baseUrl=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+ // Keep Gemini Canvas host-provided authentication when no explicit key is configured.
+ const apiUrl=key?`${baseUrl}?key=${encodeURIComponent(key)}`:baseUrl;
+ let res;
+ try{res=await fetch(apiUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),...(signal?{signal}:{})});}
+ catch(err){
+  if(err?.name==='AbortError')throw err;
+  throw new Error('Network error: tidak dapat menghubungi Gemini API. Periksa koneksi atau izin jaringan.');
+ }
+ let data=null,parseFailed=false;
+ try{data=await res.json();}catch(_){parseFailed=true;}
+ if(res.status===401||res.status===403){
+  const raw=String(data?.error?.message||'');
+  const cleaned=raw.replace(/([?&]key=)[^&\s"']+/gi,'$1[REDACTED]').replace(/AIza[0-9A-Za-z_-]{20,}/g,'[REDACTED]');
+  const safe=key?cleaned.split(key).join('[REDACTED]'):cleaned;
+  const error=rivisGeminiAuthError(res.status,Boolean(key),safe);
+  rivisShowGeminiAuthRecovery(error);
+  throw error;
+ }
+ if(parseFailed||!data||typeof data!=='object'){
+  const err=new Error(`HTTP ${res.status}: Gemini API mengirim respons non-JSON. Periksa koneksi, login Canvas atau gateway. Tidak ada gambar/data yang diubah.`);
+  err.httpStatus=res.status;throw err;
+ }
+ if(!res.ok||data.error){
+  const raw=String(data?.error?.message||res.statusText||'Request failed');
+  const cleaned=raw.replace(/([?&]key=)[^&\s"']+/gi,'$1[REDACTED]').replace(/AIza[0-9A-Za-z_-]{20,}/g,'[REDACTED]');
+  const safe=key?cleaned.split(key).join('[REDACTED]'):cleaned;
+  const status=res.status,hint=status===400?'Parameter tidak valid':status===404?'Model tidak tersedia':status===429?'Kuota/rate limit tercapai':status>=500?'Server Gemini sedang bermasalah':'Permintaan gagal';
+  const e=new Error(`HTTP ${status}: ${hint}. ${safe}`);
+  e.httpStatus=status;
+  const ra=res.headers?.get?.('Retry-After');
+  if(ra){const seconds=Number(ra),ms=Number.isFinite(seconds)?seconds*1000:Date.parse(ra)-Date.now();if(Number.isFinite(ms)&&ms>0)e.retryAfterMs=Math.min(ms,60000);}
+  throw e;
+ }
+ if(!data.candidates?.length)throw new Error(data?.promptFeedback?.blockReason?`Gemini API memblokir permintaan: ${data.promptFeedback.blockReason}`:'Gemini API tidak mengembalikan kandidat hasil.');
+ return data;
+}
+
 /* RIVIS 3.1.56: AI Request Manager. All actual AI/API requests stay in Canvas. */
 const RIVIS_AI_REQUESTS=(()=>{
  const groups={image:{limit:1,active:0,queue:[]},text:{limit:2,active:0,queue:[]}};
@@ -127,7 +172,26 @@ function extractImagePalette(imgElementUrl,count=5){return new Promise(resolve=>
 });}
 function toggleApiKeyModal(){const modal=byId('apiKeyModal');
 if(modal)modal.classList.toggle('hidden');}
+async function handleTestGeminiConnection(btn){
+ if(btn?.disabled)return;
+ const oldLabel=btn?.textContent||'Uji Koneksi';
+ if(btn){btn.disabled=true;btn.textContent='Menguji…';}
+ try{
+  const result=await callGeminiApi('gemini-3-flash-preview',{contents:[{parts:[{text:'Reply with only the word OK.'}]}],generationConfig:{maxOutputTokens:24}});
+  if(!result?.candidates?.length)throw new Error('Gemini tidak mengembalikan hasil.');
+  const notice=byId('rvisGeminiAuthNotice');
+  if(notice){notice.textContent='Gemini terhubung. Silakan ulangi Discover Ideas.';notice.classList.remove('hidden');notice.classList.remove('text-rose-200','border-rose-700/70','bg-rose-950/60');notice.classList.add('text-emerald-200','border-emerald-700/70','bg-emerald-950/40');}
+  showToast('Koneksi Gemini berhasil. Discover Ideas siap dijalankan.','success');
+ }catch(err){
+  const notice=byId('rvisGeminiAuthNotice');
+  if(notice){notice.classList.remove('hidden');notice.classList.remove('text-emerald-200','border-emerald-700/70','bg-emerald-950/40');notice.classList.add('text-rose-200','border-rose-700/70','bg-rose-950/60');notice.textContent=String(err?.message||'Tes koneksi gagal').slice(0,650);}
+  showToast('Tes Gemini gagal: '+String(err?.message||err).slice(0,200),'error');
+ }finally{if(btn){btn.disabled=false;btn.textContent=oldLabel;}}
+}
 function saveApiKey(val){state.apiKey=val;safeStorageSet(STORAGE_KEYS.API_KEY,val);
+ const notice=byId('rvisGeminiAuthNotice');
+ if(notice){notice.classList.add('hidden');notice.classList.remove('text-emerald-200','border-emerald-700/70','bg-emerald-950/40');notice.classList.add('text-rose-200','border-rose-700/70','bg-rose-950/60');}
+
 document.querySelectorAll('.apiKeyBtnText').forEach(el=>el.innerText=val?'Key Set':'Gemini Key');const btn=byId('apiKeyToggleBtn');
 if(btn){if(val){btn.className="px-3 py-2 rounded-lg text-xs font-bold border flex items-center gap-1.5 transition-colors whitespace-nowrap bg-emerald-950/80 text-emerald-400 border-emerald-800";
 }else{btn.className="px-3 py-2 rounded-lg text-xs font-bold border flex items-center gap-1.5 transition-colors whitespace-nowrap bg-slate-800 text-slate-400 border-slate-700 hover:text-white";
