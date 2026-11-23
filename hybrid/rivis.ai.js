@@ -1579,18 +1579,16 @@ function startRivisMetadataProgress(btn,label='Re Metadata...'){
  if(!btn)return null;
  const originalHTML=btn.innerHTML;let percent=0,finished=false;
  btn.disabled=true;btn.classList.add('opacity-80','cursor-not-allowed');
- btn.innerHTML='<span>'+label+'</span> <span data-rivis-meta-percent class="ml-1 text-[10px] font-bold tabular-nums text-cyan-100">0%</span>';
+ btn.innerHTML='<span>'+label+'</span>';
  btn.title='Estimasi progres pembuatan metadata';
  const paint=pct=>{
   setInnerProgress(btn,pct,true);
-  const value=btn.querySelector('[data-rivis-meta-percent]');
-  if(value)value.textContent='~'+Math.round(pct)+'%';
  };
  paint(0);
  const timer=setInterval(()=>{percent=Math.min(92,percent+Math.max(1,(92-percent)*0.055));paint(percent);},550);
  return async(success=true)=>{
   if(finished)return;finished=true;clearInterval(timer);
-  if(success){setInnerProgress(btn,100);const value=btn.querySelector('[data-rivis-meta-percent]');if(value)value.textContent='100%';await new Promise(resolve=>setTimeout(resolve,260));}
+  if(success){setInnerProgress(btn,100);await new Promise(resolve=>setTimeout(resolve,260));}
   clearInnerProgress(btn);btn.removeAttribute('title');btn.disabled=false;
   btn.classList.remove('opacity-80','cursor-not-allowed');btn.innerHTML=originalHTML;
  };
