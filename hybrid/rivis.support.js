@@ -580,6 +580,135 @@ return imageDataUrlToVerifiedBlob(nested,level+1);}throw new Error('File gambar 
 async function imageDataUrlToVerifiedBlob(value,level=0){if(typeof value!=='string'||!/^data:image\/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/=\s]+$/i.test(value)){throw new Error('Data URL gambar tidak valid atau Base64 tidak lengkap.');
 }const response=await fetch(value);if(!response.ok)throw new Error('Gagal mengubah data gambar ke format biner.');return verifiedImageBlob(await response.blob(),
 level);}
+// CUTOUT READY · fail-closed border segmentation. Never overwrite generatedImageUrl.
+function rivisCutoutInspectPixels(pixels,width,height,hex='#ECEFF3'){
+ const fail=reason=>({ok:false,reason,mask:null,width,height});
+ if(!pixels||width<12||height<12||pixels.length<width*height*4)return fail('Gambar terlalu kecil untuk Cutout QC.');
+ const expected=/^#[A-Fa-f0-9]{6}$/.test(hex)?[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)):[236,239,243];
+ const spot=(x,y)=>{const i=(Math.min(height-1,Math.max(0,y))*width+Math.min(width-1,Math.max(0,x)))*4;return[pixels[i],pixels[i+1],pixels[i+2]];};
+ const dx=Math.max(1,Math.floor(width*.018)),dy=Math.max(1,Math.floor(height*.018));
+ const corners=[spot(dx,dy),spot(width-1-dx,dy),spot(dx,height-1-dy),spot(width-1-dx,height-1-dy)];
+ const bg=[0,1,2].map(k=>Math.round(corners.reduce((a,v)=>a+v[k],0)/4));
+ const dist=(r,g,b)=>Math.max(Math.abs(r-bg[0]),Math.abs(g-bg[1]),Math.abs(b-bg[2]));
+ if(corners.some(c=>dist(...c)>28))return fail('Empat sudut berbeda warna. Periksa bayangan, gradasi atau checkerboard.');
+ if(Math.max(...bg.map((v,i)=>Math.abs(v-expected[i])))>85)return fail('Background tidak sesuai warna solid yang dipilih.');
+ let checked=0,matched=0;
+ const probe=(x,y)=>{checked++;const v=spot(x,y);if(dist(...v)<=38)matched++;};
+ const step=Math.max(1,Math.floor(Math.min(width,height)/140));
+ for(let x=0;x<width;x+=step){probe(x,0);probe(x,height-1);}
+ for(let y=0;y<height;y+=step){probe(0,y);probe(width-1,y);}
+ const borderUniformity=matched/Math.max(1,checked);
+ if(borderUniformity<.91)return fail('Background tepi tidak solid (indikasi checkerboard, gradien, bayangan, atau objek terpotong).');
+ const mask=new Uint8Array(width*height),queue=new Uint32Array(width*height);
+ let head=0,tail=0;
+ const push=i=>{
+  if(mask[i])return;
+  const p=i*4;if(dist(pixels[p],pixels[p+1],pixels[p+2])>38)return;
+  mask[i]=1;queue[tail++]=i;
+ };
+ for(let x=0;x<width;x++){push(x);push((height-1)*width+x);}
+ for(let y=1;y<height-1;y++){push(y*width);push(y*width+width-1);}
+ while(head<tail){
+  const i=queue[head++],x=i%width;
+  if(x>0)push(i-1);if(x+1<width)push(i+1);
+  if(i>=width)push(i-width);if(i+width<mask.length)push(i+width);
+ }
+ const backgroundShare=tail/mask.length;
+ if(backgroundShare<.08)return fail('Background solid tidak cukup luas untuk dipisahkan dengan aman.');
+ if(backgroundShare>.965)return fail('Subjek tidak terdeteksi jelas dari background.');
+ return{ok:true,reason:'Background tepi seragam dan objek terpisah.',mask,width,height,bg,borderUniformity,backgroundShare};
+}
+async function rivisCutoutInspectUrl(url,settings={},maxSide=1100){
+ const img=new Image();img.src=url;await img.decode();
+ try{
+  const scale=Math.min(1,maxSide/Math.max(img.naturalWidth,img.naturalHeight));
+  const w=Math.max(12,Math.round(img.naturalWidth*scale)),h=Math.max(12,Math.round(img.naturalHeight*scale));
+  const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+  try{
+   const ctx=canvas.getContext('2d',{willReadFrequently:true});
+   if(!ctx)throw Error('Canvas QC tidak tersedia.');
+   ctx.drawImage(img,0,0,w,h);
+   return rivisCutoutInspectPixels(ctx.getImageData(0,0,w,h).data,w,h,settings.cutoutBgColor||'#ECEFF3');
+  }finally{canvas.width=0;canvas.height=0;}
+ }finally{img.src='';}
+}
+async function rivisCutoutPngBlob(imageUrl,settings,progress=()=>{}){
+ const verified=await imageDataUrlToVerifiedBlob(imageUrl),source=URL.createObjectURL(verified.blob);
+ const img=new Image();let output=null,tile=null;
+ try{
+  img.src=source;await img.decode();const width=img.naturalWidth,height=img.naturalHeight;
+  if(width<32||height<32||width*height>100000000)throw Error('Dimensi gambar tidak didukung untuk Cutout.');
+  const scale=Math.min(1,1150/Math.max(width,height));
+  const sw=Math.max(12,Math.round(width*scale)),sh=Math.max(12,Math.round(height*scale));
+  const small=document.createElement('canvas');small.width=sw;small.height=sh;
+  let inspected;
+  try{
+   const sc=small.getContext('2d',{willReadFrequently:true});
+   if(!sc)throw Error('Canvas QC tidak tersedia.');
+   sc.drawImage(img,0,0,sw,sh);
+   inspected=rivisCutoutInspectPixels(sc.getImageData(0,0,sw,sh).data,sw,sh,settings.cutoutBgColor);
+  }finally{small.width=0;small.height=0;}
+  if(!inspected.ok)throw Error('Cutout QC: '+inspected.reason+' Gambar asli tetap aman.');
+  output=document.createElement('canvas');output.width=width;output.height=height;
+  const dest=output.getContext('2d',{alpha:true});
+  tile=document.createElement('canvas');tile.width=width;tile.height=Math.min(192,height);
+  const tc=tile.getContext('2d',{willReadFrequently:true});
+  if(!dest||!tc)throw Error('Canvas ekspor tidak tersedia.');
+  const mask=inspected.mask,bg=inspected.bg;
+  for(let y0=0;y0<height;y0+=192){
+   const rows=Math.min(192,height-y0);
+   tc.clearRect(0,0,width,tile.height);tc.drawImage(img,0,-y0,width,height);
+   const strip=tc.getImageData(0,0,width,rows),data=strip.data;
+   for(let yy=0;yy<rows;yy++){
+    const sy=Math.min(sh-1,Math.floor((y0+yy)*sh/height));
+    for(let x=0;x<width;x++){
+     const sx=Math.min(sw-1,Math.floor(x*sw/width)),mi=sy*sw+sx,p=(yy*width+x)*4;
+     const diff=Math.max(Math.abs(data[p]-bg[0]),Math.abs(data[p+1]-bg[1]),Math.abs(data[p+2]-bg[2]));
+     const border=mask[mi]||((sx>0&&mask[mi-1])||(sx+1<sw&&mask[mi+1])||(sy>0&&mask[mi-sw])||(sy+1<sh&&mask[mi+sw]));
+     if(!border)continue;
+     const a=mask[mi]?Math.max(0,Math.min(255,Math.round((diff-24)*16))):
+      diff<=38?Math.max(0,Math.min(255,Math.round((diff-18)*17))):255;
+     if(a>=255)continue;
+     if(a<18){data[p]=data[p+1]=data[p+2]=data[p+3]=0;continue;}
+     const fraction=a/255;
+     for(let c=0;c<3;c++)data[p+c]=Math.round(Math.max(0,Math.min(255,(data[p+c]-bg[c]*(1-fraction))/fraction)));
+     data[p+3]=a;
+    }
+   }
+   dest.putImageData(strip,0,y0);
+   progress(Math.round(Math.min(99,(y0+rows)/height*100)));
+   if((y0/192)%3===2)await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  const blob=await new Promise((resolve,reject)=>output.toBlob(b=>b?resolve(b):reject(Error('Gagal menulis PNG transparan')),'image/png'));
+  if((await verifiedImageBlob(blob)).mimeType!=='image/png')throw Error('Hasil cutout bukan PNG valid.');
+  progress(100);
+  return blob;
+ }finally{
+  if(output){output.width=0;output.height=0;}
+  if(tile){tile.width=0;tile.height=0;}
+  img.src='';URL.revokeObjectURL(source);
+ }
+}
+async function handleDownloadCutoutPng(ideaId,sceneIndex=null,btn=null){
+ const parent=state.savedIdeas.find(i=>String(i.ideaId)===String(ideaId));
+ if(!parent||!isRasterIdea(parent))return;
+ const index=sceneIndex===null?null:Number(sceneIndex),scene=index===null?null:parent.seriesScenes?.[index];
+ if(index!==null&&(!Number.isInteger(index)||!scene))return;
+ const idea=scene?seriesSceneAssetIdea(parent,scene,index):parent;
+ if(!idea.generatedImageUrl){showToast('Generate image terlebih dahulu.','info');return;}
+ if(!rasterSnapshot(idea).cutoutReady){showToast('Aktifkan Cutout Ready saat membuat ide raster.','info');return;}
+ const old=btn?.textContent||'PNG Transparan';
+ try{
+  if(btn){btn.disabled=true;btn.textContent='Cutout QC…';}
+  const blob=await rivisCutoutPngBlob(idea.generatedImageUrl,rasterSnapshot(idea),pct=>{
+   if(btn?.isConnected)btn.textContent=pct===100?'Menyimpan…':'Cutout '+pct+'%';
+  });
+  await executeDownloadManager({data:blob,filename:getCardBaseFilename(idea)+'-transparent.png',mimeType:'image/png'});
+  showToast('PNG transparan asli berhasil dibuat. Gambar original tetap tersimpan.','success');
+ }catch(error){showToast('PNG transparan tidak diekspor: '+String(error?.message||error).slice(0,200),'error');}
+ finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+
 async function getExportedAsset(idea){if(!idea?.generatedImageUrl)throw new Error('Gambar belum tersedia.');const mode=ideaOutputMode(idea),
 p=rasterSnapshot(idea);const format=mode==='vector'?'png':(p.format==='png'?'png':'jpg');const mime=format==='jpg'?'image/jpeg':'image/png';
 const filename=`${getCardBaseFilename(idea)}.${format}`;const original=await imageDataUrlToVerifiedBlob(idea.generatedImageUrl);
