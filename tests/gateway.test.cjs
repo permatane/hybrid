@@ -1130,3 +1130,67 @@ test('Cutout Ready presents background QC on Library and each Series scene',()=>
  assert.match(support,/Cutout QC · \$\{escapeHtml\(scene\.cutoutReadiness\?\.status\|\|'REVIEW'\)\}/);
  assert.match(ai,/scene\.cutoutReadiness=generated\.cutoutReadiness\|\|null/);
 });
+
+test('Gemini Canvas 401 HTML response opens recovery panel without JSON parse error',async()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ const start=source.indexOf('function rivisGeminiAuthError('),end=source.indexOf('\n/* RIVIS 3.1.56:',start);
+ assert.ok(start>0&&end>start,'Gemini auth error parser exists');
+ const classes=new Set(['hidden']),modal={classList:{remove:x=>classes.delete(x)}};
+ const noticeClasses=new Set(['hidden']),notice={textContent:'',classList:{remove:x=>noticeClasses.delete(x)}};
+ let requestedUrl='';
+ const context={state:{apiKey:''},byId:id=>id==='apiKeyModal'?modal:id==='rvisGeminiAuthNotice'?notice:null,
+  fetch:async url=>{requestedUrl=String(url);return{status:401,statusText:'Unauthorized',ok:false,json:async()=>{throw Error('<html> Unauthorized');}};}};
+ const api=vm.runInNewContext(source.slice(start,end)+'\nrivisGeminiApiOnce',context);
+ await assert.rejects(()=>api('gemini-3-flash-preview',{contents:[]}),error=>{
+  assert.equal(error.httpStatus,401);
+  assert.equal(error.isAuthError,true);
+  assert.match(error.message,/Gemini Canvas/);
+  assert.match(error.message,/Muat ulang tab/);
+  assert.doesNotMatch(error.message,/bukan JSON|<html>/);
+  return true;
+ });
+ assert.equal(classes.has('hidden'),false,'Gemini Key panel should open');
+ assert.equal(noticeClasses.has('hidden'),false,'Specific auth diagnostic should be visible');
+ assert.match(notice.textContent,/HTTP 401/);
+ assert.equal(requestedUrl.includes('?key='),false,'Canvas auth must keep existing keyless host behavior');
+});
+
+test('Gemini invalid custom key 401 is redacted and no HTML is displayed',async()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ const start=source.indexOf('function rivisGeminiAuthError('),end=source.indexOf('\n/* RIVIS 3.1.56:',start);
+ const key='AIzaEXAMPLE_PRIVATE_API_KEY_NEVER_SHOW_ME_12345';
+ const dialog={classList:{remove:()=>{}}},notice={textContent:'',classList:{remove:()=>{}}};
+ const context={state:{apiKey:key},byId:id=>id==='apiKeyModal'?dialog:id==='rvisGeminiAuthNotice'?notice:null,
+  fetch:async()=>({status:401,ok:false,json:async()=>({error:{message:'API invalid '+key+'?key='+key}})})};
+ const api=vm.runInNewContext(source.slice(start,end)+'\nrivisGeminiApiOnce',context);
+ await assert.rejects(()=>api('gemini-3-flash-preview',{contents:[]}),error=>{
+  assert.equal(error.httpStatus,401);
+  assert.match(error.message,/Gemini Key/);
+  assert.doesNotMatch(error.message,/AIzaEXAMPLE_PRIVATE_API_KEY_NEVER_SHOW_ME/);
+  assert.doesNotMatch(error.message,/\?key=AIza/);
+  return true;
+ });
+ assert.doesNotMatch(notice.textContent,/AIzaEXAMPLE_PRIVATE_API_KEY_NEVER_SHOW_ME/);
+});
+
+test('Gemini request keeps retry signal on HTTP 429 even for non-JSON responses',async()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ const start=source.indexOf('function rivisGeminiAuthError('),end=source.indexOf('\n/* RIVIS 3.1.56:',start);
+ const run=vm.runInNewContext(source.slice(start,end)+'\nrivisGeminiApiOnce',{
+  state:{apiKey:''},byId:()=>null,
+  fetch:async()=>({status:429,ok:false,json:async()=>{throw Error('rate limited HTML');}})
+ });
+ await assert.rejects(()=>run('gemini-3-flash-preview',{}),e=>e.httpStatus===429&&/non-JSON/.test(e.message));
+});
+
+test('Gemini Key panel provides a connection test while keeping user credentials private',()=>{
+ const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ assert.match(support,/id=\\\"rvisGeminiAuthNotice\\\"/);
+ assert.match(support,/handleTestGeminiConnection\(this\)/);
+ assert.match(support,/Uji Koneksi Gemini/);
+ assert.match(ai,/async function handleTestGeminiConnection\(btn\)/);
+ assert.match(ai,/function saveApiKey\(val\)\{state\.apiKey=val/);
+ assert.match(ai,/function rivisShowGeminiAuthRecovery\(error\)/);
+ assert.match(ai,/rivisShowGeminiAuthRecovery\(error\)/);
+});
