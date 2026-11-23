@@ -503,7 +503,6 @@ function rasterSnapshot(idea){const saved=idea?.rasterSettings||{},transparent=i
 }
 function saveRasterOutputPreferences(){const data=readRasterSettings();safeStorageSet(STORAGE_KEYS.RASTER_PREFS,JSON.stringify(data));
 }
-function setRasterCutoutReady(){saveRasterOutputPreferences();}
 const studioModeRatios={vector:'1:1',raster:'16:9','png-transparent':'1:1'};
 function handleOutputModeChange(mode){
  const previous=state.outputMode;if(previous==='vector')state.vectorSvgPreference=byId('svgFriendlyCheckbox')?.checked!==false;
@@ -695,26 +694,6 @@ async function rivisCutoutPngBlob(imageUrl,settings,progress=()=>{}){
   img.src='';URL.revokeObjectURL(source);
  }
 }
-async function handleDownloadCutoutPng(ideaId,sceneIndex=null,btn=null){
- const parent=state.savedIdeas.find(i=>String(i.ideaId)===String(ideaId));
- if(!parent||!isRasterIdea(parent))return;
- const index=sceneIndex===null?null:Number(sceneIndex),scene=index===null?null:parent.seriesScenes?.[index];
- if(index!==null&&(!Number.isInteger(index)||!scene))return;
- const idea=scene?seriesSceneAssetIdea(parent,scene,index):parent;
- if(!idea.generatedImageUrl){showToast('Generate image terlebih dahulu.','info');return;}
- if(!rasterSnapshot(idea).cutoutReady){showToast('Aktifkan Cutout Ready saat membuat ide raster.','info');return;}
- const old=btn?.textContent||'PNG Transparan';
- try{
-  if(btn){btn.disabled=true;btn.textContent='Cutout QC…';}
-  const blob=await rivisCutoutPngBlob(idea.generatedImageUrl,rasterSnapshot(idea),pct=>{
-   if(btn?.isConnected)btn.textContent=pct===100?'Menyimpan…':'Cutout '+pct+'%';
-  });
-  await executeDownloadManager({data:blob,filename:getCardBaseFilename(idea)+'-transparent.png',mimeType:'image/png'});
-  showToast('PNG transparan asli berhasil dibuat. Gambar original tetap tersimpan.','success');
- }catch(error){showToast('PNG transparan tidak diekspor: '+String(error?.message||error).slice(0,200),'error');}
- finally{if(btn){btn.disabled=false;btn.textContent=old;}}
-}
-
 async function getExportedAsset(idea){if(!idea?.generatedImageUrl)throw new Error('Gambar belum tersedia.');const mode=ideaOutputMode(idea),p=rasterSnapshot(idea);if(mode==='png-transparent'&&idea.cutoutProcessed!==true)throw new Error('PNG Alpha belum berhasil diproses. Periksa PNG Alpha Processing dan Cutout QC sebelum mengunduh.');const format=mode==='vector'||mode==='png-transparent'?'png':(p.format==='png'?'png':'jpg');const mime=format==='jpg'?'image/jpeg':'image/png';
 const filename=`${getCardBaseFilename(idea)}.${format}`;const original=await imageDataUrlToVerifiedBlob(idea.generatedImageUrl);
 if(original.mimeType===mime)return{filename,mimeType:mime,data:original.blob};const source=URL.createObjectURL(original.blob);
@@ -1586,7 +1565,7 @@ const gradientCheckbox=byId('gradientColorCheckbox');if(gradientCheckbox)gradien
 'vector');if(byId('outputModeSelect'))handleOutputModeChange(savedMode);try{const rp=JSON.parse(safeStorageGet(STORAGE_KEYS.RASTER_PREFS,
 '{}'));for(const[k,v]of Object.entries(rp)){const id={people:'rasterPeopleSelect',shot:'rasterShotSelect',lighting:'rasterLightingSelect',
 color:'rasterColorSelect',authenticity:'rasterAuthenticitySelect',copySpace:'rasterCopySpaceSelect',format:'rasterFormatSelect',
-jpegQuality:'rasterJpegQualitySelect',cutoutBgColor:'rasterCutoutBgColor'}[k];if(id&&byId(id))byId(id).value=String(v);if(k==='cutoutReady'&&byId('rasterCutoutReadyCheckbox'))byId('rasterCutoutReadyCheckbox').checked=v===true;}}catch(_){}if(getOutputMode()==='png-transparent'&&byId('rasterFormatSelect')){byId('rasterFormatSelect').value='png';byId('rasterFormatSelect').disabled=true;}setRasterCutoutReady();updateRatioHint();const apiInput=byId('apiKeyInput');
+jpegQuality:'rasterJpegQualitySelect'}[k];if(id&&byId(id))byId(id).value=String(v);}}catch(_){}if(getOutputMode()==='png-transparent'&&byId('rasterFormatSelect')){byId('rasterFormatSelect').value='png';byId('rasterFormatSelect').disabled=true;}saveRasterOutputPreferences();updateRatioHint();const apiInput=byId('apiKeyInput');
 if(apiInput&&state.apiKey){apiInput.value=state.apiKey;saveApiKey(state.apiKey);}
  const discoverAutoCheckbox=byId('discoverAutoGenerateCheckbox');
  if(discoverAutoCheckbox)discoverAutoCheckbox.checked=safeStorageGet(DISCOVER_AUTO_GENERATE_KEY,'false')==='true';
