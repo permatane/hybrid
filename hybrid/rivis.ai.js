@@ -41,21 +41,26 @@ return{passedCount,totalChecks:checks.length,isPerfect:passedCount===checks.leng
 function rivisGeminiAuthError(status,hasCustomKey,detail=''){
  const guidance=hasCustomKey
   ?'Gemini API menolak API Key yang tersimpan. Buka Gemini Key, periksa/ganti key, lalu Uji Koneksi. Pastikan izin Gemini API dan pembatasan key sesuai.'
-  :'Autentikasi Gemini Canvas tidak tersedia atau sesi ditolak. Muat ulang tab Gemini Canvas. Jika tetap gagal, buka Gemini Key dan gunakan Gemini API Key Anda dari Google AI Studio.';
+  :'Canvas Auto belum mendapat izin Gemini untuk model ini. Di Gemini Canvas, pastikan sesi Google aktif dan fitur Add Gemini features telah diaktifkan, lalu muat ulang. API key pribadi tidak wajib untuk membuka RIVIS, tetapi generasi AI membutuhkan otorisasi Canvas yang valid.';
  const e=new Error('HTTP '+status+': '+guidance+(detail?' ('+String(detail).slice(0,160)+')':''));
- e.httpStatus=status;e.isAuthError=true;return e;
+ e.httpStatus=status;e.isAuthError=true;e.hasCustomKey=hasCustomKey;return e;
 }
 function rivisShowGeminiAuthRecovery(error){
  if(!error?.isAuthError)return;
  const notice=byId('rvisGeminiAuthNotice'),modal=byId('apiKeyModal');
- if(modal)modal.classList.remove('hidden');
+ // In Canvas Auto, do not force users into the manual API-key dialog.
+ if(modal&&error.hasCustomKey)modal.classList.remove('hidden');
+ if(!error.hasCustomKey&&typeof showToast==='function')showToast('Canvas Auto gagal autentikasi. Aktifkan Add Gemini features di Gemini Canvas atau periksa izin model.','error');
  if(notice){notice.classList.remove('hidden','text-emerald-200','border-emerald-700/70','bg-emerald-950/40');notice.classList.add('text-rose-200','border-rose-700/70','bg-rose-950/60');notice.textContent=String(error.message||'Autentikasi Gemini gagal.').slice(0,650);}
 }
 async function rivisGeminiApiOnce(model,payload,signal=null){
  const key=(state.apiKey||'').trim();
  const baseUrl=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
  // Keep Gemini Canvas host-provided authentication when no explicit key is configured.
- const apiUrl=key?`${baseUrl}?key=${encodeURIComponent(key)}`:baseUrl;
+ // Gemini Canvas has historically supplied host credentials for an explicit blank key parameter.
+ // Keep the blank placeholder literal for Canvas's automatic integration; never hardcode a secret.
+ const apiKey='';
+ const apiUrl=key?`${baseUrl}?key=${encodeURIComponent(key)}`:`${baseUrl}?key=${apiKey}`;
  const options={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),...(signal?{signal}:{})};
  let res;
  try{res=await fetch(apiUrl,options);}
@@ -63,13 +68,12 @@ async function rivisGeminiApiOnce(model,payload,signal=null){
   if(err?.name==='AbortError')throw err;
   throw new Error('Network error: tidak dapat menghubungi Gemini API. Periksa koneksi atau izin jaringan.');
  }
- // Gemini Canvas implementations may only inject host credentials for the
- // conventional empty ?key= URL. Try it once only after a keyless 401,
- // retain the initial response if Canvas still rejects authentication.
- if(res.status===401&&!key){
+ // Backward-compatibility: older Canvas hosts may inject credentials for the bare URL instead.
+ // Preserve the first response if neither variant is authorized; do not substitute credentials.
+ if(!key&&(res.status===401||res.status===403)){
   try{
-   const canvasRetry=await fetch(baseUrl+'?key=',options);
-   if(canvasRetry.ok)res=canvasRetry;
+   const legacyRetry=await fetch(baseUrl,options);
+   if(legacyRetry.ok)res=legacyRetry;
   }catch(err){if(err?.name==='AbortError')throw err;}
  }
  let data=null,parseFailed=false;
