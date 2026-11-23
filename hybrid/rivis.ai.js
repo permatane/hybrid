@@ -49,7 +49,7 @@ function rivisShowGeminiAuthRecovery(error){
  if(!error?.isAuthError)return;
  const notice=byId('rvisGeminiAuthNotice'),modal=byId('apiKeyModal');
  if(modal)modal.classList.remove('hidden');
- if(notice){notice.classList.remove('hidden');notice.textContent=String(error.message||'Autentikasi Gemini gagal.').slice(0,650);}
+ if(notice){notice.classList.remove('hidden','text-emerald-200','border-emerald-700/70','bg-emerald-950/40');notice.classList.add('text-rose-200','border-rose-700/70','bg-rose-950/60');notice.textContent=String(error.message||'Autentikasi Gemini gagal.').slice(0,650);}
 }
 async function rivisGeminiApiOnce(model,payload,signal=null){
  const key=(state.apiKey||'').trim();
