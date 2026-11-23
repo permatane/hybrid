@@ -1136,7 +1136,7 @@ test('Gemini Canvas 401 HTML response opens recovery panel without JSON parse er
  const start=source.indexOf('function rivisGeminiAuthError('),end=source.indexOf('\n/* RIVIS 3.1.56:',start);
  assert.ok(start>0&&end>start,'Gemini auth error parser exists');
  const classes=new Set(['hidden']),modal={classList:{remove:x=>classes.delete(x)}};
- const noticeClasses=new Set(['hidden']),notice={textContent:'',classList:{remove:x=>noticeClasses.delete(x)}};
+ const noticeClasses=new Set(['hidden']),notice={textContent:'',classList:{remove:(...items)=>items.forEach(x=>noticeClasses.delete(x)),add:(...items)=>items.forEach(x=>noticeClasses.add(x))}};
  const requestedUrls=[];
  const context={state:{apiKey:''},byId:id=>id==='apiKeyModal'?modal:id==='rvisGeminiAuthNotice'?notice:null,
   fetch:async url=>{requestedUrls.push(String(url));return{status:401,statusText:'Unauthorized',ok:false,json:async()=>{throw Error('<html> Unauthorized');}};}};
@@ -1161,7 +1161,7 @@ test('Gemini invalid custom key 401 is redacted and no HTML is displayed',async(
  const source=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
  const start=source.indexOf('function rivisGeminiAuthError('),end=source.indexOf('\n/* RIVIS 3.1.56:',start);
  const key='AIzaEXAMPLE_PRIVATE_API_KEY_NEVER_SHOW_ME_12345';
- const dialog={classList:{remove:()=>{}}},notice={textContent:'',classList:{remove:()=>{}}};
+ const dialog={classList:{remove:()=>{}}},notice={textContent:'',classList:{remove:()=>{},add:()=>{}}};
  const context={state:{apiKey:key},byId:id=>id==='apiKeyModal'?dialog:id==='rvisGeminiAuthNotice'?notice:null,
   fetch:async()=>({status:401,ok:false,json:async()=>({error:{message:'API invalid '+key+'?key='+key}})})};
  const api=vm.runInNewContext(source.slice(start,end)+'\nrivisGeminiApiOnce',context);
