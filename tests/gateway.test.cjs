@@ -1102,7 +1102,7 @@ test('PNG Transparent mode replaces Cutout Ready controls and preserves original
  assert.match(support,/renderCutoutQc/);
  assert.doesNotMatch(support,/id=\\\"rasterCutoutReadyCheckbox\\\"/);
  assert.doesNotMatch(support,/onclick=\\\"handleDownloadCutoutPng/);
- assert.doesNotMatch(support,/>PNG Alpha<\\/button>/);
+ assert.equal(support.includes('>PNG Alpha</button>'),false);
  assert.match(support,/onclick=\\\"downloadSeriesScene/);
  assert.match(support,/getCardBaseFilename\(idea\)\+'-transparent\.png'/);
  assert.match(support,/const format=mode==='vector'\|\|mode==='png-transparent'\?'png':\(p\.format==='png'\?'png':'jpg'\)/);
