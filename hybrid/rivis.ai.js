@@ -56,11 +56,21 @@ async function rivisGeminiApiOnce(model,payload,signal=null){
  const baseUrl=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
  // Keep Gemini Canvas host-provided authentication when no explicit key is configured.
  const apiUrl=key?`${baseUrl}?key=${encodeURIComponent(key)}`:baseUrl;
+ const options={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),...(signal?{signal}:{})};
  let res;
- try{res=await fetch(apiUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),...(signal?{signal}:{})});}
+ try{res=await fetch(apiUrl,options);}
  catch(err){
   if(err?.name==='AbortError')throw err;
   throw new Error('Network error: tidak dapat menghubungi Gemini API. Periksa koneksi atau izin jaringan.');
+ }
+ // Gemini Canvas implementations may only inject host credentials for the
+ // conventional empty ?key= URL. Try it once only after a keyless 401,
+ // retain the initial response if Canvas still rejects authentication.
+ if(res.status===401&&!key){
+  try{
+   const canvasRetry=await fetch(baseUrl+'?key=',options);
+   if(canvasRetry.ok)res=canvasRetry;
+  }catch(err){if(err?.name==='AbortError')throw err;}
  }
  let data=null,parseFailed=false;
  try{data=await res.json();}catch(_){parseFailed=true;}
