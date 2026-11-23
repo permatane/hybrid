@@ -1294,7 +1294,7 @@ test('PNG Transparent mode automatically prompts, processes and exports alpha PN
 test('Metadata generation shows only one percentage indicator',()=>{
  const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
  const start=ai.indexOf('function startRivisMetadataProgress(');
- const end=ai.indexOf('\\nasync function syncGeneratedMetadataToCloud',start);
+ const end=ai.indexOf('\nasync function syncGeneratedMetadataToCloud',start);
  assert.ok(start>=0&&end>start,'Metadata progress function must exist');
  const progress=ai.slice(start,end);
  assert.ok(progress.includes("btn.innerHTML='<span>'+label+'</span>'"));
