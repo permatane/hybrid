@@ -916,7 +916,7 @@ test('RIVIS Adobe Stock CSV raster uses .jpeg instead of .jpg, preserves PNG and
  assert.equal(filename({raster:true,format:'jpg'},'preview.png'),'a123_example-edt.png');
  assert.equal(filename({raster:false,format:'jpg'}),'a123_example-edt.svg');
  // CSV changes must not rewrite the actual exported JPG filename.
- assert.match(source,/const format=mode==='vector'\?'png':\(p\.format==='png'\?'png':'jpg'\)/);
+ assert.match(source,/const format=mode==='vector'\|\|mode==='png-transparent'\?'png':\(p\.format==='png'\?'png':'jpg'\)/);
 });
 
 test('METADATA Generator CSV maps .jpg to .jpeg without renaming source image',()=>{
