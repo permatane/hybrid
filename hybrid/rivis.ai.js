@@ -146,7 +146,35 @@ const RIVIS_AI_REQUESTS=(()=>{
  }
  return Object.freeze({execute,getStats:()=>({...stats,queued:groups.image.queue.length+groups.text.queue.length})});
 })();
-async function callGeminiApi(model,payload,signal=null){return RIVIS_AI_REQUESTS.execute(model,payload,signal);}
+/* Image-model telemetry: report the requested model and last real response.
+   No automatic model substitution and no additional API calls. */
+const RIVIS_IMAGE_MODEL_ID='gemini-3.1-flash-image';
+window.RIVIS_IMAGE_MODEL_ID=RIVIS_IMAGE_MODEL_ID;
+function rivisReportImageModel(status,httpStatus=null,reportedModel=''){
+ const info=Object.freeze({
+  requestedModel:RIVIS_IMAGE_MODEL_ID,
+  reportedModel:String(reportedModel||''),
+  status,
+  httpStatus:Number(httpStatus)||null,
+  updatedAt:Date.now()
+ });
+ window.RIVIS_IMAGE_MODEL_STATUS=info;
+ try{window.dispatchEvent(new CustomEvent('rivis:image-model-status',{detail:info}));}catch(_){}
+}
+rivisReportImageModel('idle');
+async function callGeminiApi(model,payload,signal=null){
+ const isImageRequest=model===RIVIS_IMAGE_MODEL_ID;
+ if(isImageRequest)rivisReportImageModel('requesting');
+ try{
+  const response=await RIVIS_AI_REQUESTS.execute(model,payload,signal);
+  if(isImageRequest)rivisReportImageModel('success',200,response?.modelVersion||'');
+  return response;
+ }catch(error){
+  if(isImageRequest)rivisReportImageModel(error?.name==='AbortError'?'canceled':'error',
+   Number(error?.httpStatus)||Number(/^HTTP (\d+)/.exec(String(error?.message||''))?.[1])||null);
+  throw error;
+ }
+}
 window.RIVIS_AI_REQUEST_STATS=()=>RIVIS_AI_REQUESTS.getStats();
 /* Minimal, versioned batch checkpoint. Only job IDs, never images or API keys. */
 const RIVIS_BATCH_PROGRESS=(()=>{
@@ -1377,7 +1405,7 @@ const requestImage=async(prompt,referencePart=null)=>{
   parts[0].text+='\nAdditional attachment: existing SERIES CONTINUITY ANCHOR. Maintain identity and scene consistency independently from the style reference.';
   parts.push(referencePart);
  }
- return callGeminiApi('gemini-3.1-flash-image',
+ return callGeminiApi(RIVIS_IMAGE_MODEL_ID,
 {contents:[{parts}],generationConfig:imageGenerationConfig(ratio,idea.imageResolution||state.imageResolution||'4K')},signal);};let anchorReferencePart=null;if(idea.seriesAnchorImageUrl&&idea.seriesAnchorReference!==false&&!offlineTestMode){try{anchorReferencePart=await rivisBuildRepairReference(idea.seriesAnchorImageUrl);}catch(anchorError){console.warn('Series visual anchor unavailable; text continuity remains active.',anchorError?.message||anchorError);}}let res=await requestImage(fullPrompt,anchorReferencePart);if(signal?.aborted)return null;let imgPart=await selectGeneratedImagePart(res);
 let imgBase64=imgPart?.inlineData?.data?String(imgPart.inlineData.data).replace(/\s+/g,''):'';const imgMime=imgPart?.inlineData?.mimeType||'image/png';
 if(!imgBase64){const candidate=res?.candidates?.[0];const detail=candidate?.content?.parts?.map(p=>p.text||'').filter(Boolean).join(' ')||candidate?.finishMessage||candidate?.finishReason||res?.promptFeedback?.blockReason||'Gemini API tidak mengembalikan gambar.';
