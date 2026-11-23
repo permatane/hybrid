@@ -1056,3 +1056,69 @@ test('Discover checkbox is labeled Auto Process in UI, accessibility and notific
  assert.doesNotMatch(source,/Auto<br\/>Generate|aria-label=\\\"Auto Generate Image All dan Meta All/);
  assert.match(source,/DISCOVER_AUTO_GENERATE_KEY/,'Existing storage key is preserved for user preferences');
 });
+
+test('Cutout Ready rejects checkerboard gradients and subject touching image border',()=>{
+ const source=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const start=source.indexOf('function rivisCutoutInspectPixels('),end=source.indexOf('\nasync function rivisCutoutInspectUrl(',start);
+ assert.ok(start>0&&end>start,'Pixel-inspection implementation must exist');
+ const inspect=vm.runInNewContext(source.slice(start,end)+'\nrivisCutoutInspectPixels',{Uint8Array,Uint32Array,Math,Array,parseInt});
+ const w=100,h=100,bg=[236,239,243];
+ const make=(callback)=>{
+  const data=new Uint8ClampedArray(w*h*4);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+   const k=(y*w+x)*4,rgb=callback(x,y);
+   data[k]=rgb[0];data[k+1]=rgb[1];data[k+2]=rgb[2];data[k+3]=255;
+  }
+  return data;
+ };
+ const sample=make((x,y)=>x>=28&&x<=72&&y>=28&&y<=72?[220,40,55]:bg);
+ const qc=inspect(sample,w,h,'#ECEFF3');
+ assert.equal(qc.ok,true,qc.reason);
+ assert.equal(qc.mask[0],1,'Outer background remains removable');
+ assert.equal(qc.mask[50*w+50],0,'Original illustration must not be masked');
+ assert.ok(qc.backgroundShare>.7&&qc.backgroundShare<.9);
+ const checkerboard=make((x,y)=>(Math.floor(x/8)+Math.floor(y/8))%2===0?bg:[150,155,160]);
+ const checker=inspect(checkerboard,w,h,'#ECEFF3');
+ assert.equal(checker.ok,false,'Printed checkerboard is not real transparency');
+ const gradient=make((x,y)=>[Math.min(255,bg[0]+Math.floor(y*.1)),Math.min(255,bg[1]+Math.floor(y*.1)),Math.max(0,bg[2]-Math.floor(y*.6))]);
+ assert.equal(inspect(gradient,w,h,'#ECEFF3').ok,false,'Background gradient must be rejected');
+ assert.equal(inspect(sample,w,h,'#22AA66').ok,false,'Unexpected BG color must be rejected');
+ const cropped=make((x,y)=>x<15?[215,20,45]:bg);
+ assert.equal(inspect(cropped,w,h,'#ECEFF3').ok,false,'Subject cropped at border must fail QC');
+});
+
+test('Cutout Ready raster controls persist color and preserve original JPG output',()=>{
+ const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ assert.match(support,/rasterCutoutReadyCheckbox/);
+ assert.match(support,/rasterCutoutBgColor/);
+ assert.match(support,/cutoutReady:false,cutoutBgColor:'#ECEFF3'/);
+ assert.match(ai,/cutoutReady:byId\('rasterCutoutReadyCheckbox'\)\?\.checked===true/);
+ assert.match(ai,/cutoutBgColor:.*#ECEFF3/);
+ assert.match(ai,/rivisCutoutPrompt\(idea\)/);
+ assert.match(ai,/const fullPrompt=rivisRsiStyleLock\(idea,preGenerationGuard.prompt\)\+\(isRasterIdea\(idea\)/);
+ assert.match(ai,/current.cutoutReadiness=\{status:qc.ok\?'PASS':'REVIEW'/);
+ assert.match(support,/onclick=\\\"handleDownloadCutoutPng/);
+ assert.match(support,/onclick=\\\"downloadSeriesScene/);
+ assert.match(support,/PNG Alpha/);
+ assert.match(support,/getCardBaseFilename\(idea\)\+'-transparent.png'/);
+ assert.match(support,/const format=mode==='vector'\?'png':\(p.format==='png'\?'png':'jpg'\)/,
+  'Original raster JPG/PNG exports must remain intact');
+ assert.doesNotMatch(support.slice(support.indexOf('async function handleDownloadCutoutPng('),support.indexOf('async function getExportedAsset(')),/idea\.generatedImageUrl\s*=/,
+  'Transparent export must never overwrite the original image');
+});
+
+test('Cutout Ready directive requires solid flat background with no shadows or fake transparency',()=>{
+ const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ const start=ai.indexOf('function rivisCutoutPrompt('),end=ai.indexOf('\nfunction buildRasterPhotoPrompt(',start);
+ assert.ok(start>0&&end>start);
+ const directive=vm.runInNewContext(ai.slice(start,end)+'\nrivisCutoutPrompt',{
+  rasterSnapshot:idea=>idea.rasterSettings
+ });
+ const text=directive({rasterSettings:{cutoutReady:true,cutoutBgColor:'#E6E8EE'}});
+ assert.match(text,/#E6E8EE/);
+ assert.match(text,/NO checkerboard pattern/);
+ assert.match(text,/shadows of any kind/);
+ assert.match(text,/8–12% outer margin/);
+ assert.match(text,/NOT an alpha checkerboard or simulated transparency/);
+});
