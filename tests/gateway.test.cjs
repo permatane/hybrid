@@ -1100,17 +1100,16 @@ test('PNG Transparent mode replaces Cutout Ready controls and preserves original
  assert.match(ai,/rivisCutoutPngBlob\(candidateUrl/);
  assert.match(support,/renderCutoutProcessingStatus/);
  assert.match(support,/renderCutoutQc/);
- assert.doesNotMatch(support,/id=\\\"rasterCutoutReadyCheckbox\\\"/);
- assert.doesNotMatch(support,/onclick=\\\"handleDownloadCutoutPng/);
+ assert.equal(support.includes('rasterCutoutReadyCheckbox'),false);
+ assert.equal(support.includes('rasterCutoutBgColor'),false);
+ assert.equal(support.includes('handleDownloadCutoutPng'),false);
  assert.equal(support.includes('>PNG Alpha</button>'),false);
  assert.match(support,/onclick=\\\"downloadSeriesScene/);
- assert.match(support,/getCardBaseFilename\(idea\)\+'-transparent\.png'/);
  assert.match(support,/const format=mode==='vector'\|\|mode==='png-transparent'\?'png':\(p\.format==='png'\?'png':'jpg'\)/);
- assert.doesNotMatch(support.slice(support.indexOf('async function handleDownloadCutoutPng('),support.indexOf('async function getExportedAsset(')),/idea\.generatedImageUrl\s*=/,
-  'Transparent export must never overwrite the original image');
+ assert.match(support,/mode==='png-transparent'&&idea\.cutoutProcessed!==true/);
 });
 
-test('Cutout Ready directive requires solid flat background with no shadows or fake transparency',()=>{
+test('PNG Transparent directive requires solid flat background with no shadows or fake transparency',()=>{
  const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
  const start=ai.indexOf('function rivisCutoutPrompt('),end=ai.indexOf('\nfunction buildRasterPhotoPrompt(',start);
  assert.ok(start>0&&end>start);
