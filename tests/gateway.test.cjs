@@ -1320,3 +1320,21 @@ test('Metadata generation shows only one percentage indicator',()=>{
  assert.ok(progress.includes('setInnerProgress(btn,pct,true)'),'Estimated percentage uses the shared progress indicator');
  assert.ok(progress.includes('setInnerProgress(btn,100)'),'Completion percentage uses the same indicator');
 });
+
+
+test('Reference watermarks are ignored during reference analysis and excluded from generated artwork',()=>{
+ const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ assert.match(ai,/Ignore any visible watermark, stock-provider mark, copyright notice, creator signature, translucent repeated text or attribution overlay/);
+ assert.match(ai,/Ignore any watermark, stock-site mark, copyright notice, creator signature, translucent repeated text or attribution overlay/);
+ const start=ai.indexOf('const referenceWatermarkGuard=');
+ const requestStart=ai.indexOf('const requestImage=async(prompt,referencePart=null)=>',start);
+ const requestEnd=ai.indexOf('let anchorReferencePart=',requestStart);
+ assert.ok(start>0&&requestStart>start&&requestEnd>requestStart,'Watermark guard must be attached to reference-backed image requests');
+ const request=ai.slice(start,requestEnd);
+ assert.match(request,/REFERENCE WATERMARK EXCLUSION/);
+ assert.match(request,/Never copy, trace, imitate, recreate, translate, or place it anywhere in the generated image/);
+ assert.match(request,/Do not use its typography, colors, opacity, position, diagonal repetition, or pattern as design cues/);
+ assert.match(request,/Do not attempt to reveal or reconstruct content obscured beneath the overlay/);
+ assert.ok(request.includes("parts[0].text+='\\nORIGINAL REFERENCE IMAGE GUIDANCE: '+instructions+'\\n'+referenceWatermarkGuard;"));
+ assert.match(ai,/No watermarks, stock-site marks, copyright notices, signatures, logos, text, trademarked or protected designs/);
+});
