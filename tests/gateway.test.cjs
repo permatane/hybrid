@@ -1096,7 +1096,7 @@ test('PNG Transparent mode replaces Cutout Ready controls and preserves original
  assert.match(ai,/cutoutReady:transparent/);
  assert.match(ai,/cutoutBgColor:'#ECEFF3'/);
  assert.match(ai,/rivisCutoutPrompt\(idea\)/);
- assert.match(ai,/if\(isTransparentPngIdea\(current\)\)/);
+ assert.match(ai,/if\(isTransparentPngIdea\(current\)&&rasterSnapshot\(current\)\.autoCutout\)/);
  assert.match(ai,/rivisCutoutPngBlob\(candidateUrl/);
  assert.match(support,/renderCutoutProcessingStatus/);
  assert.match(support,/renderCutoutQc/);
@@ -1106,7 +1106,7 @@ test('PNG Transparent mode replaces Cutout Ready controls and preserves original
  assert.equal(support.includes('>PNG Alpha</button>'),false);
  assert.match(support,/onclick=\\\"downloadSeriesScene/);
  assert.match(support,/const format=mode==='vector'\|\|mode==='png-transparent'\?'png':\(p\.format==='png'\?'png':'jpg'\)/);
- assert.match(support,/mode==='png-transparent'&&idea\.cutoutProcessed!==true/);
+ assert.match(support,/mode==='png-transparent'&&p\.autoCutout&&idea\.cutoutProcessed!==true/);
 });
 
 test('PNG Transparent directive requires solid flat background with no shadows or fake transparency',()=>{
@@ -1276,7 +1276,7 @@ test('PNG Transparent mode automatically prompts, processes and exports alpha PN
  assert.ok(support.includes("rasterTransparentModeNotice"));
  assert.ok(support.includes("cutoutReady:transparent"));
  assert.ok(support.includes("format:transparent?'png'"));
- assert.ok(support.includes("mode==='png-transparent'&&idea.cutoutProcessed!==true"));
+ assert.ok(support.includes("mode==='png-transparent'&&p.autoCutout&&idea.cutoutProcessed!==true"));
  assert.ok(support.includes("mode==='vector'||mode==='png-transparent'?'png'"));
  assert.ok(support.includes("renderCutoutProcessingStatus(idea)"));
  assert.ok(support.includes("renderCutoutQc(idea)"));
@@ -1284,11 +1284,29 @@ test('PNG Transparent mode automatically prompts, processes and exports alpha PN
  assert.ok(!support.includes('>PNG Transparan</button>'));
  assert.ok(!support.includes('>PNG Alpha</button>'));
  assert.ok(ai.includes("cutoutReady:transparent"));
- assert.ok(ai.includes("if(isTransparentPngIdea(current))"));
+ assert.ok(ai.includes("if(isTransparentPngIdea(current)&&rasterSnapshot(current).autoCutout)"));
  assert.ok(ai.includes("rivisCutoutPngBlob(candidateUrl"));
  assert.ok(ai.includes("rivisBlobToDataUrl(alphaBlob)"));
  assert.ok(ai.includes("onCutoutProgress"));
  assert.ok(ai.includes("scene.cutoutProcessed=generated.cutoutProcessed===true"));
+});
+
+
+test('PNG Transparent mode allows Auto Cutout to be disabled and exports a solid-background PNG',()=>{
+ const support=fs.readFileSync(path.join(root,'hybrid/rivis.support.js'),'utf8');
+ const ai=fs.readFileSync(path.join(root,'hybrid/rivis.ai.js'),'utf8');
+ assert.ok(support.includes("id='rasterAutoCutoutControl'"));
+ assert.ok(support.includes('id="rasterAutoCutoutCheckbox"'));
+ assert.ok(support.includes('Auto Cutout'));
+ assert.ok(support.includes("autoCutout:transparent?saved.autoCutout!==false:false"));
+ assert.ok(support.includes("function autoCutoutEnabledForIdea(idea)"));
+ assert.ok(support.includes("mode==='png-transparent'&&p.autoCutout&&idea.cutoutProcessed!==true"));
+ assert.ok(support.includes("Unduh PNG (BG Solid)"));
+ assert.ok(support.includes("CUTOUT OFF"));
+ assert.ok(ai.includes("autoCutout:transparent&&autoCutout"));
+ assert.ok(ai.includes("current.cutoutProcessingStatus='skipped'"));
+ assert.ok(ai.includes("Auto Cutout dinonaktifkan; PNG disimpan dengan background solid."));
+ assert.ok(ai.includes("PNG background solid (Auto Cutout OFF)"));
 });
 
 test('Metadata generation shows only one percentage indicator',()=>{
