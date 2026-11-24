@@ -1303,7 +1303,7 @@ test('PNG Transparent mode allows Auto Cutout to be disabled and exports a solid
  assert.ok(support.includes("mode==='png-transparent'&&p.autoCutout&&idea.cutoutProcessed!==true"));
  assert.ok(support.includes("Unduh PNG (BG Solid)"));
  assert.ok(support.includes("CUTOUT OFF"));
- assert.ok(ai.includes("autoCutout:transparent&&autoCutout"));
+ assert.ok(ai.includes("autoCutout:autoCutout"));
  assert.ok(ai.includes("current.cutoutProcessingStatus='skipped'"));
  assert.ok(ai.includes("Auto Cutout dinonaktifkan; PNG disimpan dengan background solid."));
  assert.ok(ai.includes("PNG background solid (Auto Cutout OFF)"));
