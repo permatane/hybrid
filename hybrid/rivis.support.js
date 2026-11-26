@@ -834,7 +834,7 @@ function scheduleDiscoverAutoGeneration(){
   const meta=resumePendingDiscoverAutoBatch('meta');
   showToast(images&&meta?'Auto Process: Image All dan Meta All dimulai.':
    'Auto Process aktif: batch yang masih berjalan akan dilanjutkan untuk kartu baru.','info');
- },240);
+ },1000);
 }
 function setDiscoverBarCollapsed(collapsed){const bar=byId('ideaDiscoverActionBar');const toggle=byId('discoverBarToggleBtn');
 if(!bar||!toggle)return;bar.classList.add('is-ready');bar.classList.toggle('is-compact',Boolean(collapsed));document.body.classList.toggle('discover-mini-active',
