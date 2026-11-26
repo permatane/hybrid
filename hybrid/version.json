@@ -1,7 +1,7 @@
 {
-  "version": "3.4.170",
+  "version": "3.4.171",
   "ai": "hybrid/rivis.ai.js",
   "vector": "hybrid/rivis.ai-vector.js",
   "support": "hybrid/rivis.support.js",
-  "motion": "hybrid/rivis.motion.js"
+  "motion": "hybrid/rivis.motion.html"
 }
