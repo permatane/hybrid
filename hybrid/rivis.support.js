@@ -385,7 +385,7 @@ function updateFloatingShortcut(){
 })();
 function switchTab(tabId){
 if(!['idea_studio','saved_ideas','meta_gen','cloud_library','motion'].includes(tabId))return;
-state.activeTab=tabId;document.querySelectorAll('.tab-section').forEach(el=>el.classList.add('hidden'));
+state.activeTab=tabId;document.querySelectorAll('.tab-section').forEach(el=>el.classList.add('hidden'));const motionPanel=byId('tabSectionMotion');if(motionPanel)motionPanel.classList.toggle('hidden',tabId!=='motion');
 const tabs=[
  {id:'idea_studio',button:'navTabIdeaStudioTop',gradient:'from-purple-600 to-blue-600 shadow-purple-600/30'},
  {id:'saved_ideas',button:'navTabSavedIdeasTop',gradient:'from-emerald-600 to-teal-600 shadow-emerald-600/30'},
@@ -409,8 +409,8 @@ function loadRivisMotion(){
  if(window.__RIVIS_MOTION_LOADING){showToast('Motion sedang dimuat. Tunggu sebentar.','info');return;}
  window.__RIVIS_MOTION_LOADING=true;
  const urls=[
-  'https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.js?v=3.4.167',
-  'https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.167'
+  'https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.js?v=3.4.168',
+  'https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.168'
  ];
  const attempt=index=>{
   const script=document.createElement('script');
