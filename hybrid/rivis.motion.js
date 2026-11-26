@@ -10,7 +10,9 @@ function tx(mode,fn){return db().then(function(d){return new Promise(function(re
 function list(){return tx('readonly',function(s){return s.getAll();}).then(function(a){return (a||[]).sort(function(x,y){return y.updatedAt-x.updatedAt;});});}
 function shell(){
  if($('tabSectionMotion'))return;
- var anchor=$('tabSectionCloudLibrary')||$('tabSectionMetaGen')||$('tabSectionSavedIdeas')||$('tabSectionIdeaStudio');if(!anchor||!anchor.parentElement)return;
+ var base=$('tabSectionSavedIdeas')||$('tabSectionIdeaStudio');if(!base||!base.parentElement)return;
+ var parent=base.parentElement;
+ var after=[$('tabSectionCloudLibrary'),$('tabSectionMetaGen'),base].find(function(el){return el&&el.parentElement===parent;})||base;
  var sec=document.createElement('section');sec.id='tabSectionMotion';sec.className='tab-section hidden space-y-4';
  sec.innerHTML=[
  '<style>#tabSectionMotion{color:#e2e8f0;padding:12px;width:100%;max-width:100%;box-sizing:border-box}#tabSectionMotion .mp{background:#0f172a;border:1px solid #334155;border-radius:13px;padding:13px;margin:10px 0}#tabSectionMotion label{display:block;color:#94a3b8;font-size:11px;margin:8px 0 5px}#tabSectionMotion input,#tabSectionMotion select,#tabSectionMotion textarea{box-sizing:border-box;width:100%;background:#020617;color:#e2e8f0;border:1px solid #334155;border-radius:8px;padding:9px;font-size:12px}#tabSectionMotion button{background:#1e293b;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:8px 10px;font-size:11px;font-weight:700}#tabSectionMotion .primary{background:#5b21b6;border-color:#8b5cf6}#tabSectionMotion .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}#tabSectionMotion .preview{min-height:180px;background:#020617;border:1px dashed #475569;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}#tabSectionMotion .preview img,#tabSectionMotion .preview video{max-width:100%;max-height:320px}#tabSectionMotion .muted{font-size:11px;color:#94a3b8;line-height:1.5}@media(max-width:700px){#tabSectionMotion .grid2{grid-template-columns:1fr}}</style>',
@@ -19,7 +21,7 @@ function shell(){
  '<div class="muted border border-amber-800 bg-amber-950/40 rounded-lg p-3"><b class="text-amber-300">Canvas video bridge belum terdeteksi.</b> Runtime aplikasi belum memiliki API video Canvas yang dapat dipanggil secara langsung. Generate tidak akan disimulasikan. Salin prompt untuk digunakan pada fitur video Canvas yang tersedia.</div></div>',
  '<div class="grid2"><div class="mp"><h3 class="font-bold text-sm">Video Result</h3><label>Impor video hasil generate</label><input id="motionVideoFile" type="file" accept="video/mp4,video/webm,video/quicktime"><div id="motionVideo" class="preview"><span class="muted">Video preview</span></div><div class="flex flex-wrap gap-2 mt-2"><button id="motionSave" class="primary">Simpan Project Lokal</button><button id="motionDownload" disabled>Download Video</button><button id="motionCloudInfo">Status Cloud Storage</button></div><p id="motionStorage" class="muted mt-2">IndexedDB lokal aktif. Cloud video upload menunggu endpoint video asset.</p></div><div class="mp"><h3 class="font-bold text-sm">Project Motion Lokal</h3><div id="motionProjects" class="muted">Memuat…</div></div></div>'
  ].join('');
- anchor.insertAdjacentElement('afterend',sec);
+ after.insertAdjacentElement('afterend',sec);
  bind();
 }
 function setImage(data,name,source){current.imageData=data;current.imageName=name||'image';current.source=source;$('motionImage').innerHTML='<img alt="Motion source" src="'+data+'">';}
