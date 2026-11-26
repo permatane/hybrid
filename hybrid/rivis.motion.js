@@ -77,7 +77,7 @@
       '<div class="rms-panel grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3">',
        '<div class="rounded-xl border border-slate-800 bg-slate-950 min-h-[150px] flex items-center justify-center overflow-hidden"><img id="rmsSourcePreview" alt="Selected Library source" class="max-h-52 w-full object-contain"></div>',
        '<div class="min-w-0 space-y-2"><div class="text-[9px] uppercase font-black text-cyan-300">Selected Library Asset</div><div id="rmsSourceTitle" class="font-bold text-sm text-white break-words">Select a raster image from Library</div><p id="rmsSourceMeta" class="rms-muted">Only raster assets with a generated image can be animated.</p>',
-        '<div class="flex flex-wrap gap-2"><button id="rmsChooseOther" class="rms-secondary">Choose another image</button><button id="rmsRefreshSaved" class="rms-secondary">Refresh saved videos</button></div></div>',
+        '<div class="flex flex-wrap gap-2"><button id="rmsChooseOther" class="rms-secondary">Choose another image</button></div></div>',
       '</div>',
       '<div class="rms-panel space-y-3">',
        '<div class="rms-grid">',
@@ -122,7 +122,6 @@
   $('rmsImportVideo').addEventListener('change',importVideoFile);
   $('rmsCopyPreparedPrompt').addEventListener('click',()=>navigator.clipboard?.writeText($('rmsPreparedPrompt').value));
   $('rmsChooseOther').addEventListener('click',()=>setTab('batch'));
-  $('rmsRefreshSaved').addEventListener('click',refreshSavedVideos);
   $('rmsSelectAll').addEventListener('click',()=>{getLibrary().forEach(idea=>state.batchSelected.add(String(idea.ideaId)));renderBatch();});
   $('rmsClearAll').addEventListener('click',()=>{state.batchSelected.clear();renderBatch();});
   $('rmsRunBatch').addEventListener('click',runBatch);
@@ -167,7 +166,6 @@
   $('rmsSourceTitle').textContent=titleFor(idea);
   $('rmsSourceMeta').textContent=(idea.generatedImageWidth||'?')+' × '+(idea.generatedImageHeight||'?')+' px · '+String(idea.outputMode||'Raster')+' · '+(idea.motionVideos?.length||0)+' saved motion clip(s)';
   renderSavedVideos(idea);
-  if(Array.isArray(idea.motionVideos)&&idea.motionVideos.length&&gatewayReady())refreshSavedVideos();
  }
  function renderBatch(){
   const list=$('rmsBatchList');if(!list)return;
@@ -228,48 +226,6 @@
   if(blob.size>20*1024*1024)throw new Error('Gambar masih melebihi batas Veo 20 MB setelah optimasi.');
   return blob;
  }
- async function imageBase64(source){
-  const blob=await sourceBlob(source);
-  const dataUrl=await new Promise((resolve,reject)=>{
-   const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||''));reader.onerror=()=>reject(new Error('Gagal membaca data gambar.'));
-   reader.readAsDataURL(blob);
-  });
-  const comma=dataUrl.indexOf(',');
-  if(comma<0)throw new Error('Data URL gambar tidak lengkap.');
-  return {imageBase64:dataUrl.slice(comma+1),mimeType:blob.type};
- }
- function gatewayReady(){
-  const status=window.RIVIS_CLOUD_STATUS?.();
-  return status?.connected===true&&status?.verified===true&&typeof cloud()==='function';
- }
- function promptConnect(){
-  $('rmsManualStatus').textContent='Hubungkan Google melalui Cloud Gallery dan biarkan popup Cloud Gateway tetap terbuka.';
-  $('rmsBatchStatus').textContent='Hubungkan Google melalui Cloud Gallery dan biarkan popup Cloud Gateway tetap terbuka.';
-  const button=$('rvCloudOpenGateway');if(button)button.click();
- }
- function setBusy(value){
-  state.busy=Boolean(value);
-  $('rmsGenerate').disabled=state.busy;
-  $('rmsRunBatch').disabled=state.busy;
-  $('rmsCancelBatch').disabled=!state.busy||state.tab!=='batch';
-  $('rmsClose').disabled=state.busy;
- }
- function progress(target,value){const bar=$(target);if(bar)bar.style.width=Math.max(0,Math.min(100,Number(value)||0))+'%';}
- async function poll(operationName,statusTarget,progressTarget){
-  const started=Date.now(),limit=18*60*1000;
-  while(Date.now()-started<limit){
-   await delay(12000);
-   const status=await cloud()('motion-status',{operationName});
-   if(status.done===true){
-    if(status.state==='failed'||status.error)throw new Error(status.error||'Veo gagal menyelesaikan video.');
-    progress(progressTarget,100);return status.videos||[];
-   }
-   const elapsed=Math.round((Date.now()-started)/1000);
-   $(statusTarget).textContent='Veo sedang memproses video · '+elapsed+' detik berlalu…';
-   progress(progressTarget,Math.min(94,Math.round((Date.now()-started)/limit*94)));
-  }
-  throw new Error('Pekerjaan Veo belum selesai setelah 18 menit. ID operation disimpan agar status dapat diperiksa lagi.');
- }
  function metadataDraft(idea,prompt,settings,index){
   const source=Array.isArray(idea.metadata?.keywords)?idea.metadata.keywords:[];
   const titleBase=String(idea.metadata?.stockTitle||idea.conceptName||idea.mainSubject||'Commercial stock footage').trim();
@@ -288,33 +244,6 @@
   ['video footage','moving image','motion clip','commercial footage','copy space','visual background','realistic movement','continuous shot','high quality footage'].forEach(add);
   const keywords=words.slice(0,40);
   return {stockTitle:title,keywords,adobeCategoryCode:Number(idea.metadata?.adobeCategoryCode)||12,createdUsingGenerativeAI:true,peopleAndPropertyFictional:false,reviewRequired:true};
- }
- function persistVideo(idea,video,job,settings,prompt,index){
-  const record={
-   videoId:'mv_'+Date.now().toString(36)+'_'+index,
-   provider:'Google Veo 3.1',
-   model:job.model||settings.model,
-   operationName:job.operationName,
-   gcsUri:video.gcsUri,
-   mimeType:video.mimeType||'video/mp4',
-   durationSeconds:settings.durationSeconds,
-   resolution:settings.resolution,
-   aspectRatio:settings.aspectRatio,
-   fps:24,
-   silent:true,
-   preset:settings.preset,
-   prompt,
-   metadata:metadataDraft(idea,prompt,settings,index),
-   createdAt:new Date().toISOString(),
-   adobeStock:{generativeAI:true,peopleAndPropertyFictional:null,reviewRequired:true}
-  };
-  const latest=getIdea(idea.ideaId)||idea;
-  const current=Array.isArray(latest.motionVideos)?latest.motionVideos.slice():[];
-  current.push(record);
-  const updated=Object.assign({},latest,{motionVideos:current.slice(-50),motionUpdatedAt:record.createdAt});
-  bridge()?.upsertIdea?.(updated);
-  state.previewLinks.set(video.gcsUri,video);
-  return record;
  }
  function renderSavedVideos(idea){
   const records=Array.isArray(idea?.motionVideos)?idea.motionVideos:[];
