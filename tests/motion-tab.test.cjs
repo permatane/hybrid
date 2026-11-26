@@ -2,6 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
@@ -26,4 +27,10 @@ test('legacy default tab and existing tab routes remain registered', () => {
     assert.ok(support.includes("tabId==='" + tab + "'"), 'missing legacy tab route: ' + tab);
   }
   assert.ok(support.includes("switchTab('idea_studio')"), 'legacy Library-to-Idea route missing');
+});
+
+test('Motion and Support runtime files pass Node syntax checks', () => {
+  for (const file of ['hybrid/rivis.motion.js', 'hybrid/rivis.support.js']) {
+    execFileSync(process.execPath, ['--check', path.join(root, file)], { stdio: 'pipe' });
+  }
 });
