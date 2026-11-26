@@ -80,7 +80,7 @@
         '<div class="flex flex-wrap gap-2"><button id="rmsChooseOther" class="rms-secondary">Choose another image</button></div></div>',
       '</div>',
       '<div id="rmsManualLibraryPicker" class="rms-panel space-y-2" hidden><div class="flex items-center justify-between gap-2"><strong class="text-xs text-white">Choose image from Library</strong><span class="rms-muted">Raster assets only</span></div><div id="rmsManualLibraryList" class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-auto"></div></div>',
-      '<div class="rms-panel space-y-3">'
+      '<div class="rms-panel space-y-3">',
        '<div class="rms-grid">',
         '<div class="rms-field"><label for="rmsPreset">Motion preset</label><select id="rmsPreset" class="rms-control"></select></div>',
         '<div class="rms-field"><label for="rmsDuration">Duration</label><select id="rmsDuration" class="rms-control"><option value="8">8 seconds</option><option value="6">6 seconds</option><option value="4">4 seconds</option></select></div>',
