@@ -349,7 +349,7 @@ use:'Kegunaan',difference:'Pembeda',execution:'Kelayakan'}).map(([key,label])=>`
 }
 document.addEventListener('DOMContentLoaded',()=>updateFloatingShortcut());
 function updateFloatingShortcut(){
- const targets=[['sideTabIdeaStudio','idea_studio'],['sideTabLibrary','saved_ideas'],['sideTabCloudGallery','cloud_library']];
+ const targets=[['sideTabIdeaStudio','idea_studio'],['sideTabLibrary','saved_ideas'],['sideTabCloudGallery','cloud_library'],['sideTabMotion','motion']];
  for(const [id,tab] of targets){
   const button=byId(id);if(!button)continue;
   const active=state.activeTab===tab;
@@ -384,7 +384,7 @@ function updateFloatingShortcut(){
  },{passive:true});
 })();
 function switchTab(tabId){
-if(!['idea_studio','saved_ideas','meta_gen','cloud_library'].includes(tabId))return;
+if(!['idea_studio','saved_ideas','meta_gen','cloud_library','motion'].includes(tabId))return;
 state.activeTab=tabId;document.querySelectorAll('.tab-section').forEach(el=>el.classList.add('hidden'));
 const tabs=[
  {id:'idea_studio',button:'navTabIdeaStudioTop',gradient:'from-purple-600 to-blue-600 shadow-purple-600/30'},
@@ -400,8 +400,21 @@ if(tabId==='idea_studio'){byId('tabSectionIdeaStudio')?.classList.remove('hidden
 else if(tabId==='saved_ideas'){byId('tabSectionSavedIdeas')?.classList.remove('hidden');refreshStorageStatus();renderSavedIdeasGrid(null,true);}
 else if(tabId==='meta_gen'){byId('tabSectionMetaGen')?.classList.remove('hidden');window.RIVIS_INIT_META_GEN?.();}
 else if(tabId==='cloud_library'){byId('tabSectionCloudLibrary')?.classList.remove('hidden');window.RIVIS_CLOUD_INIT?.();}
+else if(tabId==='motion'){window.RIVIS_MOTION_INIT?.();byId('tabSectionMotion')?.classList.remove('hidden');}
 window.scrollTo({top:0,behavior:'smooth'});
 }
+function loadRivisMotion(){
+ if(window.RIVIS_MOTION_INIT){window.switchTab('motion');return;}
+ if(window.__RIVIS_MOTION_LOADING)return;
+ window.__RIVIS_MOTION_LOADING=true;
+ const script=document.createElement('script');
+ script.src='https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.164';
+ script.async=true;
+ script.onload=()=>{window.__RIVIS_MOTION_LOADING=false;window.switchTab('motion');};
+ script.onerror=()=>{window.__RIVIS_MOTION_LOADING=false;showToast('Motion module gagal dimuat. Periksa koneksi lalu coba lagi.','error');};
+ document.head.appendChild(script);
+}
+window.loadRivisMotion=loadRivisMotion;
 function updateBadges(){const count=state.savedIdeas.length;updateFloatingShortcut();document.querySelectorAll('.savedIdeasCountBadge').forEach(el=>{if(el.textContent!==String(count))el.textContent=count;
 });const countEl=byId('savedIdeasCountBadge');if(countEl&&countEl.textContent!==String(count))countEl.textContent=count;}
 function populateDropdowns(){renderSeasonalCalendarWidget();
