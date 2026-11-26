@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.168. Cached Cloud Gallery pagination and per-card image refresh. */
+/* RIVIS GitHub Support — v3.4.169. Cached Cloud Gallery pagination and per-card image refresh. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -385,7 +385,7 @@ function updateFloatingShortcut(){
 })();
 function switchTab(tabId){
 if(!['idea_studio','saved_ideas','meta_gen','cloud_library','motion_studio'].includes(tabId))return;
-state.activeTab=tabId;window.RIVIS_ACTIVE_TAB=tabId;document.querySelectorAll('.tab-section').forEach(el=>el.classList.add('hidden'));
+state.activeTab=tabId;window.RIVIS_ACTIVE_TAB=tabId;document.querySelectorAll('.tab-section').forEach(el=>{el.classList.add('hidden');if(el.id==='tabSectionMotionStudio'){el.hidden=true;el.setAttribute('hidden','');el.style.display='none';el.setAttribute('aria-hidden','true');}});
 const tabs=[
  {id:'idea_studio',button:'navTabIdeaStudioTop',gradient:'from-purple-600 to-blue-600 shadow-purple-600/30'},
  {id:'saved_ideas',button:'navTabSavedIdeasTop',gradient:'from-emerald-600 to-teal-600 shadow-emerald-600/30'},
@@ -400,7 +400,7 @@ if(tabId==='idea_studio'){byId('tabSectionIdeaStudio')?.classList.remove('hidden
 else if(tabId==='saved_ideas'){byId('tabSectionSavedIdeas')?.classList.remove('hidden');refreshStorageStatus();renderSavedIdeasGrid(null,true);}
 else if(tabId==='meta_gen'){byId('tabSectionMetaGen')?.classList.remove('hidden');window.RIVIS_INIT_META_GEN?.();}
 else if(tabId==='cloud_library'){byId('tabSectionCloudLibrary')?.classList.remove('hidden');window.RIVIS_CLOUD_INIT?.();}
-else if(tabId==='motion_studio'){byId('tabSectionMotionStudio')?.classList.remove('hidden');window.RIVIS_MOTION_TAB_ACTIVATE?.();}
+else if(tabId==='motion_studio'){const motionPanel=byId('tabSectionMotionStudio');if(motionPanel){motionPanel.hidden=false;motionPanel.removeAttribute('hidden');motionPanel.style.removeProperty('display');motionPanel.classList.remove('hidden');motionPanel.setAttribute('aria-hidden','false');}window.RIVIS_MOTION_TAB_ACTIVATE?.();}
 window.scrollTo({top:0,behavior:'smooth'});
 }
 function updateBadges(){const count=state.savedIdeas.length;updateFloatingShortcut();document.querySelectorAll('.savedIdeasCountBadge').forEach(el=>{if(el.textContent!==String(count))el.textContent=count;
@@ -3077,8 +3077,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
  if(window.RIVIS_MOTION_STUDIO_LOADER)return;
  window.RIVIS_MOTION_STUDIO_LOADER=true;
  const sources=[
-  'https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.168',
-  'https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.js?v=3.4.168'
+  'https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.169',
+  'https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.js?v=3.4.169'
  ];
  let index=0;
  function load(){
