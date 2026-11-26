@@ -33,11 +33,6 @@ Add the authorized redirect URI:
 
 Ensure OAuth consent screen and authorized origins match your Google project. Users need to reconnect once on the new domain.
 
-
-## RIVIS Motion Studio
-
-Motion Studio does not call Vertex AI or require Google Cloud service-account credentials. RIVIS prepares the source image and prompt for the supported Gemini/Veo user interface; the user generates the clip in Gemini and imports the resulting MP4 into RIVIS. Batch mode exports a ZIP of source images and prompts. The Cloud Gateway remains dedicated to Drive JSON Gallery storage.
-
 ## Pre-cutover checks
 
 1. Load `/rivis-cloud/`, verify `/api/gateway-config`.
