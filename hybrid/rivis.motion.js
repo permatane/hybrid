@@ -41,8 +41,8 @@
   if($('rivisMotionStudioStyle'))return;
   const style=document.createElement('style');style.id='rivisMotionStudioStyle';
   style.textContent=[
-   '#rivisMotionOverlay{position:fixed;inset:0;z-index:10040;background:rgba(2,6,23,.88);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:12px}#rivisMotionOverlay[hidden]{display:none!important}',
-   '#rivisMotionDialog{width:min(1040px,100%);max-height:96dvh;overflow:auto;border:1px solid #334155;border-radius:20px;background:linear-gradient(155deg,#111827,#090f1d 65%);color:#e2e8f0;box-shadow:0 30px 100px rgba(0,0,0,.6)}',
+   '#tabSectionMotionStudio{width:100%;min-width:0;padding:12px 0;color:#e2e8f0}#rivisMotionDialog{width:100%;max-width:1200px;margin:0 auto;max-height:none;overflow:visible;border:1px solid #334155;border-radius:20px;background:linear-gradient(155deg,#111827,#090f1d 65%);color:#e2e8f0;box-shadow:0 18px 55px rgba(0,0,0,.28)}',
+   /* dialog sizing is defined by its normal tab container */
    '#rivisMotionDialog button,#rivisMotionDialog select,#rivisMotionDialog textarea{font:inherit}',
    '.rms-field{display:flex;flex-direction:column;gap:6px;min-width:0}.rms-field label{font-size:10px;font-weight:800;letter-spacing:.04em;color:#a5b4fc;text-transform:uppercase}',
    '.rms-control{width:100%;box-sizing:border-box;border:1px solid #334155;border-radius:10px;background:#0b1220;color:#e2e8f0;padding:10px;font-size:12px;outline:none}.rms-control:focus{border-color:#818cf8;box-shadow:0 0 0 2px rgba(129,140,248,.16)}',
@@ -54,17 +54,17 @@
    '.rms-batch-item{display:flex;align-items:center;gap:10px;padding:8px;border:1px solid #263449;border-radius:10px;background:#0b1220}.rms-batch-item img{width:56px;height:48px;object-fit:contain;border-radius:7px;background:#020617}.rms-video-card{border:1px solid #334155;background:#0b1220;border-radius:12px;padding:10px;min-width:0}.rms-video-card video{width:100%;max-height:300px;background:#020617;border-radius:8px}',
    '.rms-muted{color:#94a3b8;font-size:10px;line-height:1.5}.rms-status{font-size:11px;color:#67e8f9;min-height:18px;white-space:pre-wrap}.rms-badge{font-size:9px;font-weight:900;border:1px solid #155e75;color:#67e8f9;background:#083344;border-radius:99px;padding:4px 8px}',
    '#sideTabMotionStudio{width:76px;min-height:56px;flex-direction:column;gap:3px;color:#a5f3fc;border-color:rgba(34,211,238,.35);background:rgba(8,47,73,.78)}#sideTabMotionStudio .side-tab-label{display:block!important;font-size:8px;font-weight:900;line-height:1;letter-spacing:.04em;color:#a5f3fc}#sideTabMotionStudio.is-active{background:#155e75;border-color:#67e8f9;color:white}#sideTabMotionStudio.is-active .side-tab-label{color:white}',
-   '@media(max-width:680px){#floatingSideTabs #sideTabMotionStudio{width:68px;min-height:50px}#rivisMotionOverlay{padding:4px}#rivisMotionDialog{max-height:99dvh;border-radius:14px}.rms-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.rms-mobile-stack{grid-template-columns:1fr!important}.rms-batch-item img{width:48px;height:42px}}',
+   '@media(max-width:680px){#floatingSideTabs #sideTabMotionStudio{width:42px;min-height:44px}#tabSectionMotionStudio{padding:8px 0}#rivisMotionDialog{border-radius:14px}.rms-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.rms-mobile-stack{grid-template-columns:1fr!important}.rms-batch-item img{width:48px;height:42px}}',
    '@media(prefers-reduced-motion:reduce){.rms-progress>span{transition:none}}'
   ].join('\n');
   document.head.appendChild(style);
  }
 
  function shell(){
-  if($('rivisMotionOverlay'))return;
+  if($('tabSectionMotionStudio'))return;
   ensureStyle();
-  const overlay=document.createElement('div');overlay.id='rivisMotionOverlay';overlay.hidden=true;
-  overlay.innerHTML=[
+  const section=document.createElement('section');section.id='tabSectionMotionStudio';section.className='tab-section hidden w-full';
+  section.innerHTML=[
    '<div id="rivisMotionDialog" role="dialog" aria-modal="true" aria-labelledby="rmsTitle">',
     '<div class="flex items-center justify-between gap-3 p-4 border-b border-slate-800 sticky top-0 z-10" style="background:rgba(9,15,29,.96);backdrop-filter:blur(12px)">',
      '<div class="min-w-0"><div class="flex items-center gap-2"><span class="text-cyan-300 font-black text-xs tracking-widest">RIVIS</span><span class="text-slate-600">/</span><span id="rmsTitle" class="font-black text-white text-sm">MOTION STUDIO</span><span class="rms-badge">VEO 3.1</span></div>',
@@ -107,7 +107,8 @@
     '</div>',
    '</div>'
   ].join('');
-  document.body.appendChild(overlay);
+  const host=$('tabSectionIdeaStudio')?.parentElement||document.body;
+  host.appendChild(section);
   Object.keys(PRESETS).forEach(key=>{
    const option=document.createElement('option');option.value=key;option.textContent=PRESETS[key].label;$('rmsPreset').appendChild(option);
   });
@@ -115,7 +116,6 @@
   $('rmsPreset').value=DEFAULTS.preset;
   $('rmsDirection').value=PRESETS[DEFAULTS.preset].direction;
   $('rmsClose').addEventListener('click',close);
-  overlay.addEventListener('click',event=>{if(event.target===overlay&&!state.busy)close();});
   $('rmsTabManual').addEventListener('click',()=>setTab('manual'));
   $('rmsTabBatch').addEventListener('click',()=>setTab('batch'));
   $('rmsPreset').addEventListener('change',()=>{$('rmsDirection').value=PRESETS[$('rmsPreset').value]?.direction||'';});
@@ -127,7 +127,7 @@
   $('rmsClearAll').addEventListener('click',()=>{state.batchSelected.clear();renderBatch();});
   $('rmsRunBatch').addEventListener('click',runBatch);
   $('rmsCancelBatch').addEventListener('click',()=>{state.cancelBatch=true;$('rmsBatchStatus').textContent='Batch akan berhenti setelah pekerjaan aktif selesai.';});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&overlay&&!overlay.hidden&&!state.busy)close();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&window.RIVIS_ACTIVE_TAB==='motion_studio'&&!state.busy)close();});
  }
 
  function setTab(tab){
@@ -140,10 +140,10 @@
  }
  function open(ideaId,tab){
   shell();
+  if(window.RIVIS_ACTIVE_TAB!=='motion_studio')state.returnTab=window.RIVIS_ACTIVE_TAB||'idea_studio';
   state.ideaId=String(ideaId||'');
-  $('rivisMotionOverlay').hidden=false;
-  document.body.style.overflow='hidden';
-  setTab(tab||(state.ideaId?'manual':'batch'));
+  if(typeof window.switchTab==='function')window.switchTab('motion_studio');
+  setTab(tab||'manual');
   if(state.ideaId)renderManual();
   else clearManual();
   $('sideTabMotionStudio')?.classList.add('is-active');
@@ -151,9 +151,8 @@
  }
  function close(){
   if(state.busy)return;
-  const overlay=$('rivisMotionOverlay');if(overlay)overlay.hidden=true;
-  document.body.style.overflow='';
-  $('sideTabMotionStudio')?.classList.remove('is-active');
+  const destination=state.returnTab||'idea_studio';
+  if(typeof window.switchTab==='function')window.switchTab(destination);
  }
  function renderManualPicker(show=true){
   const panel=$('rmsManualLibraryPicker'),list=$('rmsManualLibraryList');if(!panel||!list)return;
@@ -166,7 +165,7 @@
  function clearManual(){
   $('rmsSourcePreview').removeAttribute('src');
   $('rmsSourceTitle').textContent='Select a raster image from Library';
-  $('rmsSourceMeta').textContent='Open a Library card and click Create Motion Video, or select an image in Batch Production.';
+  $('rmsSourceMeta').textContent='Pilih gambar raster dari Library untuk menyiapkan video motion.';
   $('rmsSavedVideos').innerHTML='';
   renderManualPicker(true);
  }
@@ -367,7 +366,7 @@
   mountRailButton();
   const observer=new MutationObserver(()=>mountRailButton());
   observer.observe(document.body,{childList:true,subtree:true});
-  window.RIVIS_OPEN_MOTION_STUDIO=(ideaId)=>open(ideaId||'');
+  window.RIVIS_OPEN_MOTION_STUDIO=(ideaId)=>open(ideaId||'','manual');
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountRailButton,{once:true});
  }
  init();
