@@ -41,7 +41,7 @@
   if($('rivisMotionStudioStyle'))return;
   const style=document.createElement('style');style.id='rivisMotionStudioStyle';
   style.textContent=[
-   '#tabSectionMotionStudio{width:100%;min-width:0;padding:12px 0;color:#e2e8f0}#rivisMotionDialog{width:100%;max-width:1200px;margin:0 auto;max-height:none;overflow:visible;border:1px solid #334155;border-radius:20px;background:linear-gradient(155deg,#111827,#090f1d 65%);color:#e2e8f0;box-shadow:0 18px 55px rgba(0,0,0,.28)}',
+   '#tabSectionMotionStudio{width:100%;min-width:0;padding:12px 0;color:#e2e8f0}#tabSectionMotionStudio[hidden]{display:none!important}#rivisMotionDialog{width:100%;max-width:1200px;margin:0 auto;max-height:none;overflow:visible;border:1px solid #334155;border-radius:20px;background:linear-gradient(155deg,#111827,#090f1d 65%);color:#e2e8f0;box-shadow:0 18px 55px rgba(0,0,0,.28)}',
    /* dialog sizing is defined by its normal tab container */
    '#rivisMotionDialog button,#rivisMotionDialog select,#rivisMotionDialog textarea{font:inherit}',
    '.rms-field{display:flex;flex-direction:column;gap:6px;min-width:0}.rms-field label{font-size:10px;font-weight:800;letter-spacing:.04em;color:#a5b4fc;text-transform:uppercase}',
@@ -63,7 +63,7 @@
  function shell(){
   if($('tabSectionMotionStudio'))return;
   ensureStyle();
-  const section=document.createElement('section');section.id='tabSectionMotionStudio';section.className='tab-section hidden w-full';
+  const section=document.createElement('section');section.id='tabSectionMotionStudio';section.className='tab-section w-full';section.hidden=true;section.setAttribute('hidden','');section.style.display='none';section.setAttribute('aria-hidden','true');
   section.innerHTML=[
    '<div id="rivisMotionDialog" role="dialog" aria-modal="true" aria-labelledby="rmsTitle">',
     '<div class="flex items-center justify-between gap-3 p-4 border-b border-slate-800 sticky top-0 z-10" style="background:rgba(9,15,29,.96);backdrop-filter:blur(12px)">',
