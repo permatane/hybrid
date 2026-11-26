@@ -10,7 +10,7 @@ const source=path.join(root,'netlify','functions');
 const publicDir=path.join(root,'public','rivis-cloud');
 const dist=path.join(here,'dist');
 const functions=path.join(here,'functions');
-const names=['auth-start','auth-callback','session','logout','gateway-config','cloud-test','cloud-data','cloud-upload-init','cloud-upload-chunk','cloud-upload-complete','cloud-thumbnail','cloud-download','motion-generate','motion-status'];
+const names=['auth-start','auth-callback','session','logout','gateway-config','cloud-test','cloud-data','cloud-upload-init','cloud-upload-chunk','cloud-upload-complete','cloud-thumbnail','cloud-download'];
 const read=file=>fs.readFileSync(file,'utf8');
 function legacySource(file){
  const c=read(file).replace(/(?:const|let|var)\s+crypto\s*=\s*require\(['"]node:crypto['"]\)\s*;?/g,'').replace(/(?:const|let|var)\s+h\s*=\s*require\(['"]\.\/_shared\.cjs['"]\)\s*;?/g,'').replace(/(?:const|let|var)\s+v\s*=\s*require\(['"]\.\/_veo\.cjs['"]\)\s*;?/g,'');
