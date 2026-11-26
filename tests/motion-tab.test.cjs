@@ -9,7 +9,14 @@ const root = path.resolve(__dirname, '..');
 const motion = fs.readFileSync(path.join(root, 'hybrid/rivis.motion.js'), 'utf8');
 const support = fs.readFileSync(path.join(root, 'hybrid/rivis.support.js'), 'utf8');
 
-test('Motion Studio is hidden immediately when its async module mounts', () => {
+test('Motion Studio panel is not created during async startup', () => {
+  const init = motion.match(/function init\(\)\{([\s\S]*?)\n \}/);
+  assert.ok(init, 'Motion init function must exist');
+  assert.doesNotMatch(init[1], /\bshell\(\)/, 'startup must not create the Motion panel');
+  assert.match(motion, /function open\(ideaId,tab\)\{\s*shell\(\);/, 'panel must be created only on explicit open');
+});
+
+test('Motion panel retains hidden state when mounted and uses a safe CSS fallback', () => {
   assert.match(motion, /section\.hidden\s*=\s*true/);
   assert.match(motion, /section\.setAttribute\('hidden',''\)/);
   assert.match(motion, /section\.style\.display\s*=\s*'none'/);
