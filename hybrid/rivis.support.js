@@ -409,8 +409,8 @@ function loadRivisMotion(){
  if(window.__RIVIS_MOTION_LOADING){showToast('Motion sedang dimuat. Tunggu sebentar.','info');return;}
  window.__RIVIS_MOTION_LOADING=true;
  const urls=[
-  'https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.js?v=3.4.165',
-  'https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.165'
+  'https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.js?v=3.4.167',
+  'https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.167'
  ];
  const attempt=index=>{
   const script=document.createElement('script');
