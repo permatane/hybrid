@@ -41,7 +41,7 @@
   if($('rivisMotionStudioStyle'))return;
   const style=document.createElement('style');style.id='rivisMotionStudioStyle';
   style.textContent=[
-   '#rivisMotionOverlay{position:fixed;inset:0;z-index:10040;background:rgba(2,6,23,.88);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:12px}',
+   '#rivisMotionOverlay{position:fixed;inset:0;z-index:10040;background:rgba(2,6,23,.88);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:12px}#rivisMotionOverlay[hidden]{display:none!important}',
    '#rivisMotionDialog{width:min(1040px,100%);max-height:96dvh;overflow:auto;border:1px solid #334155;border-radius:20px;background:linear-gradient(155deg,#111827,#090f1d 65%);color:#e2e8f0;box-shadow:0 30px 100px rgba(0,0,0,.6)}',
    '#rivisMotionDialog button,#rivisMotionDialog select,#rivisMotionDialog textarea{font:inherit}',
    '.rms-field{display:flex;flex-direction:column;gap:6px;min-width:0}.rms-field label{font-size:10px;font-weight:800;letter-spacing:.04em;color:#a5b4fc;text-transform:uppercase}',
@@ -79,7 +79,8 @@
        '<div class="min-w-0 space-y-2"><div class="text-[9px] uppercase font-black text-cyan-300">Selected Library Asset</div><div id="rmsSourceTitle" class="font-bold text-sm text-white break-words">Select a raster image from Library</div><p id="rmsSourceMeta" class="rms-muted">Only raster assets with a generated image can be animated.</p>',
         '<div class="flex flex-wrap gap-2"><button id="rmsChooseOther" class="rms-secondary">Choose another image</button></div></div>',
       '</div>',
-      '<div class="rms-panel space-y-3">',
+      '<div id="rmsManualLibraryPicker" class="rms-panel space-y-2" hidden><div class="flex items-center justify-between gap-2"><strong class="text-xs text-white">Choose image from Library</strong><span class="rms-muted">Raster assets only</span></div><div id="rmsManualLibraryList" class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-auto"></div></div>',
+      '<div class="rms-panel space-y-3">'
        '<div class="rms-grid">',
         '<div class="rms-field"><label for="rmsPreset">Motion preset</label><select id="rmsPreset" class="rms-control"></select></div>',
         '<div class="rms-field"><label for="rmsDuration">Duration</label><select id="rmsDuration" class="rms-control"><option value="8">8 seconds</option><option value="6">6 seconds</option><option value="4">4 seconds</option></select></div>',
@@ -121,7 +122,7 @@
   $('rmsGenerate').addEventListener('click',generateManual);
   $('rmsImportVideo').addEventListener('change',importVideoFile);
   $('rmsCopyPreparedPrompt').addEventListener('click',()=>navigator.clipboard?.writeText($('rmsPreparedPrompt').value));
-  $('rmsChooseOther').addEventListener('click',()=>setTab('batch'));
+  $('rmsChooseOther').addEventListener('click',()=>renderManualPicker(true));
   $('rmsSelectAll').addEventListener('click',()=>{getLibrary().forEach(idea=>state.batchSelected.add(String(idea.ideaId)));renderBatch();});
   $('rmsClearAll').addEventListener('click',()=>{state.batchSelected.clear();renderBatch();});
   $('rmsRunBatch').addEventListener('click',runBatch);
@@ -146,6 +147,7 @@
   if(state.ideaId)renderManual();
   else clearManual();
   $('sideTabMotionStudio')?.classList.add('is-active');
+  if(!state.ideaId&&tab==='manual')renderManualPicker(true);
  }
  function close(){
   if(state.busy)return;
@@ -153,11 +155,20 @@
   document.body.style.overflow='';
   $('sideTabMotionStudio')?.classList.remove('is-active');
  }
+ function renderManualPicker(show=true){
+  const panel=$('rmsManualLibraryPicker'),list=$('rmsManualLibraryList');if(!panel||!list)return;
+  panel.hidden=!show;if(!show)return;
+  const ideas=getLibrary();
+  if(!ideas.length){list.innerHTML='<p class="rms-muted">Belum ada gambar raster di Library. Generate atau simpan gambar raster terlebih dahulu.</p>';return;}
+  list.innerHTML=ideas.map(idea=>'<button type="button" class="rms-batch-item text-left" data-rms-manual-id="'+safe(idea.ideaId)+'"><img src="'+safe(previewFor(idea))+'" alt=""><span class="min-w-0"><strong class="block text-[11px] text-slate-100 truncate">'+safe(titleFor(idea))+'</strong><span class="rms-muted">'+safe(idea.outputMode||'Raster')+'</span></span></button>').join('');
+  list.querySelectorAll('[data-rms-manual-id]').forEach(button=>button.addEventListener('click',()=>{state.ideaId=String(button.dataset.rmsManualId||'');renderManual();renderManualPicker(false);$('rmsManualStatus').textContent='Gambar Library dipilih sebagai sumber Motion Studio.';}));
+ }
  function clearManual(){
   $('rmsSourcePreview').removeAttribute('src');
   $('rmsSourceTitle').textContent='Select a raster image from Library';
   $('rmsSourceMeta').textContent='Open a Library card and click Create Motion Video, or select an image in Batch Production.';
   $('rmsSavedVideos').innerHTML='';
+  renderManualPicker(true);
  }
  function renderManual(){
   const idea=getIdea(state.ideaId);
@@ -347,7 +358,7 @@
   const button=document.createElement('button');button.id='sideTabMotionStudio';button.type='button';button.className='side-tab';
   button.title='Open RIVIS Motion Studio';button.setAttribute('aria-label','Open RIVIS Motion Studio');
   button.innerHTML='<span class="text-lg" aria-hidden="true">▶</span><span class="side-tab-label">MOTION</span>';
-  button.addEventListener('click',()=>open('', 'batch'));
+  button.addEventListener('click',()=>open('', 'manual'));
   rail.appendChild(button);
  }
  function init(){

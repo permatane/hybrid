@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.165. Cached Cloud Gallery pagination and per-card image refresh. */
+/* RIVIS GitHub Support — v3.4.166. Cached Cloud Gallery pagination and per-card image refresh. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -3076,8 +3076,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
  if(window.RIVIS_MOTION_STUDIO_LOADER)return;
  window.RIVIS_MOTION_STUDIO_LOADER=true;
  const sources=[
-  'https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.165',
-  'https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.js?v=3.4.163'
+  'https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.166',
+  'https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.js?v=3.4.166'
  ];
  let index=0;
  function load(){
