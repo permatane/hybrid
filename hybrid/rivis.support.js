@@ -1,4 +1,4 @@
-/* RIVIS GitHub Support — v3.4.169. Cached Cloud Gallery pagination and per-card image refresh. */
+/* RIVIS GitHub Support — v3.4.131. Cached Cloud Gallery pagination and per-card image refresh. */
 /* RIVIS v3.1.58: autonomous ZIP engine, used only when CDN JSZip is unavailable.
    ZIP STORE avoids a remote dependency; PNG/JPG are already compressed. */
 (function installRivisLocalZipFallback(){
@@ -349,7 +349,7 @@ use:'Kegunaan',difference:'Pembeda',execution:'Kelayakan'}).map(([key,label])=>`
 }
 document.addEventListener('DOMContentLoaded',()=>updateFloatingShortcut());
 function updateFloatingShortcut(){
- const targets=[['sideTabIdeaStudio','idea_studio'],['sideTabLibrary','saved_ideas'],['sideTabCloudGallery','cloud_library'],['sideTabMotionStudio','motion_studio']];
+ const targets=[['sideTabIdeaStudio','idea_studio'],['sideTabLibrary','saved_ideas'],['sideTabCloudGallery','cloud_library']];
  for(const [id,tab] of targets){
   const button=byId(id);if(!button)continue;
   const active=state.activeTab===tab;
@@ -384,8 +384,8 @@ function updateFloatingShortcut(){
  },{passive:true});
 })();
 function switchTab(tabId){
-if(!['idea_studio','saved_ideas','meta_gen','cloud_library','motion_studio'].includes(tabId))return;
-state.activeTab=tabId;window.RIVIS_ACTIVE_TAB=tabId;document.querySelectorAll('.tab-section').forEach(el=>{el.classList.add('hidden');if(el.id==='tabSectionMotionStudio'){el.hidden=true;el.setAttribute('hidden','');el.style.display='none';el.setAttribute('aria-hidden','true');}});
+if(!['idea_studio','saved_ideas','meta_gen','cloud_library'].includes(tabId))return;
+state.activeTab=tabId;document.querySelectorAll('.tab-section').forEach(el=>el.classList.add('hidden'));
 const tabs=[
  {id:'idea_studio',button:'navTabIdeaStudioTop',gradient:'from-purple-600 to-blue-600 shadow-purple-600/30'},
  {id:'saved_ideas',button:'navTabSavedIdeasTop',gradient:'from-emerald-600 to-teal-600 shadow-emerald-600/30'},
@@ -400,7 +400,6 @@ if(tabId==='idea_studio'){byId('tabSectionIdeaStudio')?.classList.remove('hidden
 else if(tabId==='saved_ideas'){byId('tabSectionSavedIdeas')?.classList.remove('hidden');refreshStorageStatus();renderSavedIdeasGrid(null,true);}
 else if(tabId==='meta_gen'){byId('tabSectionMetaGen')?.classList.remove('hidden');window.RIVIS_INIT_META_GEN?.();}
 else if(tabId==='cloud_library'){byId('tabSectionCloudLibrary')?.classList.remove('hidden');window.RIVIS_CLOUD_INIT?.();}
-else if(tabId==='motion_studio'){const motionPanel=byId('tabSectionMotionStudio');if(motionPanel){motionPanel.hidden=false;motionPanel.removeAttribute('hidden');motionPanel.style.removeProperty('display');motionPanel.classList.remove('hidden');motionPanel.setAttribute('aria-hidden','false');}window.RIVIS_MOTION_TAB_ACTIVATE?.();}
 window.scrollTo({top:0,behavior:'smooth'});
 }
 function updateBadges(){const count=state.savedIdeas.length;updateFloatingShortcut();document.querySelectorAll('.savedIdeasCountBadge').forEach(el=>{if(el.textContent!==String(count))el.textContent=count;
@@ -1331,7 +1330,7 @@ return`<div data-rivis-card-id="${escapeHtml(String(idea.ideaId))}" class="p-4 r
           </div> </div></details>`:''}
         ${cardPromptEditor(idea,'library')}
         ${meta?`<details class="rivis-meta-accordion rounded-lg bg-blue-950/30 border border-blue-900/60 text-[10px]" data-meta-id="${escapeHtml(idea.ideaId)}" ontoggle="handleMetadataAccordionToggle(this,'${escapeHtml(idea.ideaId)}')" ${openMetadataAccordions.has(idea.ideaId)?'open':''}> <summary class="rivis-meta-summary" title="Buka atau tutup metadata Adobe Stock."> <span class="font-bold text-blue-300 truncate">ADOBE STOCK CSV METADATA</span> <span class="flex items-center gap-1.5 shrink-0"><span class="px-1.5 py-0.5 rounded border ${csvReady?'bg-emerald-950/80 border-emerald-700 text-emerald-300':'bg-amber-950/80 border-amber-700 text-amber-300'} text-[9px] font-mono">${csvReady?'CSV READY':'CHECK'}</span></span> </summary> <div class="p-3 space-y-2 border-t border-blue-900/40"> <div class="flex justify-end gap-1.5"><button type="button" onclick="exportSavedIdeaMetadataTXT('${escapeHtml(idea.ideaId)}')" title="Unduh metadata TXT." class="px-2 py-1 bg-slate-800 rounded text-slate-200">TXT</button><button type="button" onclick="exportSavedIdeaMetadataCSV('${escapeHtml(idea.ideaId)}')" title="Unduh metadata CSV." class="px-2 py-1 bg-slate-800 rounded text-slate-200">CSV</button></div> <div class="rivis-meta-line rounded border border-slate-800 bg-slate-950/70 p-2 text-[9px] font-mono text-slate-400"> <span class="rivis-meta-file" title="${escapeHtml(metadataFilename)}"><span>Filename:</span> <span class="text-cyan-300">${escapeHtml(metadataFilename)}</span></span> <span class="rivis-meta-category"><span>Category:</span> <span class="text-slate-200">${meta.adobeCategoryCode} (${escapeHtml(meta.adobeCategory)})</span></span> </div> <div><div class="flex justify-between items-center text-[9px] mb-0.5"><span class="font-bold text-slate-400">Title</span><span class="font-mono ${titleValid?'text-emerald-400':'text-amber-400'}">${titleLength}/70 chars</span></div><p class="font-bold text-white bg-slate-900/80 p-1.5 rounded border border-slate-800">${escapeHtml(meta.stockTitle)}</p></div> <div class="space-y-1"><div class="flex justify-between text-[9px]"><span class="text-slate-400 font-bold">Keywords (relevance-ordered)</span><span class="font-mono ${keywordsValid?'text-emerald-400':'text-amber-400'}">${keywordCount}/40 tags</span></div><div class="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">${meta.keywords.map(kw=>`<span class="px-1.5 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded text-[9px]">${escapeHtml(kw)}</span>`).join('')}</div></div> <button type="button" onclick="copyIdeaKeywords('${escapeHtml(idea.ideaId)}',this)" title="Salin semua keyword Adobe Stock." class="w-full py-1.5 bg-blue-900/50 hover:bg-blue-800 text-blue-200 font-bold rounded text-[9px] border border-blue-700/50"> Copy All Keywords</button> </div> </details>`:''}
-      </div> <div class="space-y-2 pt-3 border-t border-slate-800"> <div class="rivis-library-action-row ${idea.productionType==='series'?'is-series':''}"> <button type="button" data-card-meta-btn="${escapeHtml(idea.ideaId)}" onclick="handleGenerateMetadataForIdea('${escapeHtml(idea.ideaId)}', this)" class="flex-1 min-w-[75px] py-1.5 bg-slate-800 hover:bg-slate-700 text-blue-300 font-bold rounded text-[10px] flex items-center justify-center gap-1 border border-slate-700 transition-all active:scale-95"> <span>${idea.productionType==='series'?'Re Metadata · Scenes':'Re Metadata'}</span></button> ${idea.productionType!=='series'?`<button type="button" onclick="handleRemixStyleVariations('${escapeHtml(idea.ideaId)}', this)" class="px-2.5 py-1 bg-purple-900/60 hover:bg-purple-800 text-purple-200 font-bold rounded text-[10px] flex items-center gap-1 border border-purple-700 transition-all active:scale-95"> <span>Remix</span></button>`:''} <button type="button" onclick="RIVIS_SAVE_CARD_TO_CLOUD(&quot;${escapeHtml(idea.ideaId)}&quot;,this)" class="px-2.5 py-1 bg-sky-950/70 hover:bg-sky-900 text-sky-200 font-bold rounded text-[10px] flex items-center gap-1 border border-sky-700/70 transition-all active:scale-95"><span>Save to Cloud</span></button> <button type="button" onclick="handleDownloadSingleCardZip('${escapeHtml(idea.ideaId)}', this)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-purple-300 font-bold rounded text-[10px] flex items-center gap-1 border border-slate-700 transition-all active:scale-95" title="Download full ZIP for this card"> <span>ZIP Card</span></button> </div> <button type="button" data-card-image-btn="${escapeHtml(idea.ideaId)}" onclick="handleGenerateStockImageForIdea('${escapeHtml(idea.ideaId)}', this)" class="w-full py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition-all active:scale-95"><svg aria-hidden="true" class="rivis-icon w-3.5 h-3.5"><use href="#rivis-sparkles"></use></svg> <span>${idea.productionType==='series'?(seriesImageCount(idea)===(idea.seriesScenes?.length||0)?'Regenerate Series':seriesImageCount(idea)?'Resume Series · '+((idea.seriesScenes?.length||0)-seriesImageCount(idea))+' left':'Generate Series · '+(idea.seriesScenes?.length||idea.seriesLength||5)+' scenes'):(idea.generatedImageUrl?'Regenerate Image':'Generate High-Res Image')}</span></button> ${idea.generatedImageUrl&&isRasterIdea(idea)?`<button type="button" onclick="RIVIS_OPEN_MOTION_STUDIO('${escapeHtml(idea.ideaId)}',this)" class="w-full py-2 bg-gradient-to-r from-cyan-700 to-indigo-700 hover:from-cyan-600 hover:to-indigo-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition-all active:scale-95 border border-cyan-500/40"><span>▶</span><span>Send to Motion Studio</span></button>`:''} </div> </div>`;
+      </div> <div class="space-y-2 pt-3 border-t border-slate-800"> <div class="rivis-library-action-row ${idea.productionType==='series'?'is-series':''}"> <button type="button" data-card-meta-btn="${escapeHtml(idea.ideaId)}" onclick="handleGenerateMetadataForIdea('${escapeHtml(idea.ideaId)}', this)" class="flex-1 min-w-[75px] py-1.5 bg-slate-800 hover:bg-slate-700 text-blue-300 font-bold rounded text-[10px] flex items-center justify-center gap-1 border border-slate-700 transition-all active:scale-95"> <span>${idea.productionType==='series'?'Re Metadata · Scenes':'Re Metadata'}</span></button> ${idea.productionType!=='series'?`<button type="button" onclick="handleRemixStyleVariations('${escapeHtml(idea.ideaId)}', this)" class="px-2.5 py-1 bg-purple-900/60 hover:bg-purple-800 text-purple-200 font-bold rounded text-[10px] flex items-center gap-1 border border-purple-700 transition-all active:scale-95"> <span>Remix</span></button>`:''} <button type="button" onclick="RIVIS_SAVE_CARD_TO_CLOUD(&quot;${escapeHtml(idea.ideaId)}&quot;,this)" class="px-2.5 py-1 bg-sky-950/70 hover:bg-sky-900 text-sky-200 font-bold rounded text-[10px] flex items-center gap-1 border border-sky-700/70 transition-all active:scale-95"><span>Save to Cloud</span></button> <button type="button" onclick="handleDownloadSingleCardZip('${escapeHtml(idea.ideaId)}', this)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-purple-300 font-bold rounded text-[10px] flex items-center gap-1 border border-slate-700 transition-all active:scale-95" title="Download full ZIP for this card"> <span>ZIP Card</span></button> </div> <button type="button" data-card-image-btn="${escapeHtml(idea.ideaId)}" onclick="handleGenerateStockImageForIdea('${escapeHtml(idea.ideaId)}', this)" class="w-full py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition-all active:scale-95"><svg aria-hidden="true" class="rivis-icon w-3.5 h-3.5"><use href="#rivis-sparkles"></use></svg> <span>${idea.productionType==='series'?(seriesImageCount(idea)===(idea.seriesScenes?.length||0)?'Regenerate Series':seriesImageCount(idea)?'Resume Series · '+((idea.seriesScenes?.length||0)-seriesImageCount(idea))+' left':'Generate Series · '+(idea.seriesScenes?.length||idea.seriesLength||5)+' scenes'):(idea.generatedImageUrl?'Regenerate Image':'Generate High-Res Image')}</span></button> </div> </div>`;
 }
 let libraryPaintDirty=true,libraryRenderedDuplicateIds=new Set();
 function renderSavedIdeasGrid(changedId=null,skipWhenClean=false){const container=byId('savedIdeasGridContainer');
@@ -3063,32 +3062,6 @@ window.RIVIS_SAVE_IDEA_TO_CLOUD=async(idea,referenceSource)=>{
 };
 window.RIVIS_CLOUD_INIT=()=>{render();updateCloudControls();status(gatewayVerified?'CLOUD CONNECTED · Google Drive JSON siap digunakan.':'CLOUD NOT CONNECTED · Klik Connect Google untuk mulai.',gatewayVerified?'success':'warning');if(gatewayVerified)refreshCloudGallery();};
 window.RIVIS_CLOUD_STATUS=()=>({connected:gatewayConnected,verified:gatewayVerified,gatewayUrl:GATEWAY_ORIGIN+'/rivis-cloud/'});
-window.RIVIS_CLOUD_MOTION_COMMAND=(command,payload)=>{
- if(!['motion-generate','motion-status'].includes(String(command)))return Promise.reject(new Error('Perintah Motion Studio tidak valid.'));
- return sendCloudCommand(String(command),payload||{});
-};
 window.addEventListener('focus',()=>{if(gatewayPopup&&gatewayPopup.closed){gatewayPopup=null;gatewayConnected=false;gatewayVerified=false;updateCloudControls();status('CLOUD NOT CONNECTED · Jendela Gateway sudah ditutup. Hubungkan kembali untuk sinkronisasi.','info');}});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',render,{once:true});else render();
-})();
-
-
-/* RIVIS Motion Studio loader — loaded separately to keep the Canvas support bundle stable. */
-(function loadRivisMotionStudioModule(){
- if(window.RIVIS_MOTION_STUDIO_LOADER)return;
- window.RIVIS_MOTION_STUDIO_LOADER=true;
- const sources=[
-  'https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.169',
-  'https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.js?v=3.4.169'
- ];
- let index=0;
- function load(){
-  if(index>=sources.length){console.warn('RIVIS Motion Studio module could not be loaded.');return;}
-  const script=document.createElement('script');
-  script.src=sources[index++];
-  script.async=true;
-  script.onload=()=>{if(!window.RIVIS_MOTION_STUDIO_INSTALLED)load();};
-  script.onerror=load;
-  document.head.appendChild(script);
- }
- load();
 })();
