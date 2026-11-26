@@ -279,7 +279,7 @@
   const prompt=buildPrompt(idea,direction)+' Duration target: '+settings.durationSeconds+' seconds. Aspect ratio: '+settings.aspectRatio+'. Output target: '+settings.resolution+'. Negative guidance: '+settings.negativePrompt+'.';
   const blob=await sourceBlob(sourceFor(idea));
   const base=slug(titleFor(idea));
-  if(openGemini)window.open('https://gemini.google.com/app','_blank','noopener');
+  if(openGemini&&typeof openGemini==='object')openGemini.location.href='https://gemini.google.com/app';
   downloadBlob(blob,base+'-veo-source.'+(blob.type==='image/png'?'png':'jpg'));
   try{await navigator.clipboard.writeText(prompt);$('rmsManualStatus').textContent='Prompt disalin. Gambar sumber diunduh. Di tab Gemini, buka Veo, unggah gambar, tempel prompt, lalu generate.';}
   catch(_){$('rmsManualStatus').textContent='Gambar sumber diunduh. Salin prompt dari panel di bawah, lalu tempel di Gemini Veo.';}
@@ -291,9 +291,10 @@
   if(state.busy)return;
   const idea=getIdea(state.ideaId);
   if(!isRasterIdea(idea)){$('rmsManualStatus').textContent='Pilih gambar raster dari Library terlebih dahulu.';return;}
+  const geminiTab=window.open('https://gemini.google.com/app','_blank');
   setBusy(true);progress('rmsManualProgress',15);
   try{
-   await prepareVeo(idea,true);
+   await prepareVeo(idea,geminiTab||false);
    progress('rmsManualProgress',100);
   }catch(error){$('rmsManualStatus').textContent='Gagal menyiapkan: '+String(error.message||error);progress('rmsManualProgress',0);}
   finally{setBusy(false);}
@@ -302,6 +303,7 @@
   if(state.busy)return;
   const ids=Array.from(state.batchSelected).slice(0,20);
   if(!ids.length){$('rmsBatchStatus').textContent='Pilih minimal satu gambar raster.';return;}
+  const geminiTab=window.open('https://gemini.google.com/app','_blank');
   state.cancelBatch=false;setBusy(true);$('rmsCancelBatch').disabled=false;
   try{
    const zip=new window.JSZip();let count=0;
@@ -319,7 +321,7 @@
    if(!count)throw new Error('Tidak ada gambar raster valid untuk diproses.');
    const blob=await zip.generateAsync({type:'blob'});
    downloadBlob(blob,'RIVIS-Veo-Batch-Prompts.zip');
-   window.open('https://gemini.google.com/app','_blank','noopener');
+   if(geminiTab)geminiTab.location.href='https://gemini.google.com/app';
    $('rmsBatchStatus').textContent=count+' prompt dan gambar berhasil dikemas. Ekstrak ZIP, lalu unggah gambar dan gunakan prompt di Gemini Veo.';
   }catch(error){$('rmsBatchStatus').textContent='Gagal menyiapkan batch: '+String(error.message||error);}
   finally{setBusy(false);$('rmsCancelBatch').disabled=true;renderBatch();}
