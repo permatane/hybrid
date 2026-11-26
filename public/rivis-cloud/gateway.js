@@ -290,6 +290,16 @@
         const fileId = String(d.payload?.fileId || '');
         if (!/^[A-Za-z0-9_-]{8,128}$/.test(fileId)) throw new Error('Drive file ID tidak valid.');
         result = await request('cloud-thumbnail?fileId=' + encodeURIComponent(fileId));
+      } else if (d.command === 'motion-generate') {
+        const payload=d.payload||{};
+        if(typeof payload.imageBase64!=='string'||!payload.imageBase64)throw new Error('Gambar sumber untuk Motion Studio tidak ditemukan.');
+        status('Mengirim pekerjaan video ke Google Veo 3.1…','info');
+        result=await request('motion-generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},90000);
+        status('Pekerjaan Veo berhasil dikirim. RIVIS sedang menunggu hasil video.','success');
+      } else if (d.command === 'motion-status') {
+        const payload=d.payload||{};
+        if(!payload.operationName&&!payload.gcsUri)throw new Error('ID pekerjaan atau video GCS tidak ditemukan.');
+        result=await request('motion-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},45000);
       } else if (d.command === 'metadata') {
         const payload=d.payload||{},ideaId=String(payload.ideaId||'');
         if(!/^[A-Za-z0-9_-]{1,128}$/.test(ideaId))throw new Error('Idea ID tidak valid.');
