@@ -434,7 +434,7 @@ function ensureRivisMotionTab(){
   button.id='navTabMotionTop';button.type='button';
   button.className='nav-tab flex-1 sm:flex-none px-3 py-2 md:px-4 md:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 md:gap-2 text-violet-300 hover:text-white bg-violet-950/50 border border-violet-800/60';
   button.textContent='MOTION';button.setAttribute('aria-label','Buka RIVIS Motion Studio');
-  button.addEventListener('click',loadRivisMotion);
+  button.addEventListener('click',()=>window.switchTab('motion'));
  }
  // Keep Motion beside the other primary tabs, after Cloud Gallery when available.
  if(button.previousElementSibling!==anchor)anchor.insertAdjacentElement('afterend',button);
