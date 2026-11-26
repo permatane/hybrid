@@ -406,16 +406,35 @@ window.scrollTo({top:0,behavior:'smooth'});
 }
 function loadRivisMotion(){
  if(window.RIVIS_MOTION_INIT){window.switchTab('motion');return;}
- if(window.__RIVIS_MOTION_LOADING)return;
+ if(window.__RIVIS_MOTION_LOADING){showToast('Motion sedang dimuat. Tunggu sebentar.','info');return;}
  window.__RIVIS_MOTION_LOADING=true;
- const script=document.createElement('script');
- script.src='https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.164';
- script.async=true;
- script.onload=()=>{window.__RIVIS_MOTION_LOADING=false;window.switchTab('motion');};
- script.onerror=()=>{window.__RIVIS_MOTION_LOADING=false;showToast('Motion module gagal dimuat. Periksa koneksi lalu coba lagi.','error');};
- document.head.appendChild(script);
+ const urls=[
+  'https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.js?v=3.4.165',
+  'https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.165'
+ ];
+ const attempt=index=>{
+  const script=document.createElement('script');
+  script.src=urls[index];script.async=true;
+  script.onload=()=>{window.__RIVIS_MOTION_LOADING=false;if(typeof window.RIVIS_MOTION_INIT==='function')window.switchTab('motion');else{showToast('Motion termuat tetapi fungsi inisialisasi tidak ditemukan.','error');}};
+  script.onerror=()=>{script.remove();if(index+1<urls.length){attempt(index+1);return;}window.__RIVIS_MOTION_LOADING=false;showToast('Motion gagal dimuat dari CDN. Periksa koneksi atau coba muat ulang aplikasi.','error');};
+  document.head.appendChild(script);
+ };
+ attempt(0);
 }
 window.loadRivisMotion=loadRivisMotion;
+function ensureRivisMotionTab(){
+ if(document.getElementById('navTabMotionTop'))return;
+ const anchor=document.getElementById('navTabCloudLibraryTop')||document.getElementById('navTabMetaGenTop');
+ if(!anchor||!anchor.parentElement)return;
+ const button=document.createElement('button');
+ button.id='navTabMotionTop';button.type='button';
+ button.className='nav-tab flex-1 sm:flex-none px-3 py-2 md:px-4 md:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 md:gap-2 text-violet-300 hover:text-white bg-violet-950/50 border border-violet-800/60';
+ button.textContent='MOTION';button.setAttribute('aria-label','Buka RIVIS Motion Studio');
+ button.addEventListener('click',loadRivisMotion);
+ anchor.insertAdjacentElement('afterend',button);
+}
+ensureRivisMotionTab();
+document.addEventListener('DOMContentLoaded',ensureRivisMotionTab,{once:true});
 function updateBadges(){const count=state.savedIdeas.length;updateFloatingShortcut();document.querySelectorAll('.savedIdeasCountBadge').forEach(el=>{if(el.textContent!==String(count))el.textContent=count;
 });const countEl=byId('savedIdeasCountBadge');if(countEl&&countEl.textContent!==String(count))countEl.textContent=count;}
 function populateDropdowns(){renderSeasonalCalendarWidget();
