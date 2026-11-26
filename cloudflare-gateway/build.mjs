@@ -10,10 +10,10 @@ const source=path.join(root,'netlify','functions');
 const publicDir=path.join(root,'public','rivis-cloud');
 const dist=path.join(here,'dist');
 const functions=path.join(here,'functions');
-const names=['auth-start','auth-callback','session','logout','gateway-config','cloud-test','cloud-data','cloud-upload-init','cloud-upload-chunk','cloud-upload-complete','cloud-thumbnail','cloud-download'];
+const names=['auth-start','auth-callback','session','logout','gateway-config','cloud-test','cloud-data','cloud-upload-init','cloud-upload-chunk','cloud-upload-complete','cloud-thumbnail','cloud-download','motion-generate','motion-status'];
 const read=file=>fs.readFileSync(file,'utf8');
 function legacySource(file){
- const c=read(file).replace(/(?:const|let|var)\s+crypto\s*=\s*require\(['"]node:crypto['"]\)\s*;?/g,'').replace(/(?:const|let|var)\s+h\s*=\s*require\(['"]\.\/_shared\.cjs['"]\)\s*;?/g,'');
+ const c=read(file).replace(/(?:const|let|var)\s+crypto\s*=\s*require\(['"]node:crypto['"]\)\s*;?/g,'').replace(/(?:const|let|var)\s+h\s*=\s*require\(['"]\.\/_shared\.cjs['"]\)\s*;?/g,'').replace(/(?:const|let|var)\s+v\s*=\s*require\(['"]\.\/_veo\.cjs['"]\)\s*;?/g,'');
  if(/require\(/.test(c))throw Error('Unsupported require in '+file);
  return c.replace(/crypto\.randomBytes\(\s*(\d+)\s*\)/g,(_match,count)=>"Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array("+count+")))");
 }
@@ -27,12 +27,12 @@ for(const name of ['index.html','gateway.css','gateway.js']){
   c=c.replace(marker,"const API = '/api/';");
  }
  if(name==='index.html'){
-  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.7');
+  c=c.replace(/gateway\.js\?v=[^"']+/g,'gateway.js?v=cf-1.4.8');
   c=c.replace('href="/.netlify/functions/auth-start"','href="/api/auth-start"');
   c=c.replace(/Login aman melalui Netlify/g,'Login aman melalui Cloudflare');
   c=c.replace(/di Netlify/g,'di Cloudflare');
-  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.7');
-  c=c.replace(/v1\.3\.10/g,'v1.4.7');
+  c=c.replace(/Gateway 1\.3\.10/g,'Gateway 1.4.8');
+  c=c.replace(/v1\.3\.10/g,'v1.4.8');
   if(!c.includes('href="/api/auth-start"'))throw Error('Login URL was not patched');
  }
  if(name==='gateway.js'){
@@ -114,6 +114,8 @@ function cloudflareCatalog(){
  return c;
 }
 
+function cloudflareVeo(){ return legacySource(path.join(source,'_veo.cjs')); }
+
 const generated=[
  "import crypto from 'node:crypto';",
  "import {Buffer} from 'node:buffer';",
@@ -121,15 +123,20 @@ const generated=[
  " const process={env}; const module={exports:{}};",
  cloudflareShared(),
  " return module.exports;",
- "}"
+ "}",
+ "function makeVeo(env){",
+ " const process={env}; const module={exports:{}};",
+ cloudflareVeo(),
+ " return module.exports;",
+}"
 ];
 for(const name of names){
  generated.push(
   'function handler_'+name.replace(/-/g,'_')+'(env){',
-  ' const process={env}; const h=makeShared(env); const exports={};',
+  ' const process={env}; const h=makeShared(env); const v=makeVeo(env); const exports={};',
   name==='cloud-data' ? cloudflareCatalog()
    : name==='gateway-config'
-   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.7'")
+   ? legacySource(path.join(source,name+'.js')).replace("gatewayVersion:'1.3.8'", "gatewayVersion:'1.4.8'")
    : name==='auth-callback'
     ? legacySource(path.join(source,name+'.js'))
        .replace("const invalid=()=>h.redirect(h.baseUrl()+'/rivis-cloud/?auth=failed',[h.cookie(h.COOKIE_STATE,'',0)]);",
