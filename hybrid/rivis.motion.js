@@ -362,7 +362,8 @@
  }
  function init(){
   if(!document.body){document.addEventListener('DOMContentLoaded',init,{once:true});return;}
-  shell();
+  // Lazy-mount Motion Studio only after the user explicitly opens its tab.
+  // The async module must not insert its panel during initial RIVIS startup.
   mountRailButton();
   const observer=new MutationObserver(()=>mountRailButton());
   observer.observe(document.body,{childList:true,subtree:true});
