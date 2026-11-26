@@ -165,6 +165,7 @@
   $('rmsSourceTitle').textContent=titleFor(idea);
   $('rmsSourceMeta').textContent=(idea.generatedImageWidth||'?')+' × '+(idea.generatedImageHeight||'?')+' px · '+String(idea.outputMode||'Raster')+' · '+(idea.motionVideos?.length||0)+' saved motion clip(s)';
   renderSavedVideos(idea);
+  if(Array.isArray(idea.motionVideos)&&idea.motionVideos.length&&gatewayReady())refreshSavedVideos();
  }
  function renderBatch(){
   const list=$('rmsBatchList');if(!list)return;
@@ -411,6 +412,7 @@
   rail.appendChild(button);
  }
  function init(){
+  if(!document.body){document.addEventListener('DOMContentLoaded',init,{once:true});return;}
   shell();
   mountRailButton();
   const observer=new MutationObserver(()=>mountRailButton());
