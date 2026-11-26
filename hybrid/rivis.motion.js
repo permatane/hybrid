@@ -53,8 +53,8 @@
    '.rms-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.rms-progress{height:7px;border-radius:99px;background:#1e293b;overflow:hidden}.rms-progress>span{display:block;height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#818cf8);transition:width .2s}',
    '.rms-batch-item{display:flex;align-items:center;gap:10px;padding:8px;border:1px solid #263449;border-radius:10px;background:#0b1220}.rms-batch-item img{width:56px;height:48px;object-fit:contain;border-radius:7px;background:#020617}.rms-video-card{border:1px solid #334155;background:#0b1220;border-radius:12px;padding:10px;min-width:0}.rms-video-card video{width:100%;max-height:300px;background:#020617;border-radius:8px}',
    '.rms-muted{color:#94a3b8;font-size:10px;line-height:1.5}.rms-status{font-size:11px;color:#67e8f9;min-height:18px;white-space:pre-wrap}.rms-badge{font-size:9px;font-weight:900;border:1px solid #155e75;color:#67e8f9;background:#083344;border-radius:99px;padding:4px 8px}',
-   '#sideTabMotionStudio{color:#a5f3fc;border-color:rgba(34,211,238,.35)}#sideTabMotionStudio.is-active{background:#155e75;border-color:#67e8f9;color:white}',
-   '@media(max-width:680px){#rivisMotionOverlay{padding:4px}#rivisMotionDialog{max-height:99dvh;border-radius:14px}.rms-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.rms-mobile-stack{grid-template-columns:1fr!important}.rms-batch-item img{width:48px;height:42px}}',
+   '#sideTabMotionStudio{width:76px;min-height:56px;flex-direction:column;gap:3px;color:#a5f3fc;border-color:rgba(34,211,238,.35);background:rgba(8,47,73,.78)}#sideTabMotionStudio .side-tab-label{display:block!important;font-size:8px;font-weight:900;line-height:1;letter-spacing:.04em;color:#a5f3fc}#sideTabMotionStudio.is-active{background:#155e75;border-color:#67e8f9;color:white}#sideTabMotionStudio.is-active .side-tab-label{color:white}',
+   '@media(max-width:680px){#floatingSideTabs #sideTabMotionStudio{width:68px;min-height:50px}#rivisMotionOverlay{padding:4px}#rivisMotionDialog{max-height:99dvh;border-radius:14px}.rms-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.rms-mobile-stack{grid-template-columns:1fr!important}.rms-batch-item img{width:48px;height:42px}}',
    '@media(prefers-reduced-motion:reduce){.rms-progress>span{transition:none}}'
   ].join('\n');
   document.head.appendChild(style);
@@ -346,7 +346,7 @@
   const rail=$('floatingSideTabs');if(!rail||$('sideTabMotionStudio'))return;
   const button=document.createElement('button');button.id='sideTabMotionStudio';button.type='button';button.className='side-tab';
   button.title='Open RIVIS Motion Studio';button.setAttribute('aria-label','Open RIVIS Motion Studio');
-  button.innerHTML='<span class="text-lg" aria-hidden="true">▶</span>';
+  button.innerHTML='<span class="text-lg" aria-hidden="true">▶</span><span class="side-tab-label">MOTION</span>';
   button.addEventListener('click',()=>open('', 'batch'));
   rail.appendChild(button);
  }
