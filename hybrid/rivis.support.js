@@ -2028,6 +2028,8 @@ function render(){
   b.textContent='☁ CLOUD GALLERY';b.addEventListener('click',()=>window.switchTab('cloud_library'));
   nav.insertAdjacentElement('afterend',b);
  }
+ // Cloud Gallery navigation is created lazily; add Motion only after that anchor exists.
+ if(typeof ensureRivisMotionTab==='function')ensureRivisMotionTab();
  const sec=document.createElement('section');sec.id='tabSectionCloudLibrary';sec.className='tab-section hidden space-y-3';
  sec.innerHTML=
  '<div class="rv-cloud-header"><h2 class="text-sm font-black text-white">RIVIS CLOUD GALLERY</h2><div class="rv-cloud-header-actions"><button id="rvCloudOpenGateway" type="button" class="rv-primary" data-state="disconnected" aria-live="polite" title="Reconnect Cloud">RECONNECT CLOUD</button><button id="rvCloudRefreshGallery" type="button" class="rv-primary">↻ Refresh Gallery</button></div></div>'+
