@@ -385,7 +385,10 @@ function updateFloatingShortcut(){
 })();
 function switchTab(tabId){
 if(!['idea_studio','saved_ideas','meta_gen','cloud_library','motion'].includes(tabId))return;
-state.activeTab=tabId;document.querySelectorAll('.tab-section').forEach(el=>el.classList.add('hidden'));const motionPanel=byId('tabSectionMotion');if(motionPanel)motionPanel.classList.toggle('hidden',tabId!=='motion');
+// Motion must use the same tab lifecycle as every other RIVIS section.
+if(tabId==='motion'&&!window.RIVIS_MOTION_INIT){loadRivisMotion();return;}
+state.activeTab=tabId;
+document.querySelectorAll('.tab-section').forEach(el=>el.classList.add('hidden'));
 const tabs=[
  {id:'idea_studio',button:'navTabIdeaStudioTop',gradient:'from-purple-600 to-blue-600 shadow-purple-600/30'},
  {id:'saved_ideas',button:'navTabSavedIdeasTop',gradient:'from-emerald-600 to-teal-600 shadow-emerald-600/30'},
@@ -409,8 +412,8 @@ function loadRivisMotion(){
  if(window.__RIVIS_MOTION_LOADING){showToast('Motion sedang dimuat. Tunggu sebentar.','info');return;}
  window.__RIVIS_MOTION_LOADING=true;
  const urls=[
-  'https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.js?v=3.4.168',
-  'https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.168'
+  'https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.js?v=3.4.169',
+  'https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.js?v=3.4.169'
  ];
  const attempt=index=>{
   const script=document.createElement('script');
@@ -423,15 +426,18 @@ function loadRivisMotion(){
 }
 window.loadRivisMotion=loadRivisMotion;
 function ensureRivisMotionTab(){
- if(document.getElementById('navTabMotionTop'))return;
  const anchor=document.getElementById('navTabCloudLibraryTop')||document.getElementById('navTabMetaGenTop');
  if(!anchor||!anchor.parentElement)return;
- const button=document.createElement('button');
- button.id='navTabMotionTop';button.type='button';
- button.className='nav-tab flex-1 sm:flex-none px-3 py-2 md:px-4 md:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 md:gap-2 text-violet-300 hover:text-white bg-violet-950/50 border border-violet-800/60';
- button.textContent='MOTION';button.setAttribute('aria-label','Buka RIVIS Motion Studio');
- button.addEventListener('click',loadRivisMotion);
- anchor.insertAdjacentElement('afterend',button);
+ let button=document.getElementById('navTabMotionTop');
+ if(!button){
+  button=document.createElement('button');
+  button.id='navTabMotionTop';button.type='button';
+  button.className='nav-tab flex-1 sm:flex-none px-3 py-2 md:px-4 md:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 md:gap-2 text-violet-300 hover:text-white bg-violet-950/50 border border-violet-800/60';
+  button.textContent='MOTION';button.setAttribute('aria-label','Buka RIVIS Motion Studio');
+  button.addEventListener('click',loadRivisMotion);
+ }
+ // Keep Motion beside the other primary tabs, after Cloud Gallery when available.
+ if(button.previousElementSibling!==anchor)anchor.insertAdjacentElement('afterend',button);
 }
 ensureRivisMotionTab();
 document.addEventListener('DOMContentLoaded',ensureRivisMotionTab,{once:true});
