@@ -424,7 +424,7 @@ window.RIVIS_INIT_MOTION=function(){
  if(frame.dataset.loaded==='true')return Promise.resolve();
  if(motionLoadPromise)return motionLoadPromise;
  motionLoadPromise=(async()=>{
-  const urls=['https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.html?v=3.4.171','https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.html?v=3.4.171'];let errors=[];
+  const urls=['https://raw.githubusercontent.com/permatane/hybrid/main/hybrid/rivis.motion.html?v=3.4.172','https://cdn.jsdelivr.net/gh/permatane/hybrid@main/hybrid/rivis.motion.html?v=3.4.172'];let errors=[];
   for(const url of urls){try{const response=await fetch(url,{cache:'no-store',headers:{Accept:'text/html, text/plain, */*'}});if(!response.ok)throw new Error('HTTP '+response.status);const html=await response.text();if(html.length<5000||!html.includes('<title>RIVIS Motion Studio</title>')||!html.includes('motionProjects'))throw new Error('File Motion tidak lengkap');frame.srcdoc=html;frame.hidden=false;frame.dataset.loaded='true';if(loading)loading.hidden=true;return;}catch(error){errors.push(String(error.message||error));}}
   motionLoadPromise=null;if(loading)loading.innerHTML='<div><div class="text-3xl mb-2">⚠</div><strong>Gagal memuat Motion Studio</strong><p class="text-xs text-rose-300 mt-2">'+errors.join(' · ').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</p><button id="motionRetryBtn" type="button" class="mt-3 px-3 py-2 rounded-lg bg-violet-700 text-white text-xs font-bold">Coba lagi</button></div>';
   byId('motionRetryBtn')?.addEventListener('click',()=>{motionLoadPromise=null;window.RIVIS_INIT_MOTION();});
