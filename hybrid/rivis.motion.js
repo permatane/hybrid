@@ -34,6 +34,7 @@
   return api.getCloudSourceIds().map(id=>api.getCloudSource(id)).filter(isRasterIdea);
  }
  function sourceFor(idea){return idea?.generatedImagePreviewUrl||idea?.generatedImageUrl||'';}
+ function previewFor(idea){return idea?.generatedImagePreviewUrl||idea?.generatedImageUrl||'';}
  function titleFor(idea){return String(idea?.conceptName||idea?.mainSubject||idea?.title||'Untitled raster asset');}
 
  function ensureStyle(){
@@ -160,7 +161,7 @@
  function renderManual(){
   const idea=getIdea(state.ideaId);
   if(!isRasterIdea(idea)){clearManual();$('rmsManualStatus').textContent='Pilih gambar raster yang sudah tersedia di Library.';return;}
-  $('rmsSourcePreview').src=sourceFor(idea);
+  $('rmsSourcePreview').src=previewFor(idea);
   $('rmsSourceTitle').textContent=titleFor(idea);
   $('rmsSourceMeta').textContent=(idea.generatedImageWidth||'?')+' × '+(idea.generatedImageHeight||'?')+' px · '+String(idea.outputMode||'Raster')+' · '+(idea.motionVideos?.length||0)+' saved motion clip(s)';
   renderSavedVideos(idea);
@@ -171,7 +172,7 @@
   if(!ideas.length){list.innerHTML='<p class="rms-muted">Belum ada gambar raster hasil generate di Library.</p>';$('rmsBatchCount').textContent='0 images selected';return;}
   list.innerHTML=ideas.map(idea=>{
    const id=String(idea.ideaId),checked=state.batchSelected.has(id);
-   return '<label class="rms-batch-item"><input type="checkbox" data-rms-batch-id="'+safe(id)+'" '+(checked?'checked':'')+'><img src="'+safe(sourceFor(idea))+'" alt=""><span class="min-w-0"><strong class="block text-[11px] text-slate-100 truncate">'+safe(titleFor(idea))+'</strong><small class="block text-[9px] text-slate-500">'+safe(idea.outputMode||'Raster')+' · '+(idea.motionVideos?.length||0)+' clips</small></span></label>';
+   return '<label class="rms-batch-item"><input type="checkbox" data-rms-batch-id="'+safe(id)+'" '+(checked?'checked':'')+'><img src="'+safe(previewFor(idea))+'" alt=""><span class="min-w-0"><strong class="block text-[11px] text-slate-100 truncate">'+safe(titleFor(idea))+'</strong><small class="block text-[9px] text-slate-500">'+safe(idea.outputMode||'Raster')+' · '+(idea.motionVideos?.length||0)+' clips</small></span></label>';
   }).join('');
   list.querySelectorAll('input[data-rms-batch-id]').forEach(input=>input.addEventListener('change',()=>{
    const id=input.dataset.rmsBatchId;if(input.checked)state.batchSelected.add(id);else state.batchSelected.delete(id);
@@ -304,9 +305,10 @@
    createdAt:new Date().toISOString(),
    adobeStock:{generativeAI:true,peopleAndPropertyFictional:null,reviewRequired:true}
   };
-  const current=Array.isArray(idea.motionVideos)?idea.motionVideos.slice():[];
+  const latest=getIdea(idea.ideaId)||idea;
+  const current=Array.isArray(latest.motionVideos)?latest.motionVideos.slice():[];
   current.push(record);
-  const updated=Object.assign({},idea,{motionVideos:current.slice(-50),motionUpdatedAt:record.createdAt});
+  const updated=Object.assign({},latest,{motionVideos:current.slice(-50),motionUpdatedAt:record.createdAt});
   bridge()?.upsertIdea?.(updated);
   state.previewLinks.set(video.gcsUri,video);
   return record;
