@@ -128,7 +128,7 @@ const generated=[
  " const process={env}; const module={exports:{}};",
  cloudflareVeo(),
  " return module.exports;",
-}"
+ "}""
 ];
 for(const name of names){
  generated.push(
